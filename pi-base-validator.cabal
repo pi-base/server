@@ -12,7 +12,7 @@ Flag library-only
     Default:       False
 
 library
-    hs-source-dirs: ., app
+    hs-source-dirs: ., src, app
     exposed-modules: Application
                      Foundation
                      Import
@@ -24,6 +24,15 @@ library
                      Handler.Home
                      Handler.Comment
                      Handler.Profile
+                     Handler.Viewer
+                     -- src
+                     Core
+                     Data
+                     Data.Git
+                     Data.Parsers
+                     Formula
+                     Util
+                     Viewer
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
@@ -48,6 +57,7 @@ library
                 TupleSections
                 RecordWildCards
                 CPP
+                LambdaCase
 
     build-depends:
                    -- Due to a bug in GHC 8.0.1, we block its usage
@@ -93,6 +103,20 @@ library
                  , time
                  , case-insensitive
                  , wai
+                 -- src
+                 , aeson-pretty
+                 , attoparsec
+                 , either
+                 , exceptions
+                 , github
+                 , gitlib
+                 , gitlib-libgit2
+                 , lifted-base
+                 , mtl
+                 -- FIXME: only used for `git fetch`
+                 , process
+                 , tagged
+                 , transformers
 
 executable         pi-base-validator
     if flag(library-only)

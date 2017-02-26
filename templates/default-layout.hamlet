@@ -23,7 +23,7 @@
 <!-- Page Contents -->
 
 <div .container>
-    $if not $ Just HomeR == mcurrentRoute
+    $if not $ Just HooksR == mcurrentRoute
         <ul .breadcrumb>
             $forall bc <- parents
                 <li>

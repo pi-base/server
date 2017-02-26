@@ -71,7 +71,7 @@
         <div .row>
             <div .col-lg-6>
                 <div .bs-callout bs-callout-info well>
-                    <form .form-horizontal method=post action=@{HomeR}#forms enctype=#{formEnctype}>
+                    <form .form-horizontal method=post action=@{HooksR}#forms enctype=#{formEnctype}>
                         ^{formWidget}
 
                         <button .btn.btn-primary type="submit">

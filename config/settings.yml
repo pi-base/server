@@ -6,6 +6,10 @@ host:           "_env:HOST:*4" # any IPv4 host
 port:           "_env:PORT:3000" # NB: The port `yesod devel` uses is distinct from this value. Set the `yesod devel` port from the command line.
 ip-from-header: "_env:IP_FROM_HEADER:false"
 
+github-auth:    "_env:GITHUB_AUTH:fixme"
+github-owner:   "_env:GITHUB_OWNER:jamesdabbs"
+github-repo:    "_env:GITHUB_REPO:pi-base-data"
+
 # Default behavior: determine the application root from the request headers.
 # Uncomment to set an explicit approot
 #approot:        "_env:APPROOT:http://localhost:3000"

@@ -19,6 +19,8 @@ import Yesod.Default.Config2       (applyEnvValue, configSettingsYml)
 import Yesod.Default.Util          (WidgetFileSettings, widgetFileNoReload,
                                     widgetFileReload)
 
+import qualified GitHub
+
 -- | Runtime settings to configure this application. These settings can be
 -- loaded from various sources: defaults, environment variables, config files,
 -- theoretically even a database.
@@ -57,6 +59,10 @@ data AppSettings = AppSettings
 
     , appAuthDummyLogin         :: Bool
     -- ^ Indicate if auth dummy login should be enabled.
+
+    , appGitHubToken            :: GitHub.Auth
+    , appGitHubOwner            :: GitHub.Name GitHub.Owner
+    , appGitHubRepo             :: GitHub.Name GitHub.Repository
     }
 
 instance FromJSON AppSettings where
@@ -84,6 +90,12 @@ instance FromJSON AppSettings where
         appAnalytics              <- o .:? "analytics"
 
         appAuthDummyLogin         <- o .:? "auth-dummy-login"      .!= defaultDev
+
+        token <- o .: "github-auth"
+        let appGitHubToken = GitHub.OAuth $ fromString token
+
+        appGitHubOwner <- o .: "github-owner"
+        appGitHubRepo  <- o .: "github-repo"
 
         return AppSettings {..}
 

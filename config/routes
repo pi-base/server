@@ -4,8 +4,13 @@
 /favicon.ico FaviconR GET
 /robots.txt RobotsR GET
 
-/ HomeR GET POST
+/ HooksR POST
 
 /comments CommentR POST
 
 /profile ProfileR GET
+
+/viewer        ViewerR GET
+/viewer/spaces ViewerSpacesR GET
+
+/viewer/branch/#Text ViewerBranchR GET

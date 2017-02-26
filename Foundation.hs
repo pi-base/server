@@ -15,6 +15,8 @@ import qualified Yesod.Core.Unsafe as Unsafe
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 
+import Data (Store)
+
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
 -- starts running, such as database connections. Every handler will have
@@ -25,6 +27,7 @@ data App = App
     , appConnPool    :: ConnectionPool -- ^ Database connection pool.
     , appHttpManager :: Manager
     , appLogger      :: Logger
+    , appStore       :: Store
     }
 
 data MenuItem = MenuItem
@@ -91,22 +94,22 @@ instance Yesod App where
 
         -- Define the menu items of the header.
         let menuItems =
-                [ NavbarLeft $ MenuItem
+                [ NavbarLeft MenuItem
                     { menuItemLabel = "Home"
-                    , menuItemRoute = HomeR
+                    , menuItemRoute = HooksR
                     , menuItemAccessCallback = True
                     }
-                , NavbarLeft $ MenuItem
+                , NavbarLeft MenuItem
                     { menuItemLabel = "Profile"
                     , menuItemRoute = ProfileR
                     , menuItemAccessCallback = isJust muser
                     }
-                , NavbarRight $ MenuItem
+                , NavbarRight MenuItem
                     { menuItemLabel = "Login"
                     , menuItemRoute = AuthR LoginR
                     , menuItemAccessCallback = isNothing muser
                     }
-                , NavbarRight $ MenuItem
+                , NavbarRight MenuItem
                     { menuItemLabel = "Logout"
                     , menuItemRoute = AuthR LogoutR
                     , menuItemAccessCallback = isJust muser
@@ -135,13 +138,9 @@ instance Yesod App where
 
     -- Routes not requiring authentication.
     isAuthorized (AuthR _) _ = return Authorized
-    isAuthorized CommentR _ = return Authorized
-    isAuthorized HomeR _ = return Authorized
-    isAuthorized FaviconR _ = return Authorized
-    isAuthorized RobotsR _ = return Authorized
-    isAuthorized (StaticR _) _ = return Authorized
-
-    isAuthorized ProfileR _ = isAuthenticated
+    isAuthorized HooksR _    = return Authorized
+    isAuthorized _ False     = return Authorized
+    isAuthorized _ True      = return $ Unauthorized "page is read-only"
 
     -- This function creates static content files in the static folder
     -- and names them based on a hash of their content. This allows
@@ -177,9 +176,9 @@ instance Yesod App where
 
 -- Define breadcrumbs.
 instance YesodBreadcrumbs App where
-  breadcrumb HomeR = return ("Home", Nothing)
-  breadcrumb (AuthR _) = return ("Login", Just HomeR)
-  breadcrumb ProfileR = return ("Profile", Just HomeR)
+  breadcrumb HooksR = return ("Home", Nothing)
+  breadcrumb (AuthR _) = return ("Login", Just HooksR)
+  breadcrumb ProfileR = return ("Profile", Just HooksR)
   breadcrumb  _ = return ("home", Nothing)
 
 -- How to run database actions.
@@ -195,9 +194,9 @@ instance YesodAuth App where
     type AuthId App = UserId
 
     -- Where to send a user after successful login
-    loginDest _ = HomeR
+    loginDest _ = HooksR
     -- Where to send a user after logout
-    logoutDest _ = HomeR
+    logoutDest _ = HooksR
     -- Override the above two destinations when a Referer: header is present
     redirectToReferer _ = True
 
