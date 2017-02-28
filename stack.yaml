@@ -37,9 +37,14 @@ resolver: lts-8.2
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
+#- '/data/src/github'
+- location:
+    git: https://github.com/jamesdabbs/github.git
+    commit: 73d154837d354810f7b374f556e81ca0c9728a65
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
+
 
 # Override default flag values for local packages and extra-deps
 flags: {}

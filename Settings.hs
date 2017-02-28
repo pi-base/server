@@ -62,7 +62,7 @@ data AppSettings = AppSettings
 
     , appGitHubToken            :: GitHub.Auth
     , appGitHubOwner            :: GitHub.Name GitHub.Owner
-    , appGitHubRepo             :: GitHub.Name GitHub.Repository
+    , appGitHubRepo             :: GitHub.Name GitHub.Repo
     }
 
 instance FromJSON AppSettings where

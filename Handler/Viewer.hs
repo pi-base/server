@@ -4,6 +4,7 @@ import Import
 import GitHub
 import qualified GitHub.Data.Id as GH
 import qualified GitHub.Endpoints.Issues.Comments as GH
+import qualified GitHub.Endpoints.Repos.Statuses  as GH
 
 import qualified Core
 import Data (Committish(..), storeMaster, parseViewer, fetchPullRequest)
@@ -71,12 +72,14 @@ prStatusError pr errors = do
   auth <- githubAuth
   let _id  = GH.Id $ pullRequestNumber pr
   issueComment _id $ explainErrors errors
+  postStatus (pullRequestHead pr) GH.StatusError "Errors found"
 
 prStatusOk :: PullRequest -> Handler ()
 prStatusOk pr = do
   auth <- githubAuth
   let _id  = GH.Id $ pullRequestNumber pr
-  issueComment _id "No errors found!"
+  issueComment _id "No errors found"
+  postStatus (pullRequestHead pr) GH.StatusSuccess "No errors found"
 
 githubAuth :: Handler GitHub.Auth
 githubAuth = do
@@ -88,6 +91,15 @@ issueComment _id msg = do
   AppSettings{..} <- appSettings <$> getYesod
   liftIO $ GH.createComment appGitHubToken appGitHubOwner appGitHubRepo _id msg
   return ()
+
+postStatus :: PullRequestCommit -> GH.StatusState -> Text -> Handler ()
+postStatus commit state message = do
+  AppSettings{..} <- appSettings <$> getYesod
+  let sha = GH.mkCommitName $ pullRequestCommitSha commit
+  s <- liftIO $ GH.createStatus appGitHubToken appGitHubOwner appGitHubRepo sha status
+  return ()
+  where
+    status = GH.NewStatus state Nothing (Just message) (Just "pi-base/validator")
 
 explainErrors :: [Core.Error] -> Text
 explainErrors errors =

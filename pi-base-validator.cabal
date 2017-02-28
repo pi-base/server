@@ -108,15 +108,16 @@ library
                  , attoparsec
                  , either
                  , exceptions
+                 , foreign-store
                  , github
                  , gitlib
                  , gitlib-libgit2
                  , lifted-base
                  , mtl
-                 -- FIXME: only used for `git fetch`
-                 , process
                  , tagged
                  , transformers
+                 -- FIXME: only used for `git fetch`
+                 , process
 
 executable         pi-base-validator
     if flag(library-only)

@@ -154,6 +154,8 @@ appMain = do
     -- Generate a WAI Application from the foundation
     app <- makeApplication foundation
 
+    putStrLn "App starting"
+
     -- Run the application with Warp
     runSettings (warpSettings foundation) app
 
