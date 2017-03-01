@@ -18,6 +18,13 @@ import Yesod.Default.Config2 (useEnv, loadYamlSettings)
 import Yesod.Auth            as X
 import Yesod.Test            as X
 
+import Data.Aeson                    (Value(..), decode)
+import qualified Data.Text           as T
+import qualified Data.HashMap.Strict as HM
+import qualified Test.HUnit          as H
+import Network.Wai.Test              (SResponse(..))
+
+
 -- Wiping the database
 import Database.Persist.Sqlite              (sqlDatabase, wrapConnection, createSqlPool)
 import qualified Database.Sqlite as Sqlite
@@ -30,6 +37,7 @@ runDB query = do
     pool <- fmap appConnPool getTestYesod
     liftIO $ runSqlPersistMPool query pool
 
+-- TODO: cache parsed master
 withApp :: SpecWith (TestApp App) -> Spec
 withApp = before $ do
     settings <- loadYamlSettings
@@ -95,3 +103,14 @@ createUser ident = do
         { userIdent = ident
         , userPassword = Nothing
         }
+
+json :: (Value -> YesodExample App ()) -> YesodExample App ()
+json action = withResponse $ \SResponse { simpleBody = body } ->
+  case decode body of
+    Nothing     -> liftIO $ H.assertBool "Can't parse response as JSON" False
+    Just parsed -> action parsed
+
+shouldHaveKey :: Value -> Text -> YesodExample App ()
+shouldHaveKey (Object _map) key = liftIO $ H.assertBool msg (HM.member key _map)
+  where msg = "Value does not contain key: " ++ T.unpack key
+shouldHaveKey _ _ = liftIO $ H.assertBool "Value is not an object" False

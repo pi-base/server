@@ -16,7 +16,6 @@ import Formula hiding ((.=))
 
 import           Data.Aeson
 import qualified Data.Map   as M
-import qualified Data.Text  as T
 
 newtype Proofs = Proofs (Map TraitId [Assumption]) deriving Show
 
@@ -106,20 +105,21 @@ instance ToJSON Proofs where
   toJSON (Proofs proofs) = object . map fmt . limit $ M.toList proofs
     where
       fmt :: (TraitId, [Assumption]) -> (Text, Value)
-      fmt (TraitId _id, assumptions) = (_id, toValue $ group assumptions)
+      fmt (TraitId _id, assumptions) = (_id, toValue $ collect assumptions)
 
-      group :: [Assumption] -> ([TheoremId], [TraitId])
-      group [] = ([],[])
-      group (AssumedTheorem t : as) =
-        let (theorems, traits) = group as
+      collect :: [Assumption] -> ([TheoremId], [TraitId])
+      collect [] = ([],[])
+      collect (AssumedTheorem t : as) =
+        let (theorems, traits) = collect as
         in (t : theorems, traits)
-      group (AssumedTrait t : as) =
-        let (theorems, traits) = group as
+      collect (AssumedTrait t : as) =
+        let (theorems, traits) = collect as
         in (theorems, t :  traits)
 
       toValue :: ([TheoremId], [TraitId]) -> Value
       toValue (is, ts) = toJSON [toJSON is, toJSON ts]
 
+limit :: [a] -> [a]
 limit = id -- take 50
 
 instance ToJSON Viewer where

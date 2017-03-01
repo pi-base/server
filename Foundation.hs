@@ -96,13 +96,8 @@ instance Yesod App where
         let menuItems =
                 [ NavbarLeft MenuItem
                     { menuItemLabel = "Home"
-                    , menuItemRoute = HooksR
+                    , menuItemRoute = HomeR
                     , menuItemAccessCallback = True
-                    }
-                , NavbarLeft MenuItem
-                    { menuItemLabel = "Profile"
-                    , menuItemRoute = ProfileR
-                    , menuItemAccessCallback = isJust muser
                     }
                 , NavbarRight MenuItem
                     { menuItemLabel = "Login"
@@ -178,7 +173,6 @@ instance Yesod App where
 instance YesodBreadcrumbs App where
   breadcrumb HooksR = return ("Home", Nothing)
   breadcrumb (AuthR _) = return ("Login", Just HooksR)
-  breadcrumb ProfileR = return ("Profile", Just HooksR)
   breadcrumb  _ = return ("home", Nothing)
 
 -- How to run database actions.

@@ -1,62 +1,33 @@
 module Handler.Home where
 
 import Import
-import Yesod.Form.Bootstrap3 (BootstrapFormLayout (..), renderBootstrap3)
-import Text.Julius (RawJS (..))
 
--- Define our data that will be used for creating the form.
-data FileForm = FileForm
-    { fileInfo :: FileInfo
-    , fileDescription :: Text
-    }
+import Data (Committish(..), storeMaster, parseViewer)
+import Services.Github (checkPullRequest, webhookHandler)
+import Viewer
 
--- This is a handler function for the GET request method on the HomeR
--- resource pattern. All of your resource patterns are defined in
--- config/routes
---
--- The majority of the code you will write in Yesod lives in these handler
--- functions. You can spread them across multiple files if you are so
--- inclined, or create a single monolithic file.
-getHomeR :: Handler Html
+getMaster :: Handler Viewer
+getMaster = getYesod >>= storeMaster . appStore >>=
+  either (sendStatusJSON status200) return
+
+getHomeR :: Handler Value
 getHomeR = do
-    (formWidget, formEnctype) <- generateFormPost sampleForm
-    let submission = Nothing :: Maybe FileForm
-        handlerName = "getHomeR" :: Text
-    defaultLayout $ do
-        let (commentFormId, commentTextareaId, commentListId) = commentIds
-        aDomId <- newIdent
-        setTitle "Welcome To Yesod!"
-        $(widgetFile "homepage")
+  viewer <- getMaster
+  return $ object
+    [ ("version" :: Text) .= viewerVersion viewer
+    ]
 
-postHomeR :: Handler Html
-postHomeR = do
-    ((result, formWidget), formEnctype) <- runFormPost sampleForm
-    let handlerName = "postHomeR" :: Text
-        submission = case result of
-            FormSuccess res -> Just res
-            _ -> Nothing
+getViewerR :: Handler Value
+getViewerR = getMaster >>= returnJson
 
-    defaultLayout $ do
-        let (commentFormId, commentTextareaId, commentListId) = commentIds
-        aDomId <- newIdent
-        setTitle "Welcome To Yesod!"
-        $(widgetFile "homepage")
+getViewerBranchR :: Text -> Handler Value
+getViewerBranchR branch = do
+  store <- appStore <$> getYesod
+  ev    <- parseViewer store (Ref branch)
+  returnJson ev
 
-sampleForm :: Form FileForm
-sampleForm = renderBootstrap3 BootstrapBasicForm $ FileForm
-    <$> fileAFormReq "Choose a file"
-    <*> areq textField textSettings Nothing
-    -- Add attributes like the placeholder and CSS classes.
-    where textSettings = FieldSettings
-            { fsLabel = "What's on the file?"
-            , fsTooltip = Nothing
-            , fsId = Nothing
-            , fsName = Nothing
-            , fsAttrs =
-                [ ("class", "form-control")
-                , ("placeholder", "File description")
-                ]
-            }
-
-commentIds :: (Text, Text, Text)
-commentIds = ("js-commentForm", "js-createCommentTextarea", "js-commentList")
+postHooksR :: Handler Value
+postHooksR = do
+  _pullRequest <- checkPullRequest <$> webhookHandler
+  -- liftIO . BS.putStrLn $ encodePretty event
+  returnJson ("ok"::Text)
