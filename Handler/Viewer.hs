@@ -59,8 +59,9 @@ checkPR pre = do
     ref  = pullRequestCommitRef head
     sha  = pullRequestCommitSha head
 
-  fetchPullRequest ref
-  store <- appStore <$> getYesod
+  foundation <- getYesod
+  fetchPullRequest (appRepoPath $ appSettings foundation) ref
+  let store = appStore foundation
   ev    <- parseViewer store $ Sha sha
   case ev of
     Left  errs   -> prStatusError pr errs

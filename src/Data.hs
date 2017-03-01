@@ -44,10 +44,10 @@ storeMaster :: (MonadIO m, MonadMask m, MonadBaseControl IO m)
             => Store -> m (Either [Error] Viewer)
 storeMaster store = storeCached store $ \s -> parseViewer s (Ref "master")
 
-fetchPullRequest :: MonadIO m => Text -> m ()
-fetchPullRequest name = liftIO $ do
+fetchPullRequest :: MonadIO m => FilePath -> Text -> m ()
+fetchPullRequest path name = liftIO $ do
   putStrLn $ "Pulling updates for " <> name
-  callCommand . T.unpack $ "cd /data/src/pi-base/data && git fetch origin"
+  callCommand $ "cd " ++ path ++ " && git fetch origin"
 
 parseViewer :: (MonadIO m, MonadMask m, MonadBaseControl IO m)
             => Store

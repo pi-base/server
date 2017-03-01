@@ -60,6 +60,7 @@ data AppSettings = AppSettings
     , appAuthDummyLogin         :: Bool
     -- ^ Indicate if auth dummy login should be enabled.
 
+    , appRepoPath               :: FilePath
     , appGitHubToken            :: GitHub.Auth
     , appGitHubOwner            :: GitHub.Name GitHub.Owner
     , appGitHubRepo             :: GitHub.Name GitHub.Repo
@@ -90,6 +91,8 @@ instance FromJSON AppSettings where
         appAnalytics              <- o .:? "analytics"
 
         appAuthDummyLogin         <- o .:? "auth-dummy-login"      .!= defaultDev
+
+        appRepoPath <- o .: "repo-path"
 
         token <- o .: "github-auth"
         let appGitHubToken = GitHub.OAuth $ fromString token
