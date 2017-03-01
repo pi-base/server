@@ -3,13 +3,14 @@ module Services.Github
   , webhookHandler
   ) where
 
-import Import
+import Import hiding (hash)
 import qualified Core (Error, explainError)
 import Data (Committish(..), parseViewer, fetchPullRequest)
 import Viewer (Viewer)
 
 import Control.Monad (unless)
 import Crypto.Hash
+import Crypto.Hash.Types (Digest(..))
 import Data.Aeson (eitherDecode)
 import qualified Data.ByteString.Char8 as BC8
 import qualified Data.ByteString.Lazy  as LBS
@@ -46,7 +47,7 @@ validateSignature body = do
   secret <- getSetting appGitHubWebhookSecret
   lookupHeader "X-Hub-Signature" >>= \case
     Nothing -> halt ("No signature found" :: Text)
-    Just given ->
+    Just given -> do
       unless (signaturesMatch body secret given) $
         halt ("invalid secret" :: Text)
 
@@ -54,14 +55,18 @@ halt :: Show a => a -> Handler b
 halt msg = sendStatusJSON status400 ("Invalid webhook: " <> tshow msg)
 
 signaturesMatch :: ByteString -> Text -> ByteString -> Bool
-signaturesMatch body key given = computed == comparison
+signaturesMatch body key given = comparison == computed
   where
-    -- N.B. eq instance for HMAC is constant-time
-    computed :: Maybe (HMAC SHA1)
-    computed = Just $ hmac (BC8.pack $ T.unpack key) body
+    -- TODO: eq instance for HMAC is constant-time, and we should use it
+    --   not clear how to convert str -> HMAC SHA1 (without hashing) though
+    -- computed :: HMAC SHA1
+    -- computed = hmac (BC8.pack $ T.unpack key) body
 
-    comparison :: Maybe (HMAC SHA1)
-    comparison = fmap HMAC $ BC8.stripPrefix "sha1=" given >>= digestFromByteString
+    computed :: Maybe ByteString
+    computed = Just . digestToHexByteString . hmacGetDigest $ (hmac (BC8.pack $ T.unpack key) body :: HMAC SHA1)
+
+    comparison :: Maybe ByteString
+    comparison = BC8.stripPrefix "sha1=" given
 
 prStatusError :: Id Issue -> Name Commit -> [Core.Error] -> Handler ()
 prStatusError _id sha errors = do
