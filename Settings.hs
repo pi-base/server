@@ -64,6 +64,7 @@ data AppSettings = AppSettings
     , appGitHubToken            :: GitHub.Auth
     , appGitHubOwner            :: GitHub.Name GitHub.Owner
     , appGitHubRepo             :: GitHub.Name GitHub.Repo
+    , appGitHubWebhookSecret    :: Text
     }
 
 instance FromJSON AppSettings where
@@ -99,6 +100,8 @@ instance FromJSON AppSettings where
 
         appGitHubOwner <- o .: "github-owner"
         appGitHubRepo  <- o .: "github-repo"
+
+        appGitHubWebhookSecret <- o .: "github-webhook-secret"
 
         return AppSettings {..}
 

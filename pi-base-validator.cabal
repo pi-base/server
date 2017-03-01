@@ -30,6 +30,7 @@ library
                      Data
                      Data.Git
                      Data.Parsers
+                     Services.Github
                      Formula
                      Util
                      Viewer
@@ -106,10 +107,13 @@ library
                  -- src
                  , aeson-pretty
                  , attoparsec
+                 , cryptohash
                  , either
                  , exceptions
                  , foreign-store
                  , github
+                 , github-types
+                 , github-webhook-handler
                  , gitlib
                  , gitlib-libgit2
                  , lifted-base

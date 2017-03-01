@@ -44,9 +44,9 @@ storeMaster :: (MonadIO m, MonadMask m, MonadBaseControl IO m)
             => Store -> m (Either [Error] Viewer)
 storeMaster store = storeCached store $ \s -> parseViewer s (Ref "master")
 
-fetchPullRequest :: MonadIO m => FilePath -> Text -> m ()
-fetchPullRequest path name = liftIO $ do
-  putStrLn $ "Pulling updates for " <> name
+fetchPullRequest :: MonadIO m => FilePath -> m ()
+fetchPullRequest path = liftIO $ do
+  putStrLn $ "Pulling updates for repo"
   callCommand $ "cd " ++ path ++ " && git fetch origin"
 
 parseViewer :: (MonadIO m, MonadMask m, MonadBaseControl IO m)

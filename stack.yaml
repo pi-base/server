@@ -41,6 +41,7 @@ packages:
 - location:
     git: https://github.com/jamesdabbs/github.git
     commit: 73d154837d354810f7b374f556e81ca0c9728a65
+  extra-dep: true
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
