@@ -3,14 +3,13 @@ module Services.Github
   , webhookHandler
   ) where
 
-import Import hiding (hash)
+import Import
 import qualified Core (Error, explainError)
 import Data (Committish(..), parseViewer, fetchPullRequest)
 import Viewer (Viewer)
 
 import Control.Monad (unless)
 import Crypto.Hash
-import Crypto.Hash.Types (Digest(..))
 import Data.Aeson (eitherDecode)
 import qualified Data.ByteString.Char8 as BC8
 import qualified Data.ByteString.Lazy  as LBS
@@ -28,7 +27,7 @@ webhookHandler = do
   validateSignature str
   either halt return . eitherDecode $ LBS.fromStrict str
 
-checkPullRequest :: PullRequestEvent -> Handler ()
+checkPullRequest :: PullRequestEvent -> Handler (Either [Core.Error] Viewer)
 checkPullRequest pre = do
   let
     pr   = pullRequestEventPullRequest pre
@@ -38,16 +37,16 @@ checkPullRequest pre = do
 
   foundation <- getYesod
   fetchPullRequest (appRepoPath $ appSettings foundation)
-  parseViewer (appStore foundation) (Sha sha) >>=
-    either (prStatusError _id _sha) (prStatusOk _id _sha)
-
+  result <- parseViewer (appStore foundation) (Sha sha)
+  either (prStatusError _id _sha) (prStatusOk _id _sha) result
+  return result
 
 validateSignature :: ByteString -> Handler ()
 validateSignature body = do
   secret <- getSetting appGitHubWebhookSecret
   lookupHeader "X-Hub-Signature" >>= \case
     Nothing -> halt ("No signature found" :: Text)
-    Just given -> do
+    Just given ->
       unless (signaturesMatch body secret given) $
         halt ("invalid secret" :: Text)
 
@@ -81,12 +80,14 @@ prStatusOk _id sha _viewer = do
 issueComment :: GH.Id GH.Issue -> Text -> Handler ()
 issueComment _id msg = do
   AppSettings{..} <- appSettings <$> getYesod
-  void . liftIO $ GH.createComment appGitHubToken appGitHubOwner appGitHubRepo _id msg
+  _ <- liftIO $ GH.createComment appGitHubToken appGitHubOwner appGitHubRepo _id msg
+  return ()
 
 postStatus :: Name Commit -> GH.StatusState -> Text -> Handler ()
 postStatus sha state message = do
   AppSettings{..} <- appSettings <$> getYesod
-  void . liftIO $ GH.createStatus appGitHubToken appGitHubOwner appGitHubRepo sha status
+  _ <- liftIO $ GH.createStatus appGitHubToken appGitHubOwner appGitHubRepo sha status
+  return ()
   where
     status = GH.NewStatus state Nothing (Just message) (Just "pi-base/validator")
 

@@ -28,6 +28,6 @@ getViewerBranchR branch = do
 
 postHooksR :: Handler Value
 postHooksR = do
-  _pullRequest <- checkPullRequest <$> webhookHandler
-  -- liftIO . BS.putStrLn $ encodePretty event
-  returnJson ("ok"::Text)
+  pullRequest <- webhookHandler
+  result      <- checkPullRequest pullRequest
+  returnJson $ viewerVersion <$> result
