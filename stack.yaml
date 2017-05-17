@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-8.2
+resolver: lts-8.13
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -41,6 +41,10 @@ packages:
 - location:
     git: https://github.com/jamesdabbs/github.git
     commit: 73d154837d354810f7b374f556e81ca0c9728a65
+  extra-dep: true
+- location:
+    git: https://github.com/jml/graphql-api.git
+    commit: ba407bc8aaa182aa3e98ca0cdce509231e2318ca
   extra-dep: true
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)

@@ -21,6 +21,7 @@ library
                      Settings
                      Settings.StaticFiles
                      Handler.Common
+                     Handler.Graph
                      Handler.Home
                      -- src
                      Core
@@ -104,6 +105,7 @@ library
                  -- src
                  , aeson-pretty
                  , attoparsec
+                 , conduit-extra
                  , cryptohash
                  , either
                  , exceptions
@@ -113,6 +115,7 @@ library
                  , github-webhook-handler
                  , gitlib
                  , gitlib-libgit2
+                 , graphql-api
                  , lifted-base
                  , mtl
                  , tagged

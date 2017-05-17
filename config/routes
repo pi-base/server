@@ -8,3 +8,5 @@
 /viewer       ViewerR       GET
 /viewer/#Text ViewerBranchR GET
 /github/hooks HooksR        POST
+
+/graphql GraphR POST

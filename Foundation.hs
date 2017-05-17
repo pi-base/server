@@ -134,6 +134,7 @@ instance Yesod App where
     -- Routes not requiring authentication.
     isAuthorized (AuthR _) _ = return Authorized
     isAuthorized HooksR _    = return Authorized
+    isAuthorized GraphR _    = return Authorized
     isAuthorized _ False     = return Authorized
     isAuthorized _ True      = return $ Unauthorized "page is read-only"
 
