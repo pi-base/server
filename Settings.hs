@@ -65,6 +65,8 @@ data AppSettings = AppSettings
     , appGitHubOwner            :: GitHub.Name GitHub.Owner
     , appGitHubRepo             :: GitHub.Name GitHub.Repo
     , appGitHubWebhookSecret    :: Text
+    , appGitHubClientId         :: Text
+    , appGitHubClientSecret     :: Text
     }
 
 instance FromJSON AppSettings where
@@ -102,6 +104,9 @@ instance FromJSON AppSettings where
         appGitHubRepo  <- o .: "github-repo"
 
         appGitHubWebhookSecret <- o .: "github-webhook-secret"
+
+        appGitHubClientId <- o .: "github-client-id"
+        appGitHubClientSecret <- o .: "github-client-secret"
 
         return AppSettings {..}
 

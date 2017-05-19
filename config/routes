@@ -9,4 +9,6 @@
 /viewer/#Text ViewerBranchR GET
 /github/hooks HooksR        POST
 
-/graphql GraphR POST
+/app     FrontendR GET
+/me      MeR       GET
+/graphql GraphR    POST

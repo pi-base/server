@@ -17,8 +17,19 @@ data Frontmatter = Frontmatter
   , _converse :: Maybe [TheoremId]
   } deriving Generic
 
-instance ToJSON Frontmatter
-instance FromJSON Frontmatter
+instance ToJSON Frontmatter where
+  toJSON Frontmatter{..} = object
+    [ "uid" .= uid
+    , "if" .= _if
+    , "then" .= _then
+    , "converse" .= _converse
+    ]
+instance FromJSON Frontmatter where
+  parseJSON = withObject "Theorem Frontmatter" $ \o -> Frontmatter
+    <$> o .: "uid"
+    <*> o .: "if"
+    <*> o .: "then"
+    <*> o .:? "converse"
 
 parse :: Page Frontmatter -> Either Error (Theorem Text)
 parse (Page _ Frontmatter{..} main _sections) = Right $ Theorem

@@ -42,6 +42,11 @@ packages:
     git: https://github.com/jamesdabbs/github.git
     commit: 73d154837d354810f7b374f556e81ca0c9728a65
   extra-dep: true
+- '/data/src/yesod-auth-oauth2'
+#- location:
+#    git: https://github.com/jamesdabbs/yesod-auth-oauth2.git
+#    commit: 00841bbc3bdf1a2eecc7b619625aba59697f4e49
+#  extra-dep: true
 - location:
     git: https://github.com/jml/graphql-api.git
     commit: ba407bc8aaa182aa3e98ca0cdce509231e2318ca

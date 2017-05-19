@@ -7,6 +7,7 @@ module Data.Git
   , storeCached
   , useRepo
   , writeContents
+  , ensureUserBranch
   ) where
 
 import Core
@@ -99,7 +100,7 @@ getDir tree path = do
     _ -> return . Left $ NotATree path
 
 userBranch :: User -> RefName
-userBranch User{..} = "refs/heads/users/" <> userIdent
+userBranch User{..} = "refs/heads/users/" <> userName
 
 ensureUserBranch :: MonadGit r m => User -> m ()
 ensureUserBranch user = resolveReference branch >>= \case

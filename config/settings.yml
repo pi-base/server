@@ -13,6 +13,9 @@ github-repo:  "_env:GITHUB_REPO:pi-base-data"
 github-auth:           "_env:GITHUB_AUTH:fixme"
 github-webhook-secret: "_env:GITHUB_WEBHOOK_SECRET:fixme"
 
+github-client-id: "_env:GITHUB_CLIENT_ID:fixme"
+github-client-secret: "_env:GITHUB_CLIENT_SECRET:fixme"
+
 # Default behavior: determine the application root from the request headers.
 # Uncomment to set an explicit approot
 #approot:        "_env:APPROOT:http://localhost:3000"

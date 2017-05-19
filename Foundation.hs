@@ -1,14 +1,15 @@
 module Foundation where
 
 import Import.NoFoundation
+import qualified Data.Map as Map
 import Database.Persist.Sql (ConnectionPool, runSqlPool, toSqlKey)
 import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 
--- Used only when in "auth-dummy-login" setting is enabled.
-import Yesod.Auth.Dummy
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
 
-import Yesod.Auth.OpenId    (authOpenId, IdentifierType (Claimed))
+import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
 import qualified Yesod.Core.Unsafe as Unsafe
@@ -16,6 +17,7 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 
 import Data (Store, MonadStore)
+import Data.Git (useRepo, ensureUserBranch)
 
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -53,6 +55,31 @@ data MenuTypes
 -- type Handler = HandlerT App IO
 -- type Widget = WidgetT App IO ()
 mkYesodData "App" $(parseRoutesFile "config/routes")
+
+createGithubUser :: User -> Handler UserId
+createGithubUser user = do
+  store <- appStore <$> getYesod
+  useRepo store $ ensureUserBranch user
+  userId <- runDB $ insert user
+
+  now <- liftIO getCurrentTime
+  uuid <- liftIO UUID.nextRandom
+
+  _ <- runDB $ insert Token
+    { tokenUserId = userId
+    , tokenIssuedAt = now
+    , tokenExpiredAt = Nothing
+    , tokenUuid = UUID.toText uuid
+    }
+
+  return userId
+
+userWithToken :: Text -> Handler (Maybe UserId)
+userWithToken token = do
+  mtoken <- runDB . getBy $ UniqueToken token
+  case mtoken of
+    Nothing -> return Nothing
+    Just (Entity _ token) -> return . Just $ tokenUserId token
 
 -- | A convenient synonym for creating forms.
 type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
@@ -191,30 +218,34 @@ instance YesodAuth App where
     type AuthId App = UserId
 
     -- Where to send a user after successful login
-    loginDest _ = HooksR
+    loginDest _ = FrontendR
     -- Where to send a user after logout
     logoutDest _ = HooksR
     -- Override the above two destinations when a Referer: header is present
-    redirectToReferer _ = True
+    redirectToReferer _ = False
 
-    authenticate creds = runDB $ do
-        x <- getBy $ UniqueUser $ credsIdent creds
-        case x of
+    authenticate Creds{..} = do
+      let extras = Map.fromList credsExtra
+      case (Map.lookup "access_token" extras, Map.lookup "login" extras) of
+        (Just token, Just login) -> do
+          let _id  = credsPlugin <> ":" <> credsIdent
+          x <- runDB . getBy $ UniqueUser _id
+          case x of
             Just (Entity uid _) -> return $ Authenticated uid
-            Nothing -> Authenticated <$> insert User
-                { userIdent = credsIdent creds
-                , userPassword = Nothing
-                }
+            Nothing -> Authenticated <$> createGithubUser User { userIdent = _id, userName = login, userGithubToken = token }
+        _ -> return $ ServerError "Missing access token or login"
 
-    -- You can add other plugins like Google Email, email or OAuth here
-    authPlugins app = [authOpenId Claimed []] ++ extraAuthPlugins
-        -- Enable authDummy login if enabled.
-        where extraAuthPlugins = [authDummy | appAuthDummyLogin $ appSettings app]
+    authPlugins app =
+      let AppSettings{..} = appSettings app
+      in [oauth2GithubScoped appGitHubClientId appGitHubClientSecret ["user:email,public_repo"]]
 
     authHttpManager = getHttpManager
 
     maybeAuthId = do
-      return $ Just $ toSqlKey 1
+      mtoken <- lookupHeader "X-Auth-Token"
+      case mtoken of
+        Nothing -> return Nothing
+        Just token -> userWithToken $ decodeUtf8 token
 
 -- | Access function to determine if a user is logged in.
 isAuthenticated :: Handler AuthResult

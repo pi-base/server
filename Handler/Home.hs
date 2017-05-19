@@ -31,3 +31,13 @@ postHooksR = do
   pullRequest <- webhookHandler
   result      <- checkPullRequest pullRequest
   returnJson $ viewerVersion <$> result
+
+getFrontendR :: Handler ()
+getFrontendR = do
+  (Entity _id u) <- requireAuth
+  redirect $ "https://localhost:3000/?token=" <> userGithubToken u
+
+getMeR :: Handler Value
+getMeR = do
+  user <- requireAuth
+  returnJson user

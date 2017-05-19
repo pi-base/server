@@ -109,6 +109,7 @@ library
                  , time
                  , case-insensitive
                  , wai
+                 , uuid
                  -- src
                  , aeson-pretty
                  , attoparsec
@@ -129,6 +130,7 @@ library
                  , tagged
                  , transformers
                  , wai-cors
+                 , yesod-auth-oauth2
                  -- FIXME: only used for `git fetch`
                  , process
 
