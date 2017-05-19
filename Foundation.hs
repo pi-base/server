@@ -1,7 +1,7 @@
 module Foundation where
 
 import Import.NoFoundation
-import Database.Persist.Sql (ConnectionPool, runSqlPool)
+import Database.Persist.Sql (ConnectionPool, runSqlPool, toSqlKey)
 import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 
@@ -15,7 +15,7 @@ import qualified Yesod.Core.Unsafe as Unsafe
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 
-import Data (Store)
+import Data (Store, MonadStore)
 
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -56,6 +56,8 @@ mkYesodData "App" $(parseRoutesFile "config/routes")
 
 -- | A convenient synonym for creating forms.
 type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
+
+instance MonadStore Handler
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
@@ -210,6 +212,9 @@ instance YesodAuth App where
         where extraAuthPlugins = [authDummy | appAuthDummyLogin $ appSettings app]
 
     authHttpManager = getHttpManager
+
+    maybeAuthId = do
+      return $ Just $ toSqlKey 1
 
 -- | Access function to determine if a user is logged in.
 isAuthenticated :: Handler AuthResult

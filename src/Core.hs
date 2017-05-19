@@ -17,7 +17,7 @@ import Data.Map                         as Core (Map)
 import Data.Monoid                      as Core (Monoid)
 import Data.Text                        as Core (Text)
 
-import Data.Aeson (ToJSON(..), object, (.=))
+import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=))
 import Git (TreeFilePath)
 import qualified Data.Text as T
 import qualified Formula as F
@@ -25,10 +25,10 @@ import qualified Formula as F
 type Uid = Text
 type Record = (TreeFilePath, Text)
 
-newtype SpaceId    = SpaceId Uid    deriving (Eq, Ord, ToJSON)
-newtype PropertyId = PropertyId Uid deriving (Eq, Ord, ToJSON)
-newtype TheoremId  = TheoremId Uid  deriving (Eq, Ord, ToJSON, Show)
-newtype TraitId    = TraitId Uid    deriving (Eq, Ord, ToJSON, Show)
+newtype SpaceId    = SpaceId Uid    deriving (Eq, Ord, ToJSON, FromJSON)
+newtype PropertyId = PropertyId Uid deriving (Eq, Ord, ToJSON, FromJSON)
+newtype TheoremId  = TheoremId Uid  deriving (Eq, Ord, ToJSON, FromJSON, Show)
+newtype TraitId    = TraitId Uid    deriving (Eq, Ord, ToJSON, FromJSON, Show)
 
 data Error = NotATree TreeFilePath
            | ParseError TreeFilePath String

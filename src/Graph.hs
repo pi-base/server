@@ -1,0 +1,72 @@
+{-# LANGUAGE TypeApplications #-}
+module Graph
+  ( query
+  ) where
+
+import qualified Import (Handler)
+
+import GraphQL.API (List)
+import GraphQL.Resolver
+import GraphQL.Value.ToValue (toValue)
+
+import qualified Data.Aeson as Aeson
+import Yesod.Auth (requireAuthPair)
+
+import qualified Graph.Query as Q
+import qualified Graph.Types as G
+
+import Core hiding (Handler)
+import Data
+import Viewer (Viewer(..))
+
+type G a = Handler Import.Handler a
+
+space :: Monad m => Space -> Handler m G.Space
+space Space{..} =
+  let (SpaceId _id) = spaceId
+  in pure $ pure "Space"
+        :<> pure _id
+        :<> pure spaceSlug
+        :<> pure spaceName
+        :<> pure spaceDescription
+        :<> pure spaceTopology
+
+spacesR :: Monad m => Viewer -> Handler m (List G.Space)
+spacesR Viewer{..} = pure $ map space viewerSpaces
+
+property :: Monad m => Property -> Handler m G.Property
+property Property{..} =
+  let (PropertyId _id) = propertyId
+  in pure $ pure "Property"
+        :<> pure _id
+        :<> pure propertySlug
+        :<> pure propertyName
+        :<> pure propertyDescription
+
+propertiesR :: Monad m => Viewer -> Handler m (List G.Property)
+propertiesR Viewer{..} = pure $ map property viewerProperties
+
+failure msg = unionValue @G.Error (pure $ pure "Error" :<> pure msg)
+
+updateSpace :: Store -> Text -> Text -> G G.SpaceOrError
+updateSpace store _id description = do
+  (_userId, user) <- requireAuthPair
+  ms <- findSpace store _id
+  case ms of
+    Nothing -> failure "Could not find space"
+    Just s -> do
+      updated <- Data.updateSpace store user s description
+      case updated of
+        Nothing -> failure "Update failed"
+        Just us -> unionValue @G.Space (space us)
+
+queryRoot :: Store -> Viewer -> G G.QueryRoot
+queryRoot store viewer = pure
+  $   spacesR viewer
+  :<> propertiesR viewer
+  :<> Graph.updateSpace store
+
+query :: Store -> Viewer -> Q.GQuery -> Import.Handler Aeson.Value
+query store viewer q = do
+  response <- Q.query (queryRoot store viewer) q
+  return . Aeson.toJSON $ toValue response

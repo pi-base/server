@@ -13,6 +13,8 @@ module Formula
 import Prelude hiding (negate)
 
 import Control.Monad (void, mzero)
+import Data.Aeson hiding ((.=))
+import qualified Data.Aeson as A
 import Data.Attoparsec.Text hiding (parse)
 import qualified Data.HashMap.Strict as HM
 import Data.List (intercalate)
@@ -20,7 +22,6 @@ import qualified Data.Map.Strict as M
 import Data.Monoid ((<>))
 import Data.String (IsString)
 import Data.Text (Text, strip, unpack)
-import qualified Data.Yaml as Y
 
 data Formula p = Atom p Bool
                | Conj [Formula p]
@@ -97,13 +98,18 @@ atomP = do
   label <- takeTill $ inClass ['+', '|', ')']
   return $ Atom (strip label) (mode == "")
 
-instance Y.FromJSON (Formula Text) where
-  parseJSON (Y.Object v) = case head . HM.toList $ v of
-    ("and", val)  -> Conj <$> Y.parseJSON val
-    ("or", val)   -> Disj <$> Y.parseJSON val
-    (slug, Y.Bool b) -> return $ Atom slug b
+instance FromJSON (Formula Text) where
+  parseJSON (Object v) = case head . HM.toList $ v of
+    ("and", val)  -> Conj <$> parseJSON val
+    ("or", val)   -> Disj <$> parseJSON val
+    (slug, Bool b) -> return $ Atom slug b
     _ -> mzero
   parseJSON _ = mzero
+
+instance ToJSON (Formula Text) where
+  toJSON (Conj subs) = object [ "and" A..= toJSON subs ]
+  toJSON (Disj subs) = object [ "or"  A..= toJSON subs ]
+  toJSON (Atom p v)  = object [ p A..= v ]
 
 -- TODO: these definitely could be cleaner
 hydrate :: Ord a => M.Map a b -> Formula a -> Either [a] (Formula b)

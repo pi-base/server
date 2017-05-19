@@ -1,13 +1,16 @@
 module Data.Git
   ( Store
+  , MonadStore
   , eachBlob
   , getDir
   , mkStore
   , storeCached
   , useRepo
+  , writeContents
   ) where
 
 import Core
+import Model (User(..))
 import Viewer
 
 -- import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar, readMVar,
@@ -17,6 +20,10 @@ import Control.Monad.Trans.Control (MonadBaseControl)
 import Data.Tagged
 import Git
 import Git.Libgit2 (LgRepo, openLgRepository, runLgRepository)
+
+class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m
+
+instance (MonadStore m) => MonadStore (ReaderT LgRepo m)
 
 data Store = Store
   { storePath  :: FilePath
@@ -55,7 +62,7 @@ storeCached s f = do
           liftIO $ tryPutMVar cache v
           return $ Right v
 
-useRepo :: (MonadIO m, MonadBaseControl IO m)
+useRepo :: MonadStore m
         => Store
         -> ReaderT LgRepo m a
         -> m a
@@ -91,9 +98,18 @@ getDir tree path = do
       return $ Right t
     _ -> return . Left $ NotATree path
 
+userBranch :: User -> RefName
+userBranch User{..} = "refs/heads/users/" <> userIdent
 
-
-
+ensureUserBranch :: MonadGit r m => User -> m ()
+ensureUserBranch user = resolveReference branch >>= \case
+  Just _ -> return ()
+  Nothing -> do
+    lookupReference "refs/heads/master" >>= \case
+      Nothing -> error "Could not resolve master; is the repo configured?"
+      Just master -> createReference branch master
+  where
+    branch = userBranch user
 
 {- For reference only
 -  Items below here should be cleaned up at some point
@@ -108,26 +124,48 @@ printEntries tree = do
     let oid = treeEntryToOid entry
     p (path, oid)
 
-writeContents :: RefName
-              -> [(TreeFilePath, Text)]
+findOrCreateTree :: (MonadStore m, MonadGit r m) => RefName -> m (Commit r, Tree r)
+findOrCreateTree refname = do
+  mref <- resolveReference refname
+  ref  <- case mref of
+    Just r  -> return r
+    Nothing -> do
+      lookupReference "master" >>= \case
+        Nothing -> error "Could not resolve master; is the repo configured?"
+        Just master -> do
+          createReference refname master
+          resolveReference refname >>= \case
+            Nothing -> error "Can not resolve newly created refname"
+            Just r -> return r
+  parent <- lookupCommit $ Tagged ref
+  tree   <- lookupTree $ commitTree parent
+  return (parent, tree)
+
+writeContents :: (MonadStore m)
+              => User
               -> CommitMessage
-              -> ReaderT LgRepo IO ()
-writeContents refname files message = do
-    mref <- resolveReference refname
-    case mref of
-      Nothing  -> return ()
-      Just ref -> do
-        head <- lookupCommit $ Tagged ref
-        tree <- lookupTree $ commitTree head
+              -> [(TreeFilePath, Text)]
+              -> ReaderT LgRepo m ()
+writeContents user message files = do
+  ensureUserBranch user -- TODO: move to registration time
 
-        blobs <- forM files $ \(file, contents) -> do
-          _id <- createBlobUtf8 contents
-          return (file, _id)
+  let refname = userBranch user
+  mref <- resolveReference refname
+  (parent, tree) <- case mref of
+    Nothing  -> error "Could not find user branch"
+    Just ref -> do
+      parent <- lookupCommit $ Tagged ref
+      tree   <- lookupTree $ commitTree parent
+      return (parent, tree)
 
-        (_,tid) <- withTree tree $ do
-          forM_ blobs $ \(file, _id) -> putEntry file (BlobEntry _id PlainBlob)
-        commit refname head tid message
-        return ()
+  blobs <- forM files $ \(file, contents) -> do
+    _id <- createBlobUtf8 contents
+    return (file, _id)
+
+  (_,tid) <- withTree tree $ do
+    forM_ blobs $ \(file, _id) -> putEntry file (BlobEntry _id PlainBlob)
+  commit refname parent tid message
+  return ()
 
 commit refname commit tree message = do
   let sig = defaultSignature
@@ -136,12 +174,10 @@ commit refname commit tree message = do
         }
   createCommit [commitOid commit] tree sig sig message (Just refname)
 
-write :: (MonadGit r m, MonadGit r (TreeT r m)) => TreeFilePath -> Text -> TreeT r m ()
 write file body = do
   _id <- createBlobUtf8 body
   putEntry file (BlobEntry _id PlainBlob)
 
-old :: ReaderT LgRepo IO ()
 old = do
   aid <- createBlobUtf8 "Other file"
   bid <- createBlobUtf8 "Hello, git"

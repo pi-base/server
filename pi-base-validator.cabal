@@ -27,7 +27,14 @@ library
                      Core
                      Data
                      Data.Git
-                     Data.Parsers
+                     Graph
+                     Graph.Query
+                     Graph.Types
+                     Page.Parser
+                     Page.Property
+                     Page.Space
+                     Page.Theorem
+                     Page.Trait
                      Services.Github
                      Formula
                      Util
@@ -118,8 +125,10 @@ library
                  , graphql-api
                  , lifted-base
                  , mtl
+                 , scientific
                  , tagged
                  , transformers
+                 , wai-cors
                  -- FIXME: only used for `git fetch`
                  , process
 

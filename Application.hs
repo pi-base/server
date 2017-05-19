@@ -23,6 +23,7 @@ import Network.Wai.Handler.Warp             (Settings, defaultSettings,
                                              defaultShouldDisplayException,
                                              runSettings, setHost,
                                              setOnException, setPort, getPort)
+import Network.Wai.Middleware.Cors
 import Network.Wai.Middleware.RequestLogger (Destination (Logger),
                                              IPAddrSource (..),
                                              OutputFormat (..), destination,
@@ -81,6 +82,12 @@ makeFoundation appSettings = do
     -- Return the foundation
     return $ mkFoundation pool
 
+corsPolicy :: CorsResourcePolicy
+corsPolicy = simpleCorsResourcePolicy
+  { corsMethods = ["GET" , "HEAD" , "POST", "OPTIONS"]
+  , corsRequestHeaders = ["content-type"]
+  }
+
 -- | Convert our foundation to a WAI Application by calling @toWaiAppPlain@ and
 -- applying some additional middlewares.
 makeApplication :: App -> IO Application
@@ -88,7 +95,7 @@ makeApplication foundation = do
     logWare <- makeLogWare foundation
     -- Create the WAI application and apply middlewares
     appPlain <- toWaiAppPlain foundation
-    return $ logWare $ defaultMiddlewaresNoLogging appPlain
+    return $ cors (const $ Just corsPolicy) $ logWare $ defaultMiddlewaresNoLogging appPlain
 
 makeLogWare :: App -> IO Middleware
 makeLogWare foundation =

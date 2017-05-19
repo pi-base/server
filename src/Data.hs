@@ -1,32 +1,38 @@
 module Data
   ( Store
+  , MonadStore
   , Viewer(..)
   , Committish(..)
   , mkStore
   , storeMaster
   , fetchPullRequest
-  , parseProperty
-  , parseSpace
   , parseViewer
+  --
+  , findSpace
+  , updateSpace
   ) where
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map.Strict       as M
 import qualified Data.Text             as T
 
-import Control.Monad.Catch              (MonadMask)
 import Control.Monad.Trans.State.Strict (modify', get, runStateT)
-import Data.ByteString                  (ByteString)
+import Data.Aeson                       (FromJSON)
 import Data.Either.Combinators          (mapLeft)
 import Data.Tagged                      (Tagged(..))
 import Git                              hiding (Object)
 import Git.Libgit2                      (LgRepo)
 import System.Process                   (callCommand)
 
+import qualified Page.Parser
+import qualified Page.Property
+import qualified Page.Space
+import qualified Page.Theorem
+import qualified Page.Trait
 
 import Core
 import Data.Git
-import Data.Parsers
+import Model (User)
 import Util
 import Viewer
 import qualified Viewer as V
@@ -40,7 +46,7 @@ lookupCommitish (Ref ref) = resolveReference $ "refs/heads/" <> ref
 lookupCommitish (Sha sha) = Just <$> parseOid sha
 
 
-storeMaster :: (MonadIO m, MonadMask m, MonadBaseControl IO m)
+storeMaster :: MonadStore m
             => Store -> m (Either [Error] Viewer)
 storeMaster store = storeCached store $ \s -> parseViewer s (Ref "master")
 
@@ -49,7 +55,7 @@ fetchPullRequest path = liftIO $ do
   putStrLn $ "Pulling updates for repo"
   callCommand $ "cd " ++ path ++ " && git fetch origin"
 
-parseViewer :: (MonadIO m, MonadMask m, MonadBaseControl IO m)
+parseViewer :: MonadStore m
             => Store
             -> Committish
             -> m (Either [Error] Viewer)
@@ -86,30 +92,30 @@ parseViewer store ref = useRepo store . gatherErrors $ do
 
       return Nothing
 
-record :: Monad m
-   => (Record -> Either Error a) -- parse
+record :: (FromJSON f, Monad m)
+   => (Page.Parser.Page f -> Either Error a) -- parse
    -> (a -> Either Error b)      -- hydrate
    -> (Viewer -> b -> Viewer)    -- insert
    -> Record
    -> StateT (Viewer, [Error]) (ReaderT LgRepo m) ()
 record parse hydrate insert r =
-  case parse r >>= hydrate of
+  case Page.Parser.parse r >>= parse >>= hydrate of
     Left err  -> addError err
     Right obj -> modify' $ \(v, es) -> (insert v obj, es)
 
 addProperty :: Monad m => Record -> V m
-addProperty = record parseProperty return $
+addProperty = record Page.Property.parse return $
   \v p -> v { viewerProperties = p : viewerProperties v }
 
 addSpace :: Monad m => Record -> V m
-addSpace = record parseSpace return $
+addSpace = record Page.Space.parse return $
   \v s -> v { viewerSpaces = s : viewerSpaces v }
 
 addTheorem :: Monad m
            => M.Map Text Property
            -> Record
            -> V m
-addTheorem props = record parseTheorem hydrate $
+addTheorem props = record Page.Theorem.parse hydrate $
   \v t -> v { viewerTheorems = t : viewerTheorems v}
   where
     hydrate = mapLeft (ReferenceError "theorem") . hydrateTheorem props
@@ -119,7 +125,7 @@ addTrait :: MonadIO m
          -> M.Map Text Property
          -> Record
          -> V m
-addTrait spaces props r = case parseTrait r of
+addTrait spaces props r = case Page.Parser.parse r >>= Page.Trait.parse of
   Left err -> addError err
   Right (trait, mproof) -> case hydrateTrait spaces props trait of
     Left err -> addError err
@@ -171,3 +177,15 @@ gatherErrors s = do
       then Right viewer
       else Left errors
 
+updateSpace :: (MonadStore m)
+            => Store -> User -> Space -> Text -> m (Maybe Space)
+updateSpace store user space description = useRepo store $ do
+  let updated = space { spaceDescription = description }
+  writeContents user "Updated" [Page.Parser.write $ Page.Space.write space]
+  return $ Just updated
+
+findSpace :: MonadStore m
+          => Store -> Text -> m (Maybe Space)
+findSpace store _id = storeMaster store >>= \case
+  Left _ -> return Nothing
+  Right Viewer{..} -> return $ find (\Space{..} -> spaceId == SpaceId _id) viewerSpaces
