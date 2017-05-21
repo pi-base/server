@@ -16,7 +16,7 @@ import Viewer
 
 -- import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar, readMVar,
 --                                 tryTakeMVar, tryPutMVar)
-import Control.Concurrent.MVar.Lifted (withMVar)
+import Control.Concurrent.MVar.Lifted (modifyMVar)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Data.Tagged
 import Git
@@ -29,7 +29,7 @@ instance (MonadStore m) => MonadStore (ReaderT LgRepo m)
 data Store = Store
   { storePath  :: FilePath
   , storeRepo  :: MVar LgRepo
-  , storeCache :: MVar Viewer
+  , storeCache :: MVar (Maybe Viewer)
   }
 
 mkStore :: FilePath -> IO Store
@@ -44,24 +44,18 @@ mkStore path = do
   Store
     <$> pure path
     <*> newMVar repo
-    <*> newEmptyMVar
+    <*> newMVar Nothing
 
-storeCached :: MonadIO m
+storeCached :: MonadStore m
             => Store
             -> (Store -> m (Either a Viewer))
             -> m (Either a Viewer)
-storeCached s f = do
-  let cache = storeCache s
-  mev <- liftIO $ tryTakeMVar cache
+storeCached store f = modifyMVar (storeCache store) $ \mev ->
   case mev of
-    Just viewer -> return $ Right viewer
-    _ -> do
-      ev <- f s
-      case ev of
-        Left err -> return $ Left err
-        Right v -> do
-          liftIO $ tryPutMVar cache v
-          return $ Right v
+    Just viewer -> return $ (Just viewer, Right viewer)
+    _ -> f store >>= \case
+      Left err     -> return $ (Nothing, Left err)
+      Right viewer -> return $ (Just viewer, Right viewer)
 
 useRepo :: MonadStore m
         => Store
