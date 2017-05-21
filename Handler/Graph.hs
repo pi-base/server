@@ -1,11 +1,6 @@
 module Handler.Graph (postGraphR) where
 
 import Import
-
-import Data.Aeson (encode)
-
-import Data (storeMaster)
-
 import qualified Graph
 
 postGraphR :: Handler Value

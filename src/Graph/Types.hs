@@ -31,6 +31,14 @@ type Trait = Object "Trait" '[]
    , Field "value"      Bool
    ]
 
+type Theorem = Object "Theorem" '[]
+  '[ Field "__typename"  Text
+   , Field "uid"         Text
+   , Field "if"          Text
+   , Field "then"        Text
+   , Field "description" Text
+   ]
+
 type User = Object "User" '[]
   '[ Field "__typename" Text
    , Field "name"       Text
@@ -48,6 +56,7 @@ type Viewer = Object "Viewer" '[]
   '[ Field "__typename" Text
    , Field "spaces"     (List Space)
    , Field "properties" (List Property)
+   , Field "theorems"   (List Theorem)
    ]
 
 type QueryRoot = Object "QueryRoot" '[]

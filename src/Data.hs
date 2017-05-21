@@ -12,6 +12,9 @@ module Data
   , updateSpace
   , findProperty
   , updateProperty
+  , getSpaceDescription
+  , getPropertyDescription
+  , getTheoremDescription
   ) where
 
 import qualified Data.ByteString.Char8 as BS
@@ -61,8 +64,8 @@ parseViewer :: MonadStore m
             => Store
             -> Committish
             -> m (Either [Error] Viewer)
-parseViewer store ref = useRepo store . gatherErrors $ do
-  eref <- lift $ lookupCommitish ref
+parseViewer store commish = useRepo store . gatherErrors $ do
+  eref <- lift $ lookupCommitish commish
   case eref of
     Nothing -> return . Just $ NotATree "check your branch name"
     Just ref -> do
@@ -93,6 +96,18 @@ parseViewer store ref = useRepo store . gatherErrors $ do
       validate
 
       return Nothing
+
+getSpaceDescription :: MonadStore m
+                    => Store -> Space -> m Text
+getSpaceDescription _store Space{..} = return spaceDescription
+
+getPropertyDescription :: MonadStore m
+                       => Store -> Property -> m Text
+getPropertyDescription _store Property{..} = return propertyDescription
+
+getTheoremDescription :: MonadStore m
+                      => Store -> Theorem Property -> m Text
+getTheoremDescription _store Theorem{..} = return theoremDescription
 
 record :: (FromJSON f, Monad m)
    => (Page.Parser.Page f -> Either Error a) -- parse
@@ -146,7 +161,7 @@ recordProof Trait{..} (Just p) v = v { viewerProofs = insertProof traitId p $ vi
 recordProof _ Nothing v = v
 
 insertProof :: TraitId -> [Assumption] -> Proofs -> Proofs
-insertProof _id p (Proofs map) = Proofs $ M.insert _id p map
+insertProof _id p (Proofs pmap) = Proofs $ M.insert _id p pmap
 
 addError :: Monad m => Error -> V m
 addError e = modify' $ \(v, es) -> (v, e : es)
