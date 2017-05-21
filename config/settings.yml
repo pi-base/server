@@ -7,6 +7,9 @@ port:           "_env:PORT:3000" # NB: The port `yesod devel` uses is distinct f
 ip-from-header: "_env:IP_FROM_HEADER:false"
 
 repo-path:    "_env:REPO_PATH:/data/src/pi-base/data"
+
+frontend-url: "_env:PI_BASE_VIEWER_URL:http://localhost:3000"
+
 github-owner: "_env:GITHUB_OWNER:jamesdabbs"
 github-repo:  "_env:GITHUB_REPO:pi-base-data"
 

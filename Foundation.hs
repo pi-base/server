@@ -2,12 +2,11 @@ module Foundation where
 
 import Import.NoFoundation
 import qualified Data.Map as Map
-import Database.Persist.Sql (ConnectionPool, runSqlPool, toSqlKey)
+import Database.Persist.Sql (ConnectionPool, runSqlPool)
 import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 
 import qualified Data.Text (replace)
-import qualified Data.UUID as UUID
 import Handler.Helpers (createToken)
 
 import Yesod.Auth.OAuth2.Github
@@ -68,8 +67,8 @@ createGithubUser user = do
   return userId
 
 userWithToken :: Text -> Handler (Maybe UserId)
-userWithToken token = do
-  let trimmed = Data.Text.replace "Bearer " "" token
+userWithToken header = do
+  let trimmed = Data.Text.replace "Bearer " "" header
   mtoken <- runDB . getBy $ UniqueToken trimmed
   case mtoken of
     Nothing -> return Nothing

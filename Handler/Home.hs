@@ -33,9 +33,6 @@ postHooksR = do
   result      <- checkPullRequest pullRequest
   returnJson $ viewerVersion <$> result
 
-appFrontendUrl :: Text
-appFrontendUrl = "http://localhost:3000/login/"
-
 activeToken :: UserId -> Handler Token
 activeToken userId = do
   token <- runDB $ selectFirst [TokenUserId ==. userId] [] -- TODO: not expired
@@ -44,15 +41,12 @@ activeToken userId = do
     _ -> createToken userId
 
 getFrontendR :: Handler ()
-getFrontendR = defaultMaybeAuthId >>= \case
-  Nothing -> redirect appFrontendUrl
-  Just _id -> (runDB $ get _id) >>= \case
+getFrontendR = do
+  AppSettings{..} <- appSettings <$> getYesod
+  defaultMaybeAuthId >>= \case
     Nothing -> redirect appFrontendUrl
-    Just _ -> do
-      Token{..} <- activeToken _id
-      redirect $ appFrontendUrl <> tokenUuid
-
-getMeR :: Handler Value
-getMeR = do
-  user <- requireAuth
-  returnJson user
+    Just _id -> (runDB $ get _id) >>= \case
+      Nothing -> redirect appFrontendUrl
+      Just _ -> do
+        Token{..}       <- activeToken _id
+        redirect $ appFrontendUrl <> "/login/" <> tokenUuid

@@ -33,8 +33,10 @@ space Space{..} =
         :<> pure spaceDescription
         :<> pure spaceTopology
 
-spacesR :: Monad m => Viewer -> Handler m (List G.Space)
-spacesR Viewer{..} = pure $ map space viewerSpaces
+spacesR :: MonadStore m => Store -> Handler m (List G.Space)
+spacesR store = storeMaster store >>= \case
+  Left _ -> pure [] -- FIXME
+  Right (Viewer{..}) -> pure $ map space viewerSpaces
 
 property :: Monad m => Property -> Handler m G.Property
 property Property{..} =
@@ -45,8 +47,10 @@ property Property{..} =
         :<> pure propertyName
         :<> pure propertyDescription
 
-propertiesR :: Monad m => Viewer -> Handler m (List G.Property)
-propertiesR Viewer{..} = pure $ map property viewerProperties
+propertiesR :: MonadStore m => Store -> Handler m (List G.Property)
+propertiesR store = storeMaster store >>= \case
+  Left _ -> pure [] -- FIXME
+  Right (Viewer{..}) -> pure $ map property viewerProperties
 
 failure msg = unionValue @G.Error (pure $ pure "Error" :<> pure msg)
 
@@ -79,15 +83,15 @@ updateProperty store _id description = do
         Nothing -> failure "Update failed"
         Just up -> unionValue @G.Property (property up)
 
-queryRoot :: Store -> Viewer -> G G.QueryRoot
-queryRoot store viewer = pure
-  $   spacesR viewer
-  :<> propertiesR viewer
+queryRoot :: Store -> G G.QueryRoot
+queryRoot store = pure
+  $   spacesR store
+  :<> propertiesR store
   :<> userR
   :<> Graph.updateSpace store
   :<> Graph.updateProperty store
 
-query :: Store -> Viewer -> Q.GQuery -> Import.Handler Aeson.Value
-query store viewer q = do
-  response <- Q.query (queryRoot store viewer) q
+query :: Store -> Q.GQuery -> Import.Handler Aeson.Value
+query store q = do
+  response <- Q.query (queryRoot store) q
   return . Aeson.toJSON $ toValue response

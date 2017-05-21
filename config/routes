@@ -2,13 +2,13 @@
 /auth   AuthR   Auth   getAuth
 
 /favicon.ico FaviconR GET
-/robots.txt RobotsR GET
+/robots.txt  RobotsR  GET
 
 /             HomeR         GET
 /viewer       ViewerR       GET
 /viewer/#Text ViewerBranchR GET
-/github/hooks HooksR        POST
+
+/github/hooks HooksR POST
 
 /app     FrontendR GET
-/me      MeR       GET
 /graphql GraphR    POST
