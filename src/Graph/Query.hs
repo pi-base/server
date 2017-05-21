@@ -22,22 +22,26 @@ import GraphQL.Internal.Syntax.AST (Name(..), Variable(..))
 
 import Graph.Types (QueryRoot)
 
+data Operation = Named Name | Anonymous
+
 data GQuery = GQuery
-  { gOperation :: Maybe Name
+  { gOperation :: Operation
   , gQuery     :: Text
-  , gVariables :: Aeson.Object
+  , gVariables :: Maybe Aeson.Object
   }
 
 instance FromJSON GQuery where
   parseJSON = Aeson.withObject "GQuery" $ \o -> GQuery
     <$> o .: "operationName"
     <*> o .: "query"
-    <*> o .: "variables"
+    <*> o .:? "variables"
 
-instance FromJSON Name where
+instance FromJSON Operation where
+  parseJSON (Aeson.String "") = return Anonymous
   parseJSON (Aeson.String str) = case makeName str of
     Left err -> fail $ show err
-    Right name -> return name
+    Right name -> return $ Named name
+  parseJSON Aeson.Null = return Anonymous
   parseJSON _ = fail "Name is not a string"
 
 -- FIXME: define instance FromJSON VariableValues instead
@@ -51,11 +55,19 @@ instance ToValue Aeson.Value where
   toValue (Aeson.Bool bool)     = toValue bool
   toValue Aeson.Null            = error "null"
 
-buildVariables :: Aeson.Object -> VariableValues
-buildVariables = Map.fromList . map convert . HashMap.toList
+buildVariables :: Maybe Aeson.Object -> VariableValues
+buildVariables (Just hm) = Map.fromList . map convert $ HashMap.toList hm
   where
     convert (key, val) = (Variable (name key), toValue val)
     name key = let Right n = makeName key in n
+buildVariables Nothing = mempty
 
 query :: Monad m => Handler m QueryRoot -> GQuery -> m Response
-query root GQuery{..} = interpretQuery @QueryRoot root gQuery gOperation (buildVariables gVariables)
+query root GQuery{..} = interpretQuery @QueryRoot root gQuery operation variables
+  where
+    operation = case gOperation of
+      Named name -> Just name
+      Anonymous  -> Nothing
+
+    variables = buildVariables gVariables
+

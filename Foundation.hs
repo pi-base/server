@@ -6,8 +6,9 @@ import Database.Persist.Sql (ConnectionPool, runSqlPool, toSqlKey)
 import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 
+import qualified Data.Text (replace)
 import qualified Data.UUID as UUID
-import qualified Data.UUID.V4 as UUID
+import Handler.Helpers (createToken)
 
 import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
@@ -62,21 +63,14 @@ createGithubUser user = do
   useRepo store $ ensureUserBranch user
   userId <- runDB $ insert user
 
-  now <- liftIO getCurrentTime
-  uuid <- liftIO UUID.nextRandom
-
-  _ <- runDB $ insert Token
-    { tokenUserId = userId
-    , tokenIssuedAt = now
-    , tokenExpiredAt = Nothing
-    , tokenUuid = UUID.toText uuid
-    }
+  _ <- createToken userId
 
   return userId
 
 userWithToken :: Text -> Handler (Maybe UserId)
 userWithToken token = do
-  mtoken <- runDB . getBy $ UniqueToken token
+  let trimmed = Data.Text.replace "Bearer " "" token
+  mtoken <- runDB . getBy $ UniqueToken trimmed
   case mtoken of
     Nothing -> return Nothing
     Just (Entity _ token) -> return . Just $ tokenUserId token
@@ -164,6 +158,7 @@ instance Yesod App where
     isAuthorized (AuthR _) _ = return Authorized
     isAuthorized HooksR _    = return Authorized
     isAuthorized GraphR _    = return Authorized
+    isAuthorized FrontendR _ = return Authorized
     isAuthorized _ False     = return Authorized
     isAuthorized _ True      = return $ Unauthorized "page is read-only"
 
@@ -222,7 +217,7 @@ instance YesodAuth App where
     -- Where to send a user after logout
     logoutDest _ = HooksR
     -- Override the above two destinations when a Referer: header is present
-    redirectToReferer _ = False
+    redirectToReferer _ = True
 
     authenticate Creds{..} = do
       let extras = Map.fromList credsExtra
@@ -242,7 +237,7 @@ instance YesodAuth App where
     authHttpManager = getHttpManager
 
     maybeAuthId = do
-      mtoken <- lookupHeader "X-Auth-Token"
+      mtoken <- lookupHeader "Authorization"
       case mtoken of
         Nothing -> return Nothing
         Just token -> userWithToken $ decodeUtf8 token

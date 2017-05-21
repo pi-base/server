@@ -10,6 +10,8 @@ module Data
   --
   , findSpace
   , updateSpace
+  , findProperty
+  , updateProperty
   ) where
 
 import qualified Data.ByteString.Char8 as BS
@@ -189,3 +191,16 @@ findSpace :: MonadStore m
 findSpace store _id = storeMaster store >>= \case
   Left _ -> return Nothing
   Right Viewer{..} -> return $ find (\Space{..} -> spaceId == SpaceId _id) viewerSpaces
+
+updateProperty :: (MonadStore m)
+            => Store -> User -> Property -> Text -> m (Maybe Property)
+updateProperty store user property description = useRepo store $ do
+  let updated = property { propertyDescription = description }
+  writeContents user "Updated" [Page.Parser.write $ Page.Property.write property]
+  return $ Just updated
+
+findProperty :: MonadStore m
+          => Store -> Text -> m (Maybe Property)
+findProperty store _id = storeMaster store >>= \case
+  Left _ -> return Nothing
+  Right Viewer{..} -> return $ find (\Property{..} -> propertyId == PropertyId _id) viewerProperties

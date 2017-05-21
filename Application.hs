@@ -85,7 +85,7 @@ makeFoundation appSettings = do
 corsPolicy :: CorsResourcePolicy
 corsPolicy = simpleCorsResourcePolicy
   { corsMethods = ["GET" , "HEAD" , "POST", "OPTIONS"]
-  , corsRequestHeaders = ["content-type"]
+  , corsRequestHeaders = ["content-type", "authorization"]
   }
 
 -- | Convert our foundation to a WAI Application by calling @toWaiAppPlain@ and

@@ -3,6 +3,7 @@ module Handler.Home where
 import Import
 
 import Data (Committish(..), storeMaster, parseViewer)
+import Handler.Helpers (createToken)
 import Services.Github (checkPullRequest, webhookHandler)
 import Viewer
 
@@ -32,10 +33,24 @@ postHooksR = do
   result      <- checkPullRequest pullRequest
   returnJson $ viewerVersion <$> result
 
+appFrontendUrl :: Text
+appFrontendUrl = "http://localhost:3000/login/"
+
+activeToken :: UserId -> Handler Token
+activeToken userId = do
+  token <- runDB $ selectFirst [TokenUserId ==. userId] [] -- TODO: not expired
+  case token of
+    Just (Entity _ t) -> return t
+    _ -> createToken userId
+
 getFrontendR :: Handler ()
-getFrontendR = do
-  (Entity _id u) <- requireAuth
-  redirect $ "https://localhost:3000/?token=" <> userGithubToken u
+getFrontendR = defaultMaybeAuthId >>= \case
+  Nothing -> redirect appFrontendUrl
+  Just _id -> (runDB $ get _id) >>= \case
+    Nothing -> redirect appFrontendUrl
+    Just _ -> do
+      Token{..} <- activeToken _id
+      redirect $ appFrontendUrl <> tokenUuid
 
 getMeR :: Handler Value
 getMeR = do

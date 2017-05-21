@@ -3,6 +3,7 @@ module Graph
   ( query
   ) where
 
+import Import hiding (Handler)
 import qualified Import (Handler)
 
 import GraphQL.API (List)
@@ -10,7 +11,8 @@ import GraphQL.Resolver
 import GraphQL.Value.ToValue (toValue)
 
 import qualified Data.Aeson as Aeson
-import Yesod.Auth (requireAuthPair)
+import Database.Persist.Types (Entity(..))
+import Yesod.Auth (requireAuthPair, requireAuth)
 
 import qualified Graph.Query as Q
 import qualified Graph.Types as G
@@ -60,11 +62,30 @@ updateSpace store _id description = do
         Nothing -> failure "Update failed"
         Just us -> unionValue @G.Space (space us)
 
+userR :: G G.User
+userR = do
+  (Entity _id User{..}) <- requireAuth
+  return $ pure "User" :<> pure userName
+
+updateProperty :: Store -> Text -> Text -> G G.PropertyOrError
+updateProperty store _id description = do
+  (_userId, user) <- requireAuthPair
+  ms <- findProperty store _id
+  case ms of
+    Nothing -> failure "Could not find property"
+    Just p -> do
+      updated <- Data.updateProperty store user p description
+      case updated of
+        Nothing -> failure "Update failed"
+        Just up -> unionValue @G.Property (property up)
+
 queryRoot :: Store -> Viewer -> G G.QueryRoot
 queryRoot store viewer = pure
   $   spacesR viewer
   :<> propertiesR viewer
+  :<> userR
   :<> Graph.updateSpace store
+  :<> Graph.updateProperty store
 
 query :: Store -> Viewer -> Q.GQuery -> Import.Handler Aeson.Value
 query store viewer q = do

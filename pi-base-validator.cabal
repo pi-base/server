@@ -22,6 +22,7 @@ library
                      Settings.StaticFiles
                      Handler.Common
                      Handler.Graph
+                     Handler.Helpers
                      Handler.Home
                      -- src
                      Core
