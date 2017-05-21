@@ -24,6 +24,7 @@ import qualified Formula as F
 
 type Uid = Text
 type Record = (TreeFilePath, Text)
+type Version = Text
 
 newtype SpaceId    = SpaceId Uid    deriving (Eq, Ord, ToJSON, FromJSON)
 newtype PropertyId = PropertyId Uid deriving (Eq, Ord, ToJSON, FromJSON)

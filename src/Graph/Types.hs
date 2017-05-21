@@ -3,8 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 module Graph.Types where
 
-import Data.Maybe (Maybe)
-import Data.Text  (Text)
+import Core (Version, Bool, Maybe, Text)
 
 import GraphQL.API
 
@@ -15,6 +14,7 @@ type Space = Object "Space" '[]
    , Field "name"            Text
    , Field "description"     Text
    , Field "proofOfTopology" (Maybe Text)
+   , Field "traits"          (List Trait)
    ]
 
 type Property = Object "Property" '[]
@@ -25,6 +25,12 @@ type Property = Object "Property" '[]
    , Field "description"     Text
    ]
 
+type Trait = Object "Trait" '[]
+  '[ Field "__typename" Text
+   , Field "property"   Property
+   , Field "value"      Bool
+   ]
+
 type User = Object "User" '[]
   '[ Field "__typename" Text
    , Field "name"       Text
@@ -32,17 +38,23 @@ type User = Object "User" '[]
 
 type Error = Object "Error" '[]
   '[ Field "__typename" Text
-   , Field "message" Text
+   , Field "message"    Text
    ]
 
 type SpaceOrError = Union "SpaceOrError" '[Space, Error]
 type PropertyOrError = Union "PropertyOrError" '[Property, Error]
 
-type QueryRoot = Object "QueryRoot" '[]
-  '[ Field "spaces"     (List Space)
+type Viewer = Object "Viewer" '[]
+  '[ Field "__typename" Text
+   , Field "spaces"     (List Space)
    , Field "properties" (List Property)
-   , Field "me"         User
+   ]
+
+type QueryRoot = Object "QueryRoot" '[]
+  '[ Field "__typename" Text
+   , Argument "version" (Maybe Version) :> Field "viewer" Viewer
+   , Field "me" User
    -- Mutations
-   , (Argument "uid" Text :> Argument "description" Text :> Field "updateSpace" SpaceOrError)
-   , (Argument "uid" Text :> Argument "description" Text :> Field "updateProperty" PropertyOrError)
+   , Argument "uid" Text :> Argument "description" Text :> Field "updateSpace" SpaceOrError
+   , Argument "uid" Text :> Argument "description" Text :> Field "updateProperty" PropertyOrError
    ]

@@ -13,5 +13,5 @@ postGraphR = do
   store <- appStore <$> getYesod
   body  <- requireJsonBody
   value <- Graph.query store body
-  $(logDebug) $ "[GraphQL] " <> (toStrict . decodeUtf8 $ encode value)
+  -- $(logDebug) $ "[GraphQL] " <> (toStrict . decodeUtf8 $ encode value)
   return value
