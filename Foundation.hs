@@ -16,7 +16,7 @@ import qualified Yesod.Core.Unsafe as Unsafe
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 
-import Data (Store, MonadStore)
+import Data (Store, MonadStore(..))
 import Data.Git (useRepo, ensureUserBranch)
 
 -- | The foundation datatype for your application. This can be a good place to
@@ -77,7 +77,8 @@ userWithToken header = do
 -- | A convenient synonym for creating forms.
 type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
 
-instance MonadStore Handler
+instance MonadStore Handler where
+  getStore = appStore <$> getYesod
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.

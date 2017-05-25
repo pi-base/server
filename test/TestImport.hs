@@ -100,8 +100,9 @@ authenticateAs (Entity _ u) = do
 createUser :: Text -> YesodExample App (Entity User)
 createUser ident = do
     runDB $ insertEntity User
-        { userIdent = ident
-        , userPassword = Nothing
+        { userIdent       = ident
+        , userName        = ident
+        , userGithubToken = ident
         }
 
 json :: (Value -> YesodExample App ()) -> YesodExample App ()

@@ -12,9 +12,7 @@ import qualified Data.Map          as Map
 import Data.Int                    (Int32)
 import Data.Scientific             (floatingOrInteger)
 import Data.Text                   (Text)
-import Data.Text.Lazy              (toStrict)
 import GraphQL
-import GraphQL.API
 import GraphQL.Resolver            (Handler)
 import GraphQL.Value               (makeName)
 import GraphQL.Value.ToValue       (ToValue(..), toValue)
@@ -46,13 +44,13 @@ instance FromJSON Operation where
 
 -- FIXME: define instance FromJSON VariableValues instead
 instance ToValue Aeson.Value where
-  toValue (Aeson.Object object) = error "object"
-  toValue (Aeson.Array array)   = error "array"
-  toValue (Aeson.String text)   = toValue text
   toValue (Aeson.Number number) = case floatingOrInteger number of
     Left float -> toValue (float :: Double)
-    Right int  -> toValue (int :: Int32)
+    Right int  -> toValue (int   :: Int32)
+  toValue (Aeson.String text)   = toValue text
   toValue (Aeson.Bool bool)     = toValue bool
+  toValue (Aeson.Object _obj)   = error "object"
+  toValue (Aeson.Array _arr)    = error "array"
   toValue Aeson.Null            = error "null"
 
 buildVariables :: Maybe Aeson.Object -> VariableValues

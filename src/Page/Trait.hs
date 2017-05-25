@@ -5,7 +5,7 @@ module Page.Trait
   ) where
 
 import Data.Aeson
-import Data.Attoparsec.Text
+import Data.Attoparsec.Text hiding (space)
 import Data.Either.Combinators (mapLeft)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text           as T

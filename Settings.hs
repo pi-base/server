@@ -57,9 +57,6 @@ data AppSettings = AppSettings
     , appAnalytics              :: Maybe Text
     -- ^ Google Analytics code
 
-    , appAuthDummyLogin         :: Bool
-    -- ^ Indicate if auth dummy login should be enabled.
-
     , appRepoPath               :: FilePath
     , appFrontendUrl            :: Text
 

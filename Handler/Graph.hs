@@ -5,8 +5,6 @@ import qualified Graph
 
 postGraphR :: Handler Value
 postGraphR = do
-  store <- appStore <$> getYesod
-  body  <- requireJsonBody
-  value <- Graph.query store body
+  value <- requireJsonBody >>= Graph.query
   -- $(logDebug) $ "[GraphQL] " <> (toStrict . decodeUtf8 $ encode value)
   return value

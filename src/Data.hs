@@ -1,6 +1,6 @@
 module Data
   ( Store
-  , MonadStore
+  , MonadStore(..)
   , Viewer(..)
   , Committish(..)
   , mkStore
@@ -98,16 +98,16 @@ parseViewer store commish = useRepo store . gatherErrors $ do
       return Nothing
 
 getSpaceDescription :: MonadStore m
-                    => Store -> Space -> m Text
-getSpaceDescription _store Space{..} = return spaceDescription
+                    => Space -> m Text
+getSpaceDescription Space{..} = return spaceDescription
 
 getPropertyDescription :: MonadStore m
-                       => Store -> Property -> m Text
-getPropertyDescription _store Property{..} = return propertyDescription
+                       => Property -> m Text
+getPropertyDescription Property{..} = return propertyDescription
 
 getTheoremDescription :: MonadStore m
-                      => Store -> Theorem Property -> m Text
-getTheoremDescription _store Theorem{..} = return theoremDescription
+                      => Theorem Property -> m Text
+getTheoremDescription Theorem{..} = return theoremDescription
 
 record :: (FromJSON f, Monad m)
    => (Page.Parser.Page f -> Either Error a) -- parse

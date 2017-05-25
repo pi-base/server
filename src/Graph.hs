@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 module Graph
   ( query
   ) where
@@ -25,8 +26,11 @@ import Viewer (Viewer(..))
 
 type G a = Handler Import.Handler a
 
-spaceR :: MonadStore m => Store -> M.Map SpaceId [Trait Space Property] -> Space -> Handler m G.Space
-spaceR store traitMap s@Space{..} =
+spaceR :: MonadStore m
+       => M.Map SpaceId [Trait Space Property]
+       -> Space
+       -> Handler m G.Space
+spaceR traitMap s@Space{..} =
   let
     (SpaceId _id) = spaceId
 
@@ -37,51 +41,54 @@ spaceR store traitMap s@Space{..} =
         :<> pure _id
         :<> pure spaceSlug
         :<> pure spaceName
-        :<> getSpaceDescription store s
+        :<> getSpaceDescription s
         :<> pure spaceTopology
-        :<> traitsR store traits
+        :<> traitsR traits
 
-traitsR :: MonadStore m => Store -> [Trait Space Property] -> Handler m (List G.Trait)
-traitsR store = pure . map render
+traitsR :: MonadStore m
+        => [Trait Space Property]
+        -> Handler m (List G.Trait)
+traitsR = pure . map render
   where
     render Trait{..} = pure $ pure "Trait"
-      :<> propertyR store traitProperty
+      :<> propertyR traitProperty
       :<> pure traitValue
 
-theoremsR ::  MonadStore m => Store -> Viewer -> Handler m (List G.Theorem)
-theoremsR store Viewer{..} = pure $ map (theoremR store) viewerTheorems
+theoremsR ::  MonadStore m => Viewer -> Handler m (List G.Theorem)
+theoremsR Viewer{..} = pure $ map theoremR viewerTheorems
 
-theoremR :: MonadStore m => Store -> Theorem Property -> Handler m G.Theorem
-theoremR store t@Theorem{..} =
+theoremR :: MonadStore m => Theorem Property -> Handler m G.Theorem
+theoremR t@Theorem{..} =
   let (TheoremId _id) = theoremId
   in pure $ pure "Theorem"
       :<> pure _id
       :<> pure "FIXME: if"
       :<> pure "FIXME: then"
-      :<> getTheoremDescription store t
+      :<> getTheoremDescription t
 
-spacesR :: MonadStore m => Store -> Viewer -> Handler m (List G.Space)
-spacesR store Viewer{..} = pure $ map (spaceR store traitMap) viewerSpaces
+spacesR :: MonadStore m => Viewer -> Handler m (List G.Space)
+spacesR Viewer{..} = pure $ map (spaceR traitMap) viewerSpaces
   where
     traitMap :: M.Map SpaceId [Trait Space Property]
     traitMap = Util.groupBy (\Trait{..} -> spaceId traitSpace) viewerTraits
 
-propertyR :: MonadStore m => Store -> Property -> Handler m G.Property
-propertyR store p@Property{..} =
+propertyR :: MonadStore m => Property -> Handler m G.Property
+propertyR p@Property{..} =
   let (PropertyId _id) = propertyId
   in pure $ pure "Property"
         :<> pure _id
         :<> pure propertySlug
         :<> pure propertyName
-        :<> getPropertyDescription store p
+        :<> getPropertyDescription p
 
-propertiesR :: MonadStore m => Store -> Viewer -> Handler m (List G.Property)
-propertiesR store Viewer{..} = pure $ map (propertyR store) viewerProperties
+propertiesR :: MonadStore m => Viewer -> Handler m (List G.Property)
+propertiesR Viewer{..} = pure $ map propertyR viewerProperties
 
 failure msg = unionValue @G.Error (pure $ pure "Error" :<> pure msg)
 
-updateSpace :: Store -> Text -> Text -> G G.SpaceOrError
-updateSpace store _id description = do
+updateSpace :: Text -> Text -> G G.SpaceOrError
+updateSpace _id description = do
+  store <- getStore
   (_userId, user) <- requireAuthPair
   ms <- findSpace store _id
   case ms of
@@ -90,7 +97,7 @@ updateSpace store _id description = do
       updated <- Data.updateSpace store user s description
       case updated of
         -- TODO: don't allow querying for traits here
-        Just us -> unionValue @G.Space (spaceR store mempty us)
+        Just us -> unionValue @G.Space (spaceR mempty us)
         Nothing -> failure "Update failed"
 
 userR :: G G.User
@@ -98,8 +105,9 @@ userR = do
   (Entity _id User{..}) <- requireAuth
   return $ pure "User" :<> pure userName
 
-updateProperty :: Store -> Text -> Text -> G G.PropertyOrError
-updateProperty store _id description = do
+updateProperty :: Text -> Text -> G G.PropertyOrError
+updateProperty _id description = do
+  store <- getStore
   (_userId, user) <- requireAuthPair
   ms <- findProperty store _id
   case ms of
@@ -108,29 +116,31 @@ updateProperty store _id description = do
       updated <- Data.updateProperty store user p description
       case updated of
         Nothing -> failure "Update failed"
-        Just up -> unionValue @G.Property (propertyR store up)
+        Just up -> unionValue @G.Property (propertyR up)
 
-viewerR :: MonadStore m => Store -> Maybe Version -> Handler m G.Viewer
-viewerR store mver = viewerAtVersion mver >>= \case
-  Left errs -> error $ show errs -- TODO: ViewerOrError
-  Right viewer -> pure
-    $ pure "Viewer"
-    :<> spacesR store viewer
-    :<> propertiesR store viewer
-    :<> theoremsR store viewer
-  where
-    viewerAtVersion (Just ver) = parseViewer store $ Sha ver
-    viewerAtVersion _ = storeMaster store
+viewerR :: MonadStore m => Maybe Version -> Handler m G.Viewer
+viewerR mver = do
+  store <- getStore
+  eviewer <- case mver of
+    (Just ver) -> parseViewer store $ Sha ver
+    _ -> storeMaster store
+  case eviewer of
+    Left errs -> error $ show errs -- TODO: ViewerOrError
+    Right viewer -> pure
+      $ pure "Viewer"
+      :<> spacesR viewer
+      :<> propertiesR viewer
+      :<> theoremsR viewer
 
-queryRoot :: Store -> G G.QueryRoot
-queryRoot store = pure
+queryRoot :: G G.QueryRoot
+queryRoot = pure
   $ pure "Query"
-  :<> viewerR store
+  :<> viewerR
   :<> userR
-  :<> Graph.updateSpace store
-  :<> Graph.updateProperty store
+  :<> Graph.updateSpace
+  :<> Graph.updateProperty
 
-query :: Store -> Q.GQuery -> Import.Handler Aeson.Value
-query store q = do
-  response <- Q.query (queryRoot store) q
+query :: Q.GQuery -> Import.Handler Aeson.Value
+query q = do
+  response <- Q.query queryRoot q
   return . Aeson.toJSON $ toValue response
