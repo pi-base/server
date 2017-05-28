@@ -64,6 +64,6 @@ type QueryRoot = Object "QueryRoot" '[]
    , Argument "version" (Maybe Version) :> Field "viewer" Viewer
    , Field "me" User
    -- Mutations
-   , Argument "uid" Text :> Argument "description" Text :> Field "updateSpace" SpaceOrError
-   , Argument "uid" Text :> Argument "description" Text :> Field "updateProperty" PropertyOrError
+   , Argument "uid" Text :> Argument "description" Text :> Field "updateSpace" Space
+   , Argument "uid" Text :> Argument "description" Text :> Field "updateProperty" Property
    ]

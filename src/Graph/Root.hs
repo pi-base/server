@@ -3,7 +3,6 @@ module Graph.Root
   ( query
   ) where
 
-import Prelude
 import Graph.Import
 import qualified Import (Handler)
 
@@ -13,8 +12,7 @@ import qualified Data.Map          as Map
 import Data.Int                    (Int32)
 import Data.Scientific             (floatingOrInteger)
 import Data.Text                   (Text)
-import GraphQL
-import GraphQL.Resolver            (Handler)
+import GraphQL                     (VariableValues)
 import GraphQL.Value               (makeName)
 import GraphQL.Value.ToValue       (ToValue(..), toValue)
 import GraphQL.Internal.Syntax.AST (Name(..), Variable(..))
