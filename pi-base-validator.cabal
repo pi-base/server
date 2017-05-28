@@ -28,8 +28,10 @@ library
                      Core
                      Data
                      Data.Git
-                     Graph
+                     Graph.Import
+                     Graph.Mutation
                      Graph.Query
+                     Graph.Root
                      Graph.Types
                      Page.Parser
                      Page.Property

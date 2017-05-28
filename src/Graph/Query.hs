@@ -1,71 +1,92 @@
 {-# LANGUAGE TypeApplications #-}
-module Graph.Query
-  ( GQuery
-  , query
-  ) where
+{-# LANGUAGE TypeOperators #-}
+module Graph.Query where
 
-import Prelude
+import Graph.Import
 
-import Data.Aeson                  as Aeson
-import qualified Data.HashMap.Lazy as HashMap
-import qualified Data.Map          as Map
-import Data.Int                    (Int32)
-import Data.Scientific             (floatingOrInteger)
-import Data.Text                   (Text)
-import GraphQL
-import GraphQL.Resolver            (Handler)
-import GraphQL.Value               (makeName)
-import GraphQL.Value.ToValue       (ToValue(..), toValue)
-import GraphQL.Internal.Syntax.AST (Name(..), Variable(..))
+import qualified Data.Aeson
+import qualified Data.Map as M
+import qualified Data.Text.Lazy as TL
+import           Database.Persist.Types (Entity(..))
+import           Yesod.Auth (requireAuth)
 
-import Graph.Types (QueryRoot)
+import           Core hiding (Handler)
+import           Data
+import           Formula (Formula)
+import qualified Graph.Types as G
+import           Model (User(..))
+import qualified Util
+import           Viewer (Viewer(..))
 
-data Operation = Named Name | Anonymous
-
-data GQuery = GQuery
-  { gOperation :: Operation
-  , gQuery     :: Text
-  , gVariables :: Maybe Aeson.Object
-  }
-
-instance FromJSON GQuery where
-  parseJSON = Aeson.withObject "GQuery" $ \o -> GQuery
-    <$> o .: "operationName"
-    <*> o .: "query"
-    <*> o .:? "variables"
-
-instance FromJSON Operation where
-  parseJSON (Aeson.String "") = return Anonymous
-  parseJSON (Aeson.String str) = case makeName str of
-    Left err -> fail $ show err
-    Right name -> return $ Named name
-  parseJSON Aeson.Null = return Anonymous
-  parseJSON _ = fail "Name is not a string"
-
--- FIXME: define instance FromJSON VariableValues instead
-instance ToValue Aeson.Value where
-  toValue (Aeson.Number number) = case floatingOrInteger number of
-    Left float -> toValue (float :: Double)
-    Right int  -> toValue (int   :: Int32)
-  toValue (Aeson.String text)   = toValue text
-  toValue (Aeson.Bool bool)     = toValue bool
-  toValue (Aeson.Object _obj)   = error "object"
-  toValue (Aeson.Array _arr)    = error "array"
-  toValue Aeson.Null            = error "null"
-
-buildVariables :: Maybe Aeson.Object -> VariableValues
-buildVariables (Just hm) = Map.fromList . map convert $ HashMap.toList hm
+spaceR :: MonadStore m
+       => M.Map SpaceId [Trait Space Property]
+       -> Space
+       -> Handler m G.Space
+spaceR traitMap s@Space{..} = pure $ pure "Space"
+  :<> pure (unSpaceId spaceId)
+  :<> pure spaceSlug
+  :<> pure spaceName
+  :<> getSpaceDescription s
+  :<> pure spaceTopology
+  :<> traitsR traits
   where
-    convert (key, val) = (Variable (name key), toValue val)
-    name key = let Right n = makeName key in n
-buildVariables Nothing = mempty
+    traits :: [Trait Space Property]
+    traits = maybe [] id $ M.lookup spaceId traitMap
 
-query :: Monad m => Handler m QueryRoot -> GQuery -> m Response
-query root GQuery{..} = interpretQuery @QueryRoot root gQuery operation variables
+
+traitsR :: MonadStore m
+        => [Trait Space Property]
+        -> Handler m (List G.Trait)
+traitsR = pure . map render
   where
-    operation = case gOperation of
-      Named name -> Just name
-      Anonymous  -> Nothing
+    render Trait{..} = pure $ pure "Trait"
+      :<> propertyR traitProperty
+      :<> pure traitValue
 
-    variables = buildVariables gVariables
+theoremsR ::  MonadStore m => Viewer -> Handler m (List G.Theorem)
+theoremsR Viewer{..} = pure $ map theoremR viewerTheorems
 
+theoremR :: MonadStore m => Theorem Property -> Handler m G.Theorem
+theoremR t@Theorem{..} = pure $ pure "Theorem"
+  :<> pure (unTheoremId theoremId)
+  :<> pure (encodeFormula theoremIf)
+  :<> pure (encodeFormula theoremThen)
+  :<> getTheoremDescription t
+
+spacesR :: MonadStore m => Viewer -> Handler m (List G.Space)
+spacesR Viewer{..} = pure $ map (spaceR traitMap) viewerSpaces
+  where
+    traitMap :: M.Map SpaceId [Trait Space Property]
+    traitMap = Util.groupBy (\Trait{..} -> spaceId traitSpace) viewerTraits
+
+propertyR :: MonadStore m => Property -> Handler m G.Property
+propertyR p@Property{..} = pure $ pure "Property"
+  :<> pure (unPropertyId propertyId)
+  :<> pure propertySlug
+  :<> pure propertyName
+  :<> getPropertyDescription p
+
+propertiesR :: MonadStore m => Viewer -> Handler m (List G.Property)
+propertiesR Viewer{..} = pure $ map propertyR viewerProperties
+
+userR :: G G.User
+userR = do
+  (Entity _id User{..}) <- requireAuth
+  return $ pure "User" :<> pure userName
+
+viewerR :: MonadStore m => Maybe Version -> Handler m G.Viewer
+viewerR mver = do
+  store <- getStore
+  eviewer <- case mver of
+    (Just ver) -> parseViewer store $ Sha ver
+    _ -> storeMaster store
+  case eviewer of
+    Left errs -> error $ show errs -- TODO: ViewerOrError
+    Right viewer -> pure
+      $ pure "Viewer"
+      :<> spacesR viewer
+      :<> propertiesR viewer
+      :<> theoremsR viewer
+
+encodeFormula :: Formula Property -> Text
+encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map (unPropertyId . propertyId)

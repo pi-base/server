@@ -26,10 +26,10 @@ type Uid = Text
 type Record = (TreeFilePath, Text)
 type Version = Text
 
-newtype SpaceId    = SpaceId Uid    deriving (Eq, Ord, ToJSON, FromJSON)
-newtype PropertyId = PropertyId Uid deriving (Eq, Ord, ToJSON, FromJSON)
-newtype TheoremId  = TheoremId Uid  deriving (Eq, Ord, ToJSON, FromJSON, Show)
-newtype TraitId    = TraitId Uid    deriving (Eq, Ord, ToJSON, FromJSON, Show)
+newtype SpaceId    = SpaceId { unSpaceId :: Uid }       deriving (Eq, Ord, ToJSON, FromJSON)
+newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
+newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSON, FromJSON, Show)
+newtype TraitId    = TraitId { unTraitId :: Uid }       deriving (Eq, Ord, ToJSON, FromJSON, Show)
 
 data Error = NotATree TreeFilePath
            | ParseError TreeFilePath String
