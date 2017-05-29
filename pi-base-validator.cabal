@@ -30,6 +30,7 @@ library
                      Data.Git
                      Graph.Import
                      Graph.Mutation
+                     Graph.Mutations.UpdateSpace
                      Graph.Query
                      Graph.Root
                      Graph.Types

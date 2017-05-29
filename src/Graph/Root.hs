@@ -1,4 +1,6 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 module Graph.Root
   ( query
   ) where
@@ -17,11 +19,23 @@ import GraphQL.Value               (makeName)
 import GraphQL.Value.ToValue       (ToValue(..), toValue)
 import GraphQL.Internal.Syntax.AST (Name(..), Variable(..))
 
+import Core (Version, Maybe)
+
 import Graph.Mutation as G
 import Graph.Query    as G
 import Graph.Types    as G
 
 data Operation = Named Name | Anonymous
+
+type QueryRoot = Graph.Import.Object "QueryRoot" '[]
+  '[ Field "__typename" Text
+   , Argument "version" (Maybe Version) :> Field "viewer" Viewer
+   , Field "me" G.User
+   -- Mutations
+   -- , Argument "uid" Text :> Argument "description" Text :> Field "updateSpace" Space
+   , Argument "input" SpaceInput :> Field "updateSpace" Space
+   , Argument "uid" Text :> Argument "description" Text :> Field "updateProperty" Property
+   ]
 
 data QueryData = QueryData
   { qOperation :: Operation
@@ -29,9 +43,8 @@ data QueryData = QueryData
   , qVariables :: Maybe Aeson.Object
   }
 
-queryRoot :: G G.QueryRoot
-queryRoot = pure
-  $ pure "Query"
+queryRoot :: G QueryRoot
+queryRoot = pure $ pure "Query"
   :<> G.viewerR
   :<> G.userR
   :<> G.updateSpace
@@ -68,11 +81,11 @@ instance ToValue Aeson.Value where
   toValue (Aeson.Number number) = case floatingOrInteger number of
     Left float -> toValue (float :: Double)
     Right int  -> toValue (int   :: Int32)
-  toValue (Aeson.String text)   = toValue text
-  toValue (Aeson.Bool bool)     = toValue bool
-  toValue (Aeson.Object _obj)   = error "object"
-  toValue (Aeson.Array _arr)    = error "array"
-  toValue Aeson.Null            = error "null"
+  toValue (Aeson.String t)  = toValue t
+  toValue (Aeson.Bool   b)  = toValue b
+  toValue (Aeson.Object _o) = error "object"
+  toValue (Aeson.Array  _a) = error "array"
+  toValue Aeson.Null        = error "null"
 
 buildVariables :: Maybe Aeson.Object -> VariableValues
 buildVariables (Just hm) = Map.fromList . map convert $ HashMap.toList hm

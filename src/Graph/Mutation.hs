@@ -1,10 +1,11 @@
 {-# LANGUAGE TypeApplications #-}
 module Graph.Mutation
-  ( Graph.Mutation.updateSpace
-  , Graph.Mutation.updateProperty
+  ( Graph.Mutation.updateProperty
+  , module X
   ) where
 
 import Graph.Import
+import Graph.Mutations.UpdateSpace as X
 
 import Yesod.Auth (requireAuthPair)
 
@@ -13,19 +14,7 @@ import qualified Graph.Types as G
 
 import Data
 
-updateSpace :: Text -> Text -> G G.Space
-updateSpace _id description = do
-  store <- getStore
-  (_userId, user) <- requireAuthPair
-  ms <- findSpace store _id
-  case ms of
-    Nothing -> halt "Could not find space"
-    Just s -> do
-      updated <- Data.updateSpace store user s description
-      case updated of
-        -- TODO: don't allow querying for traits here
-        Just us -> Q.spaceR mempty us
-        Nothing -> halt "Update failed"
+data PropertyInput = PropertyInput { uid :: Text, description :: Text }
 
 updateProperty :: Text -> Text -> G G.Property
 updateProperty _id description = do

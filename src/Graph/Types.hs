@@ -49,9 +49,6 @@ type Error = Object "Error" '[]
    , Field "message"    Text
    ]
 
-type SpaceOrError = Union "SpaceOrError" '[Space, Error]
-type PropertyOrError = Union "PropertyOrError" '[Property, Error]
-
 type Viewer = Object "Viewer" '[]
   '[ Field "__typename" Text
    , Field "spaces"     (List Space)
@@ -59,11 +56,3 @@ type Viewer = Object "Viewer" '[]
    , Field "theorems"   (List Theorem)
    ]
 
-type QueryRoot = Object "QueryRoot" '[]
-  '[ Field "__typename" Text
-   , Argument "version" (Maybe Version) :> Field "viewer" Viewer
-   , Field "me" User
-   -- Mutations
-   , Argument "uid" Text :> Argument "description" Text :> Field "updateSpace" Space
-   , Argument "uid" Text :> Argument "description" Text :> Field "updateProperty" Property
-   ]
