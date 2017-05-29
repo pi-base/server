@@ -227,7 +227,12 @@ instance YesodAuth App where
           x <- runDB . getBy $ UniqueUser _id
           case x of
             Just (Entity uid _) -> return $ Authenticated uid
-            Nothing -> Authenticated <$> createGithubUser User { userIdent = _id, userName = login, userGithubToken = token }
+            Nothing -> Authenticated <$> createGithubUser User
+              { userIdent = _id
+              , userName = login
+              , userEmail = error "lookup email at login"
+              , userGithubToken = token
+              }
         _ -> return $ ServerError "Missing access token or login"
 
     authPlugins app =

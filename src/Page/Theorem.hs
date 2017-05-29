@@ -40,17 +40,18 @@ parse (Page _ Frontmatter{..} main _sections) = Right $ Theorem
   , theoremDescription = main
   }
 
-write :: Theorem Text -> Page Frontmatter
+write :: Theorem Property -> Page Frontmatter
 write Theorem{..} = Page
-  { pagePath = encodeUtf8 $ "theorems/" <> _id <> ".md"
+  { pagePath = encodeUtf8 $ "theorems/" <> unTheoremId theoremId <> ".md"
   , pageFrontmatter = Frontmatter
-    { uid  = theoremId
-    , _if = theoremIf
-    , _then = theoremThen
+    { uid = theoremId
+    , _if = serialize theoremIf
+    , _then = serialize theoremThen
     , _converse = theoremConverse
     }
   , pageMain = theoremDescription
   , pageSections = []
   }
   where
-    (TheoremId _id) = theoremId
+    serialize :: Formula Property -> Formula Text
+    serialize = map (unPropertyId . propertyId)

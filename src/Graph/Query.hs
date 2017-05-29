@@ -69,24 +69,23 @@ propertyR p@Property{..} = pure $ pure "Property"
 propertiesR :: MonadStore m => Viewer -> Handler m (List G.Property)
 propertiesR Viewer{..} = pure $ map propertyR viewerProperties
 
-userR :: G G.User
-userR = do
+user :: G G.User
+user = do
   (Entity _id User{..}) <- requireAuth
   return $ pure "User" :<> pure userName
 
-viewerR :: MonadStore m => Maybe Version -> Handler m G.Viewer
-viewerR mver = do
+viewer :: MonadStore m => Maybe Version -> Handler m G.Viewer
+viewer mver = do
   store <- getStore
   eviewer <- case mver of
     (Just ver) -> parseViewer store $ Sha ver
-    _ -> storeMaster store
+    _ -> storeMaster
   case eviewer of
     Left errs -> error $ show errs -- TODO: ViewerOrError
-    Right viewer -> pure
-      $ pure "Viewer"
-      :<> spacesR viewer
-      :<> propertiesR viewer
-      :<> theoremsR viewer
+    Right v -> pure $ pure "Viewer"
+      :<> spacesR v
+      :<> propertiesR v
+      :<> theoremsR v
 
 encodeFormula :: Formula Property -> Text
 encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map (unPropertyId . propertyId)

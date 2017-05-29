@@ -15,15 +15,16 @@ import Data.Int                    (Int32)
 import Data.Scientific             (floatingOrInteger)
 import Data.Text                   (Text)
 import GraphQL                     (VariableValues)
-import GraphQL.Value               (makeName)
+import GraphQL.Value               (makeName, objectFromList)
 import GraphQL.Value.ToValue       (ToValue(..), toValue)
 import GraphQL.Internal.Syntax.AST (Name(..), Variable(..))
 
 import Core (Version, Maybe)
 
-import Graph.Mutation as G
 import Graph.Query    as G
 import Graph.Types    as G
+
+import Graph.Mutations
 
 data Operation = Named Name | Anonymous
 
@@ -32,9 +33,12 @@ type QueryRoot = Graph.Import.Object "QueryRoot" '[]
    , Argument "version" (Maybe Version) :> Field "viewer" Viewer
    , Field "me" G.User
    -- Mutations
-   -- , Argument "uid" Text :> Argument "description" Text :> Field "updateSpace" Space
-   , Argument "input" SpaceInput :> Field "updateSpace" Space
-   , Argument "uid" Text :> Argument "description" Text :> Field "updateProperty" Property
+   , Argument "input" CreateSpaceInput    :> Field "createSpace"    Space
+   , Argument "input" CreatePropertyInput :> Field "createProperty" Property
+   , Argument "input" UpdateSpaceInput    :> Field "updateSpace"    Space
+   , Argument "input" UpdatePropertyInput :> Field "updateProperty" Property
+   , Argument "input" UpdateTheoremInput  :> Field "updateTheorem"  Theorem
+   , Argument "input" AssertTraitInput    :> Field "assertTrait"    (List Trait)
    ]
 
 data QueryData = QueryData
@@ -45,10 +49,14 @@ data QueryData = QueryData
 
 queryRoot :: G QueryRoot
 queryRoot = pure $ pure "Query"
-  :<> G.viewerR
-  :<> G.userR
-  :<> G.updateSpace
-  :<> G.updateProperty
+  :<> G.viewer
+  :<> G.user
+  :<> createSpace
+  :<> createProperty
+  :<> updateSpace
+  :<> updateProperty
+  :<> updateTheorem
+  :<> assertTrait
 
 query :: QueryData -> Import.Handler Aeson.Value
 query q = do
@@ -83,14 +91,20 @@ instance ToValue Aeson.Value where
     Right int  -> toValue (int   :: Int32)
   toValue (Aeson.String t)  = toValue t
   toValue (Aeson.Bool   b)  = toValue b
-  toValue (Aeson.Object _o) = error "object"
+  toValue (Aeson.Object o)  = case objectFromList . map convert $ HashMap.toList o of
+    Nothing -> error "Could not convert object"
+    Just o' -> toValue o'
+    where
+      convert (key, val) =
+        let Right name = makeName key
+        in (name, toValue val)
   toValue (Aeson.Array  _a) = error "array"
   toValue Aeson.Null        = error "null"
 
 buildVariables :: Maybe Aeson.Object -> VariableValues
 buildVariables (Just hm) = Map.fromList . map convert $ HashMap.toList hm
   where
-    convert (key, val) = (Variable (name key), toValue val)
-    name key = let Right n = makeName key in n
+    convert (key, val) =
+      let Right name = makeName key
+      in (Variable name, toValue val)
 buildVariables Nothing = mempty
-

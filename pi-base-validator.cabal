@@ -29,8 +29,13 @@ library
                      Data
                      Data.Git
                      Graph.Import
-                     Graph.Mutation
+                     Graph.Mutations
+                     Graph.Mutations.AssertTrait
+                     Graph.Mutations.CreateProperty
+                     Graph.Mutations.CreateSpace
+                     Graph.Mutations.UpdateProperty
                      Graph.Mutations.UpdateSpace
+                     Graph.Mutations.UpdateTheorem
                      Graph.Query
                      Graph.Root
                      Graph.Types

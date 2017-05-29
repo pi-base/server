@@ -26,8 +26,8 @@ type Uid = Text
 type Record = (TreeFilePath, Text)
 type Version = Text
 
-newtype SpaceId    = SpaceId { unSpaceId :: Uid }       deriving (Eq, Ord, ToJSON, FromJSON)
-newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
+newtype SpaceId    = SpaceId { unSpaceId :: Uid }       deriving (Eq, Ord, ToJSON, FromJSON, Show)
+newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON, Show)
 newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSON, FromJSON, Show)
 newtype TraitId    = TraitId { unTraitId :: Uid }       deriving (Eq, Ord, ToJSON, FromJSON, Show)
 

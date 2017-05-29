@@ -102,18 +102,13 @@ ensureUserBranch user = resolveReference branch >>= \case
   where
     branch = userBranch user
 
-{- For reference only
--  Items below here should be cleaned up at some point
-------------------------------------------------------
--}
-
 writeContents :: (MonadStore m)
               => User
               -> CommitMessage
               -> [(TreeFilePath, Text)]
               -> ReaderT LgRepo m ()
 writeContents user message files = do
-  ensureUserBranch user -- TODO: move to registration time
+  ensureUserBranch user
 
   let refname = userBranch user
   mref <- resolveReference refname
@@ -130,13 +125,13 @@ writeContents user message files = do
 
   (_,tid) <- withTree tree $ do
     forM_ blobs $ \(file, _id) -> putEntry file (BlobEntry _id PlainBlob)
-  _ <- commit refname parent tid message
+  _ <- commit user refname parent tid message
   return ()
 
-commit :: MonadGit r m => RefName -> Commit r -> TreeOid r -> CommitMessage -> m (Commit r)
-commit refname parent tree message = do
+commit :: MonadGit r m => User -> RefName -> Commit r -> TreeOid r -> CommitMessage -> m (Commit r)
+commit User{..} refname parent tree message = do
   let sig = defaultSignature
-        { signatureName = "James Dabbs"
-        , signatureEmail = "jamesdabbs@gmail.com"
+        { signatureName = userName
+        , signatureEmail = userEmail
         }
   createCommit [commitOid parent] tree sig sig message (Just refname)

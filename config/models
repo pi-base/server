@@ -1,6 +1,7 @@
 User json
   ident Text
   name Text
+  email Text
   githubToken Text
   UniqueUser ident
   deriving Typeable

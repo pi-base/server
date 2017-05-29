@@ -8,10 +8,12 @@ module Data
   , fetchPullRequest
   , parseViewer
   --
-  , findSpace
-  , updateSpace
   , findProperty
+  , findSpace
+  , findTheorem
   , updateProperty
+  , updateSpace
+  , updateTheorem
   , getSpaceDescription
   , getPropertyDescription
   , getTheoremDescription
@@ -52,8 +54,10 @@ lookupCommitish (Sha sha) = Just <$> parseOid sha
 
 
 storeMaster :: MonadStore m
-            => Store -> m (Either [Error] Viewer)
-storeMaster store = storeCached store $ \s -> parseViewer s (Ref "master")
+            => m (Either [Error] Viewer)
+storeMaster = do
+  store <- getStore
+  storeCached store $ \s -> parseViewer s (Ref "master")
 
 fetchPullRequest :: MonadIO m => FilePath -> m ()
 fetchPullRequest path = liftIO $ do
@@ -195,27 +199,46 @@ gatherErrors s = do
       else Left errors
 
 updateSpace :: (MonadStore m)
-            => Store -> User -> Space -> Text -> m (Maybe Space)
-updateSpace store user space description = useRepo store $ do
-  let updated = space { spaceDescription = description }
-  writeContents user "Updated" [Page.Parser.write $ Page.Space.write space]
-  return $ Just updated
+            => User -> Space -> Text -> m (Maybe Space)
+updateSpace user space description = withRepo $ do
+    let updated = space { spaceDescription = description }
+    writeContents user ("Updated " <> spaceName space)
+      [Page.Parser.write $ Page.Space.write space]
+    return $ Just updated
 
-findSpace :: MonadStore m
-          => Store -> Text -> m (Maybe Space)
-findSpace store _id = storeMaster store >>= \case
+findSpace :: MonadStore m => SpaceId -> m (Maybe Space)
+findSpace _id = storeMaster >>= \case
   Left _ -> return Nothing
-  Right Viewer{..} -> return $ find (\Space{..} -> spaceId == SpaceId _id) viewerSpaces
+  Right Viewer{..} -> return $ find (\Space{..} -> spaceId == _id) viewerSpaces
 
-updateProperty :: (MonadStore m)
-            => Store -> User -> Property -> Text -> m (Maybe Property)
-updateProperty store user property description = useRepo store $ do
+updateProperty :: MonadStore m
+            => User -> Property -> Text -> m (Maybe Property)
+updateProperty user property description = withRepo $ do
   let updated = property { propertyDescription = description }
-  writeContents user "Updated" [Page.Parser.write $ Page.Property.write property]
+  writeContents user ("Updated " <> propertyName property)
+    [Page.Parser.write $ Page.Property.write updated]
   return $ Just updated
 
-findProperty :: MonadStore m
-          => Store -> Text -> m (Maybe Property)
-findProperty store _id = storeMaster store >>= \case
+findProperty :: MonadStore m => PropertyId -> m (Maybe Property)
+findProperty _id = storeMaster >>= \case
   Left _ -> return Nothing
-  Right Viewer{..} -> return $ find (\Property{..} -> propertyId == PropertyId _id) viewerProperties
+  Right Viewer{..} -> return $ find (\Property{..} -> propertyId == _id) viewerProperties
+
+updateTheorem :: MonadStore m
+              => User -> Theorem Property -> Text -> m (Maybe (Theorem Property))
+updateTheorem user theorem description = withRepo $ do
+  let updated = theorem { theoremDescription = description }
+  writeContents user ("Updated " <> theoremName theorem)
+    [Page.Parser.write $ Page.Theorem.write updated]
+  return $ Just updated
+
+findTheorem :: MonadStore m => TheoremId -> m (Maybe (Theorem Property))
+findTheorem _id = storeMaster >>= \case
+  Left _ -> return Nothing
+  Right Viewer{..} -> return $ find (\Theorem{..} -> theoremId == _id) viewerTheorems
+
+withRepo :: MonadStore m => ReaderT LgRepo m b -> m b
+withRepo action = getStore >>= flip useRepo action
+
+theoremName :: Theorem Property -> Text
+theoremName = T.pack . show . theoremImplication

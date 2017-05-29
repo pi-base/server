@@ -8,7 +8,7 @@ import Services.Github (checkPullRequest, webhookHandler)
 import Viewer
 
 getMaster :: Handler Viewer
-getMaster = getYesod >>= storeMaster . appStore >>=
+getMaster = storeMaster >>=
   either (sendStatusJSON status200) return
 
 getHomeR :: Handler Value
