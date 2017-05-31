@@ -24,6 +24,7 @@ library
                      Handler.Graph
                      Handler.Helpers
                      Handler.Home
+                     Handler.Util
                      -- src
                      Core
                      Data

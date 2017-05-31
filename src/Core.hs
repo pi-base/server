@@ -16,9 +16,9 @@ import Data.ByteString                  as Core (ByteString)
 import Data.Map                         as Core (Map)
 import Data.Monoid                      as Core (Monoid)
 import Data.Text                        as Core (Text)
+import Git                              as Core (TreeFilePath)
 
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=))
-import Git (TreeFilePath)
 import qualified Data.Text as T
 import qualified Formula as F
 
@@ -26,10 +26,18 @@ type Uid = Text
 type Record = (TreeFilePath, Text)
 type Version = Text
 
-newtype SpaceId    = SpaceId { unSpaceId :: Uid }       deriving (Eq, Ord, ToJSON, FromJSON, Show)
+newtype SpaceId = SpaceId { unSpaceId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
+
+instance Show SpaceId where
+  show = T.unpack . unSpaceId
+
 newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON, Show)
 newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSON, FromJSON, Show)
-newtype TraitId    = TraitId { unTraitId :: Uid }       deriving (Eq, Ord, ToJSON, FromJSON, Show)
+
+newtype TraitId = TraitId { unTraitId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
+
+instance Show TraitId where
+  show = T.unpack . unTraitId
 
 data Error = NotATree TreeFilePath
            | ParseError TreeFilePath String
@@ -38,9 +46,9 @@ data Error = NotATree TreeFilePath
            deriving (Show, Eq)
 
 explainError :: Error -> Text
-explainError (NotATree path) = "Could not find directory at " <> tshow path
-explainError (ParseError path msg) = "Error while parsing " <> tshow path <> ": " <> T.pack msg
-explainError (ReferenceError path ids) = "Invalid reference in " <> tshow path <> ": " <> (T.pack $ show ids)
+explainError (NotATree path) = decodeUtf8 path <> ": could not find directory"
+explainError (ParseError path msg) = decodeUtf8 path <> ": error while parsing - " <> T.pack msg
+explainError (ReferenceError path ids) = decodeUtf8 path <> ": invalid reference - " <> (T.pack $ show ids)
 explainError (NotUnique field value) = field <> " is not unique: " <> value
 
 instance ToJSON Error where

@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Page.Trait
   ( Page.Trait.parse
+  , path
   , write
   ) where
 
@@ -23,6 +24,9 @@ data Frontmatter = Frontmatter
 instance ToJSON Frontmatter
 instance FromJSON Frontmatter
 
+path :: Trait Space Property -> TreeFilePath
+path Trait{..} = encodeUtf8 $ "spaces/" <> (spaceSlug traitSpace) <> "/properties/" <> (propertySlug traitProperty) <> ".md"
+
 parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe [Assumption])
 parse (Page _ Frontmatter{..} main sections) = do
   let trait = Trait uid space property value main
@@ -32,13 +36,13 @@ parse (Page _ Frontmatter{..} main sections) = do
       pids <- parseProof p
       return (trait, Just pids)
 
-write :: (Trait Text Text, Maybe [Assumption]) -> Page Frontmatter
-write (Trait{..}, proof) = Page
-  { pagePath = encodeUtf8 $ "spaces/" <> traitSpace <> "/properties/" <> traitProperty <> ".md"
+write :: (Trait Space Property, Maybe [Assumption]) -> Page Frontmatter
+write (t@Trait{..}, proof) = Page
+  { pagePath = path t
   , pageFrontmatter = Frontmatter
     { uid = traitId
-    , space = traitSpace
-    , property = traitProperty
+    , space = spaceSlug traitSpace
+    , property = propertySlug traitProperty
     , value = traitValue
     }
   , pageMain = traitDescription

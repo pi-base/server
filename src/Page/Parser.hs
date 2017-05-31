@@ -54,7 +54,7 @@ parseSections :: Text -> Either String (Text, [(Text, Text)])
 parseSections body = flip parseOnly body $ do
   main_    <- manyTill anyChar endSection
   sections <- many' section
-  return $ (v main_, sections)
+  return $ (t main_, sections)
   where
     endSection :: Parser ()
     endSection = void "[[" <|> endOfInput
@@ -63,11 +63,8 @@ parseSections body = flip parseOnly body $ do
     section = do
       title <- manyTill anyChar "]]"
       body_ <- manyTill anyChar endSection
-      return (k title, v body_)
+      return (t title, t body_)
 
-    k :: String -> Text
-    k title = "[[" <> T.pack title <> "]]"
-
-    v :: String -> Text
-    v = T.strip . T.pack
+    t :: String -> Text
+    t = T.strip . T.pack
 

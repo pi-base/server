@@ -39,6 +39,8 @@ import Handler.Common
 import Handler.Graph
 import Handler.Home
 
+import Handler.Util (deleteDerivedTraits)
+
 -- This line actually creates our YesodDispatch instance. It is the second half
 -- of the call to mkYesodData which occurs in Foundation.hs. Please see the
 -- comments there for more details.
@@ -140,7 +142,9 @@ getAppSettings = loadYamlSettings [configSettingsYml] [] useEnv
 
 -- | main function for use by yesod devel
 develMain :: IO ()
-develMain = develMainHelper getApplicationDev
+develMain = do
+  -- handler deleteDerivedTraits
+  develMainHelper getApplicationDev
 
 -- | The @main@ function for an executable running this site.
 appMain :: IO ()

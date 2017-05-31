@@ -26,6 +26,7 @@ import qualified Data.Text             as T
 import Control.Monad.Trans.State.Strict (modify', get, runStateT)
 import Data.Aeson                       (FromJSON)
 import Data.Either.Combinators          (mapLeft)
+import Data.List                        (nub)
 import Data.Tagged                      (Tagged(..))
 import Git                              hiding (Object)
 import Git.Libgit2                      (LgRepo)
@@ -115,8 +116,8 @@ getTheoremDescription Theorem{..} = return theoremDescription
 
 record :: (FromJSON f, Monad m)
    => (Page.Parser.Page f -> Either Error a) -- parse
-   -> (a -> Either Error b)      -- hydrate
-   -> (Viewer -> b -> Viewer)    -- insert
+   -> (a -> Either Error b)                  -- hydrate
+   -> (Viewer -> b -> Viewer)                -- insert
    -> Record
    -> StateT (Viewer, [Error]) (ReaderT LgRepo m) ()
 record parse hydrate insert r =
@@ -136,19 +137,19 @@ addTheorem :: Monad m
            => M.Map Text Property
            -> Record
            -> V m
-addTheorem props = record Page.Theorem.parse hydrate $
-  \v t -> v { viewerTheorems = t : viewerTheorems v}
+addTheorem props r@(path, _) = record Page.Theorem.parse hydrate insert r
   where
-    hydrate = mapLeft (ReferenceError "theorem") . hydrateTheorem props
+    hydrate = mapLeft (ReferenceError path) . hydrateTheorem props
+    insert v t = v { viewerTheorems = t : viewerTheorems v}
 
 addTrait :: MonadIO m
          => M.Map Text Space
          -> M.Map Text Property
          -> Record
          -> V m
-addTrait spaces props r = case Page.Parser.parse r >>= Page.Trait.parse of
+addTrait spaces props r@(path, _) = case Page.Parser.parse r >>= Page.Trait.parse of
   Left err -> addError err
-  Right (trait, mproof) -> case hydrateTrait spaces props trait of
+  Right (trait, mproof) -> case hydrateTrait path spaces props trait of
     Left err -> addError err
     Right ht -> do
       modify' . withViewer $ recordTrait ht
@@ -182,12 +183,12 @@ validate = do
   where
     verifyUnique label f coll = mapM_ (addError . NotUnique label) . dupes $ map f coll
 
-hydrateTrait :: Map Uid s -> Map Uid p -> Trait Uid Uid -> Either Error (Trait s p)
-hydrateTrait ss ps t@Trait{..} = case (M.lookup traitSpace ss, M.lookup traitProperty ps) of
+hydrateTrait :: TreeFilePath -> Map Uid s -> Map Uid p -> Trait Uid Uid -> Either Error (Trait s p)
+hydrateTrait path ss ps t@Trait{..} = case (M.lookup traitSpace ss, M.lookup traitProperty ps) of
   (Just s, Just p)   -> Right $ t { traitSpace = s, traitProperty = p }
-  (Nothing, Nothing) -> Left $ ReferenceError "trait" [traitSpace, traitProperty]
-  (Nothing, _) -> Left $ ReferenceError "space" [traitSpace]
-  (_, Nothing) -> Left $ ReferenceError "property" [traitProperty]
+  (Nothing, Nothing) -> Left $ ReferenceError path [traitSpace, traitProperty]
+  (Nothing, _) -> Left $ ReferenceError path [traitSpace]
+  (_, Nothing) -> Left $ ReferenceError path [traitProperty]
 
 gatherErrors :: Monad m => StateT (Viewer, [Error]) m (Maybe Error) -> m (Either [Error] Viewer)
 gatherErrors s = do
@@ -196,7 +197,7 @@ gatherErrors s = do
     Just err -> Left $ err : errors
     Nothing  -> if null errors
       then Right viewer
-      else Left errors
+      else Left $ nub errors
 
 updateSpace :: (MonadStore m)
             => User -> Space -> Text -> m (Maybe Space)
