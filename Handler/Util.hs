@@ -1,7 +1,8 @@
-module Handler.Util where
+module Handler.Util
+  ( deleteDerivedTraits
+  , writeProofs
+  ) where
 
-import Data.Tagged
-import Data.Time.LocalTime (getZonedTime)
 import Git
 
 import qualified Data.Map as M
@@ -9,45 +10,45 @@ import qualified Data.Map as M
 import Import
 import Core hiding (Handler)
 import Data
-import Data.Git
+import Data.Git (modifyGitRef)
+import Logic (deduceTraits)
+import qualified Page.Parser
 import qualified Page.Trait as PT
 import Util (indexBy)
 import Viewer
 
-deleteDerivedTraits :: Handler ()
-deleteDerivedTraits = do
-  store <- getStore
-  eviewer <- parseViewer store (Ref "audit")
-  case eviewer of
-    Left errors  -> mapM_ (lift . putStrLn . explainError) errors
-    Right Viewer{..} -> useRepo store $ do
-      putStrLn $ "Parsed viewer @" <> viewerVersion
-      let
+deleteDerivedTraits :: Text -> Handler ()
+deleteDerivedTraits ref = withViewerAt ref $ \Viewer{..} -> do
+  putStrLn $ "Parsed viewer @" <> viewerVersion
+  user <- systemUser
+  void . modifyGitRef user ref "Delete derived traits" $ do
+    let traits = indexBy traitId viewerTraits
         Proofs proofs = viewerProofs
-        deduced = M.keys proofs
-        traits  = indexBy traitId viewerTraits
-        refname = "refs/heads/audit"
-
-      mref <- resolveReference refname
-      (parent, tree) <- case mref of
-        Nothing  -> error "Could not find user branch"
-        Just ref -> do
-          parent <- lookupCommit $ Tagged ref
-          tree   <- lookupTree $ commitTree parent
-          return (parent, tree)
-
-      (_, newTree) <- withTree tree $ do
-        forM_ deduced $ \traitId -> case M.lookup traitId traits of
-          Nothing -> return ()
-          Just trait -> dropEntry $ PT.path trait
-
-      time <- lift $ lift getZonedTime
-      let sig = defaultSignature
-           { signatureEmail = "jamesdabbs@gmail.com"
-           , signatureName  = "James Dabbs"
-           , signatureWhen  = time
-           }
-      let message = "Delete auto-generated traits"
-      createCommit [commitOid parent] newTree sig sig message (Just refname)
-      return ()
+        deduced = catMaybes $ map (\_id -> M.lookup _id traits) $ M.keys proofs
+    putStrLn $ "Deleting " <> (tshow $ length deduced) <> " traits"
+    forM_ deduced $ \trait -> dropEntry $ PT.path trait
   putStrLn "Done"
+
+writeProofs :: Text -> Handler ()
+writeProofs ref = withViewerAt ref $ \v@Viewer{..} -> do
+  putStrLn $ "Deriving from " <> (tshow $ length viewerTraits) <> " traits"
+  let (_, traits) = deduceTraits v
+  user <- systemUser
+  when (length traits > 0) $ do
+    void . modifyGitRef user ref "Add deduced traits" $ do
+      forM_ traits $ \(trait, assumptions) -> do
+        let (path, contents) = Page.Parser.write $ PT.write (trait, Just assumptions)
+        (lift $ createBlobUtf8 contents) >>= putBlob path
+
+
+-- TODO: pull from system .gitconfig if present
+systemUser :: Handler User
+systemUser = return $ User "jamesdabbs" "James Dabbs" "jamesdabbs@gmail.com" ""
+
+withViewerAt :: (MonadIO m, MonadTrans t, MonadStore (t m))
+             => Text
+             -> (Viewer -> t m ())
+             -> t m ()
+withViewerAt ref f = viewerAtRef ref >>= \case
+  Left errors  -> mapM_ (lift . putStrLn . explainError) errors
+  Right viewer -> f viewer

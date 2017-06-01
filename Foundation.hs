@@ -58,12 +58,9 @@ mkYesodData "App" $(parseRoutesFile "config/routes")
 
 createGithubUser :: User -> Handler UserId
 createGithubUser user = do
-  store <- appStore <$> getYesod
-  useRepo store $ ensureUserBranch user
   userId <- runDB $ insert user
-
+  _ <- useRepo $ ensureUserBranch user
   _ <- createToken userId
-
   return userId
 
 userWithToken :: Text -> Handler (Maybe UserId)

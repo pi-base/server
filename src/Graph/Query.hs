@@ -76,9 +76,8 @@ user = do
 
 viewer :: MonadStore m => Maybe Version -> Handler m G.Viewer
 viewer mver = do
-  store <- getStore
   eviewer <- case mver of
-    (Just ver) -> parseViewer store $ Sha ver
+    (Just ver) -> parseViewer $ Sha ver
     _ -> storeMaster
   case eviewer of
     Left errs -> error $ show errs -- TODO: ViewerOrError

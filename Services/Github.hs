@@ -37,7 +37,7 @@ checkPullRequest pre = do
 
   foundation <- getYesod
   fetchPullRequest (appRepoPath $ appSettings foundation)
-  result <- parseViewer (appStore foundation) (Sha sha)
+  result <- parseViewer $ Sha sha
   either (prStatusError _id _sha) (prStatusOk _id _sha) result
   return result
 

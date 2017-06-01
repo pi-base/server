@@ -22,10 +22,7 @@ getViewerR :: Handler Value
 getViewerR = getMaster >>= returnJson
 
 getViewerBranchR :: Text -> Handler Value
-getViewerBranchR branch = do
-  store <- appStore <$> getYesod
-  ev    <- parseViewer store (Ref branch)
-  returnJson ev
+getViewerBranchR ref = (parseViewer $ Ref ref) >>= returnJson
 
 postHooksR :: Handler Value
 postHooksR = do

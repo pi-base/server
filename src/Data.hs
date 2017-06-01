@@ -7,6 +7,7 @@ module Data
   , storeMaster
   , fetchPullRequest
   , parseViewer
+  , viewerAtRef
   --
   , findProperty
   , findSpace
@@ -53,23 +54,22 @@ lookupCommitish :: MonadGit r m => Committish -> m (Maybe (Oid r))
 lookupCommitish (Ref ref) = resolveReference $ "refs/heads/" <> ref
 lookupCommitish (Sha sha) = Just <$> parseOid sha
 
-
 storeMaster :: MonadStore m
             => m (Either [Error] Viewer)
-storeMaster = do
-  store <- getStore
-  storeCached store $ \s -> parseViewer s (Ref "master")
+storeMaster = storeCached $ parseViewer (Ref "master")
 
 fetchPullRequest :: MonadIO m => FilePath -> m ()
 fetchPullRequest path = liftIO $ do
   putStrLn $ "Pulling updates for repo"
   callCommand $ "cd " ++ path ++ " && git fetch origin"
 
+viewerAtRef :: MonadStore m => Text -> m (Either [Error] Viewer)
+viewerAtRef = parseViewer . Ref
+
 parseViewer :: MonadStore m
-            => Store
-            -> Committish
+            => Committish
             -> m (Either [Error] Viewer)
-parseViewer store commish = useRepo store . gatherErrors $ do
+parseViewer commish = useRepo . gatherErrors $ do
   eref <- lift $ lookupCommitish commish
   case eref of
     Nothing -> return . Just $ NotATree "check your branch name"
@@ -201,7 +201,7 @@ gatherErrors s = do
 
 updateSpace :: (MonadStore m)
             => User -> Space -> Text -> m (Maybe Space)
-updateSpace user space description = withRepo $ do
+updateSpace user space description = useRepo $ do
     let updated = space { spaceDescription = description }
     writeContents user ("Updated " <> spaceName space)
       [Page.Parser.write $ Page.Space.write space]
@@ -214,7 +214,7 @@ findSpace _id = storeMaster >>= \case
 
 updateProperty :: MonadStore m
             => User -> Property -> Text -> m (Maybe Property)
-updateProperty user property description = withRepo $ do
+updateProperty user property description = useRepo $ do
   let updated = property { propertyDescription = description }
   writeContents user ("Updated " <> propertyName property)
     [Page.Parser.write $ Page.Property.write updated]
@@ -227,7 +227,7 @@ findProperty _id = storeMaster >>= \case
 
 updateTheorem :: MonadStore m
               => User -> Theorem Property -> Text -> m (Maybe (Theorem Property))
-updateTheorem user theorem description = withRepo $ do
+updateTheorem user theorem description = useRepo $ do
   let updated = theorem { theoremDescription = description }
   writeContents user ("Updated " <> theoremName theorem)
     [Page.Parser.write $ Page.Theorem.write updated]
@@ -237,9 +237,6 @@ findTheorem :: MonadStore m => TheoremId -> m (Maybe (Theorem Property))
 findTheorem _id = storeMaster >>= \case
   Left _ -> return Nothing
   Right Viewer{..} -> return $ find (\Theorem{..} -> theoremId == _id) viewerTheorems
-
-withRepo :: MonadStore m => ReaderT LgRepo m b -> m b
-withRepo action = getStore >>= flip useRepo action
 
 theoremName :: Theorem Property -> Text
 theoremName = T.pack . show . theoremImplication

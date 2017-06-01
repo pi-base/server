@@ -5,6 +5,7 @@ module Data.Git
   , getDir
   , mkStore
   , storeCached
+  , modifyGitRef
   , useRepo
   , writeContents
   , ensureUserBranch
@@ -14,11 +15,10 @@ import Core
 import Model (User(..))
 import Viewer
 
--- import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar, readMVar,
---                                 tryTakeMVar, tryPutMVar)
 import Control.Concurrent.MVar.Lifted (modifyMVar)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Data.Tagged
+import Data.Time.LocalTime (getZonedTime)
 import Git
 import Git.Libgit2 (LgRepo, openLgRepository, runLgRepository)
 
@@ -45,22 +45,22 @@ mkStore path = do
   Store <$> newMVar repo <*> newMVar Nothing
 
 storeCached :: MonadStore m
-            => Store
-            -> (Store -> m (Either a Viewer))
+            => m (Either a Viewer)
             -> m (Either a Viewer)
-storeCached store f = modifyMVar (storeCache store) $ \mev ->
-  case mev of
+storeCached f = do
+  Store{..} <- getStore
+  modifyMVar storeCache $ \mev -> case mev of
     Just viewer -> return $ (Just viewer, Right viewer)
-    _ -> f store >>= \case
+    _ -> f >>= \case
       Left err     -> return $ (Nothing, Left err)
       Right viewer -> return $ (Just viewer, Right viewer)
 
 useRepo :: MonadStore m
-        => Store
-        -> ReaderT LgRepo m a
+        => ReaderT LgRepo m a
         -> m a
-useRepo store handler = withMVar (storeRepo store) $ \r ->
-  runLgRepository r handler
+useRepo handler = do
+  Store{..} <- getStore
+  withMVar storeRepo $ flip runLgRepository handler
 
 eachBlob :: (MonadGit r m)
          => Tree r
@@ -81,57 +81,62 @@ eachBlob tree path = getDir tree path >>= \case
       _ -> return results
 
 getDir :: (MonadGit r m) => Tree r -> TreeFilePath -> m (Either Error (Tree r))
-getDir tree path = do
-  entry <- treeEntry tree path
-  case entry of
-    Just (TreeEntry _id) -> do
-      t <- lookupTree _id
-      return $ Right t
-    _ -> return . Left $ NotATree path
+getDir tree path = treeEntry tree path >>= \case
+  Just (TreeEntry _id) -> lookupTree _id >>= return . Right
+  _ -> return . Left $ NotATree path
 
-userBranch :: User -> RefName
-userBranch User{..} = "refs/heads/users/" <> userName
-
-ensureUserBranch :: MonadGit r m => User -> m ()
-ensureUserBranch user = resolveReference branch >>= \case
-  Just _ -> return ()
-  Nothing -> do
+ensureUserBranch :: MonadStore m => User -> m Text
+ensureUserBranch User{..} = useRepo $ do
+  let branch = "users/" <> userName
+      branchRef = "refs/heads/" <> branch
+  existing <- resolveReference branchRef
+  unless (isJust existing) $ do
     lookupReference "refs/heads/master" >>= \case
       Nothing -> error "Could not resolve master; is the repo configured?"
-      Just master -> createReference branch master
-  where
-    branch = userBranch user
+      Just master -> createReference branchRef master
+  return branch
 
-writeContents :: (MonadStore m)
+modifyGitRef :: MonadStore m
+             => User
+             -> Text
+             -> CommitMessage
+             -> TreeT LgRepo (ReaderT LgRepo m) a
+             -> m (Either String (Commit LgRepo))
+modifyGitRef user name message updates = useRepo $ do
+  let refname = "refs/heads/" <> name
+  resolveReference refname >>= \case
+    Nothing  -> return . Left $ "Could not resolve ref: " ++ show refname
+    Just ref -> do
+      parent <- lookupCommit $ Tagged ref
+      tree <- lookupTree $ commitTree parent
+      (_, newTree) <- withTree tree updates
+      (author, committer) <- getSignatures user
+      Right <$> createCommit [commitOid parent] newTree author committer message (Just refname)
+
+getSignatures :: MonadIO m => User -> m (Signature, Signature)
+getSignatures User{..} = do
+  time <- liftIO getZonedTime
+  let
+    author = defaultSignature
+      { signatureEmail = userEmail
+      , signatureName  = userName
+      , signatureWhen  = time
+      }
+    committer = defaultSignature
+      { signatureEmail = "system@pi-base.org"
+      , signatureName  = "Pi-Base"
+      , signatureWhen  = time
+      }
+  return (author, committer)
+
+writeContents :: MonadStore m
               => User
               -> CommitMessage
               -> [(TreeFilePath, Text)]
-              -> ReaderT LgRepo m ()
+              -> m (Either String (Commit LgRepo))
 writeContents user message files = do
-  ensureUserBranch user
+  branch <- ensureUserBranch user
 
-  let refname = userBranch user
-  mref <- resolveReference refname
-  (parent, tree) <- case mref of
-    Nothing  -> error "Could not find user branch"
-    Just ref -> do
-      parent <- lookupCommit $ Tagged ref
-      tree   <- lookupTree $ commitTree parent
-      return (parent, tree)
-
-  blobs <- forM files $ \(file, contents) -> do
-    _id <- createBlobUtf8 contents
-    return (file, _id)
-
-  (_,tid) <- withTree tree $ do
-    forM_ blobs $ \(file, _id) -> putEntry file (BlobEntry _id PlainBlob)
-  _ <- commit user refname parent tid message
-  return ()
-
-commit :: MonadGit r m => User -> RefName -> Commit r -> TreeOid r -> CommitMessage -> m (Commit r)
-commit User{..} refname parent tree message = do
-  let sig = defaultSignature
-        { signatureName = userName
-        , signatureEmail = userEmail
-        }
-  createCommit [commitOid parent] tree sig sig message (Just refname)
+  modifyGitRef user branch message $ do
+    forM_ files $ \(path, contents) ->
+      (lift $ createBlobUtf8 contents) >>= putBlob path
