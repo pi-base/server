@@ -1,7 +1,9 @@
 module Util
-  ( groupBy
+  ( dupes
+  , flatMapM
   , indexBy
-  , dupes
+  , groupBy
+  , unionN
   ) where
 
 import ClassyPrelude hiding (groupBy)
@@ -28,3 +30,10 @@ dupes = S.toList . snd . foldl' step (S.empty, S.empty)
     step (seen, dup) a = if S.member a seen
       then (seen, S.insert a dup)
       else (S.insert a seen, dup)
+
+unionN :: Ord a => [S.Set a] -> S.Set a
+unionN = foldl' S.union S.empty
+
+flatMapM :: (Monoid (Element (t b)), MonoFoldable (t b), Traversable t, Monad m)
+         => (a -> m b) -> t a -> m (Element (t b))
+flatMapM f m = mapM f m >>= return . concat

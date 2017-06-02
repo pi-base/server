@@ -7,59 +7,63 @@ module Formula
   , format
   , negate
   , parse
+  , properties
   , hydrate
   ) where
 
 import Prelude hiding (negate)
 
-import Control.Monad (void, mzero)
-import Data.Aeson hiding ((.=))
+import           Control.Monad (void, mzero)
+import           Data.Aeson hiding ((.=))
 import qualified Data.Aeson as A
-import Data.Attoparsec.Text hiding (parse)
+import           Data.Attoparsec.Text hiding (parse)
 import qualified Data.HashMap.Strict as HM
-import Data.List (intercalate)
+import           Data.List (intercalate)
 import qualified Data.Map.Strict as M
-import Data.Monoid ((<>))
-import Data.String (IsString)
-import Data.Text (Text, strip, unpack)
+import           Data.Monoid ((<>))
+import qualified Data.Set as S
+import           Data.String (IsString)
+import           Data.Text (Text, strip)
+
+import Util (unionN)
 
 data Formula p = Atom p Bool
-               | Conj [Formula p]
-               | Disj [Formula p]
+               | And [Formula p]
+               | Or [Formula p]
                deriving (Eq, Functor)
 
 enclose :: (IsString s, Monoid s) => s -> s
 enclose s = "(" <> s <> ")"
 
 format :: (p -> String) -> Formula p -> String
-format f (Atom p True) = f p
+format f (Atom p True ) = f p
 format f (Atom p False) = "~" ++ f p
-format f (Conj fs)  = enclose . intercalate " + " $ map (format f) fs
-format f (Disj fs)  = enclose . intercalate " | " $ map (format f) fs
+format f (And fs) = enclose . intercalate " + " $ map (format f) fs
+format f (Or  fs) = enclose . intercalate " | " $ map (format f) fs
 
-instance Show (Formula Text) where
-  show = format unpack
+instance Show a => Show (Formula a) where
+  show = format show
 
 (.=) :: p -> Bool -> Formula p
 (.=) = Atom
 infixl 5 .=
 
 (.+) :: Formula p -> Formula p -> Formula p
-(.+) f (Conj fs) = Conj $ f : fs
-(.+) (Conj fs) f = Conj $ fs ++ [f]
-(.+) f g = Conj [f,g]
+(.+) f (And fs) = And $ f : fs
+(.+) (And fs) f = And $ fs ++ [f]
+(.+) f g = And [f,g]
 infixl 4 .+
 
 (.|) :: Formula p -> Formula p -> Formula p
-(.|) f (Disj fs) = Disj $ f : fs
-(.|) (Disj fs) f = Disj $ fs ++ [f]
-(.|) f g = Disj [f,g]
+(.|) f (Or fs) = Or $ f : fs
+(.|) (Or fs) f = Or $ fs ++ [f]
+(.|) f g = Or [f,g]
 infixl 4 .|
 
 negate :: Formula p -> Formula p
 negate (Atom p v) = Atom p (not v)
-negate (Conj fs) = Disj $ map negate fs
-negate (Disj fs) = Conj $ map negate fs
+negate (And  fs)  = Or  $ map negate fs
+negate (Or   fs)  = And $ map negate fs
 
 parse :: Text -> Either String (Formula Text)
 parse t =
@@ -87,10 +91,10 @@ pad :: Parser a -> Parser a
 pad parser = whitespace *> parser <* whitespace
 
 conjP :: Parser (Formula Text)
-conjP = compoundP "+" Conj
+conjP = compoundP "+" And
 
 disjP :: Parser (Formula Text)
-disjP = compoundP "|" Disj
+disjP = compoundP "|" Or
 
 atomP :: Parser (Formula Text)
 atomP = do
@@ -100,24 +104,29 @@ atomP = do
 
 instance FromJSON (Formula Text) where
   parseJSON (Object v) = case head . HM.toList $ v of
-    ("and", val)  -> Conj <$> parseJSON val
-    ("or", val)   -> Disj <$> parseJSON val
+    ("and", val)  -> And <$> parseJSON val
+    ("or", val)   -> Or <$> parseJSON val
     (slug, Bool b) -> return $ Atom slug b
     _ -> mzero
   parseJSON _ = mzero
 
 instance ToJSON (Formula Text) where
-  toJSON (Conj subs) = object [ "and" A..= toJSON subs ]
-  toJSON (Disj subs) = object [ "or"  A..= toJSON subs ]
+  toJSON (And subs) = object [ "and" A..= toJSON subs ]
+  toJSON (Or subs) = object [ "or"  A..= toJSON subs ]
   toJSON (Atom p v)  = object [ p A..= v ]
+
+properties :: (Ord a) => Formula a -> S.Set a
+properties (Atom p _) = S.singleton p
+properties (And sf ) = unionN $ map properties sf
+properties (Or sf ) = unionN $ map properties sf
 
 -- TODO: these definitely could be cleaner
 hydrate :: Ord a => M.Map a b -> Formula a -> Either [a] (Formula b)
 hydrate props (Atom p v) = case M.lookup p props of
   Just p' -> Right $ Atom p' v
   Nothing -> Left [p]
-hydrate props (Conj subs) = allRight Conj $ map (hydrate props) subs
-hydrate props (Disj subs) = allRight Disj $ map (hydrate props) subs
+hydrate props (And subs) = allRight And $ map (hydrate props) subs
+hydrate props (Or subs) = allRight Or $ map (hydrate props) subs
 
 allRight :: ([f] -> r) -> [Either [a] f] -> Either [a] r
 allRight constructor subs = case foldl step (Right []) subs of

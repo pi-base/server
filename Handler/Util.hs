@@ -31,15 +31,15 @@ deleteDerivedTraits ref = withViewerAt ref $ \Viewer{..} -> do
 
 writeProofs :: Text -> Handler ()
 writeProofs ref = withViewerAt ref $ \v@Viewer{..} -> do
-  putStrLn $ "Deriving from " <> (tshow $ length viewerTraits) <> " traits"
-  let (_, traits) = deduceTraits v
-  user <- systemUser
-  when (length traits > 0) $ do
+  putStrLn $ "Deriving from " <> (tshow $ length viewerTraits) <> " traits."
+  let proofs = deduceTraits v
+  when (length proofs > 0) $ do
+    putStrLn $ "Found " <> (tshow $ length proofs) <> " proofs. Writing to disk."
+    user <- systemUser
     void . modifyGitRef user ref "Add deduced traits" $ do
-      forM_ traits $ \(trait, assumptions) -> do
-        let (path, contents) = Page.Parser.write $ PT.write (trait, Just assumptions)
+      forM_ proofs $ \(trait, evidence) -> do
+        let (path, contents) = Page.Parser.write $ PT.write (trait, Just evidence)
         (lift $ createBlobUtf8 contents) >>= putBlob path
-
 
 -- TODO: pull from system .gitconfig if present
 systemUser :: Handler User

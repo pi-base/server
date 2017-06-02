@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE UndecidableInstances #-} -- FIXME: this is just for the show instances
 module Core
   ( module Core
   ) where
@@ -19,6 +18,7 @@ import Data.Text                        as Core (Text)
 import Git                              as Core (TreeFilePath)
 
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=))
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Formula as F
 
@@ -31,8 +31,15 @@ newtype SpaceId = SpaceId { unSpaceId :: Uid } deriving (Eq, Ord, ToJSON, FromJS
 instance Show SpaceId where
   show = T.unpack . unSpaceId
 
-newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON, Show)
-newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSON, FromJSON, Show)
+newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
+
+instance Show PropertyId where
+  show = T.unpack . unPropertyId
+
+newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSON, FromJSON)
+
+instance Show TheoremId where
+  show = T.unpack . unTheoremId
 
 newtype TraitId = TraitId { unTraitId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
 
@@ -82,13 +89,13 @@ instance Show Property where
     where
       PropertyId _id = propertyId
 
-instance Show (F.Formula Property) where
-  show = F.format $ \p -> T.unpack $ propertyName p
-
 data Implication p = Implication (F.Formula p) (F.Formula p)
   deriving (Eq, Functor)
 
-instance Show (F.Formula p) => Show (Implication p) where
+implicationProperties :: Ord p => Implication p -> S.Set p
+implicationProperties (Implication a c) = F.properties a `S.union` F.properties c
+
+instance Show p => Show (Implication p) where
   show (Implication a c) = show a ++ " => " ++ show c
 
 data Theorem p = Theorem
@@ -102,10 +109,8 @@ data Theorem p = Theorem
 theoremImplication :: Theorem p -> Implication p
 theoremImplication Theorem{..} = Implication theoremIf theoremThen
 
-instance Show (F.Formula p) => Show (Theorem p) where
-  show t@Theorem{..} = "[" ++ T.unpack _id ++ "|" ++ show (theoremImplication t) ++ "]"
-    where
-      TheoremId _id = theoremId
+instance Show p => Show (Theorem p) where
+  show t@Theorem{..} = "[" ++ show theoremId ++ "|" ++ show (theoremImplication t) ++ "]"
 
 data Trait s p = Trait
   { traitId          :: !TraitId
@@ -120,15 +125,16 @@ data Trait s p = Trait
 data Match = Yes | No | Unknown
   deriving (Show, Eq, Ord)
 
-data Assumption = AssumedTheorem TheoremId | AssumedTrait TraitId
-  deriving Show
+data Assumptions = Assumptions
+  { assumedTraits   :: S.Set TraitId
+  , assumedTheorems :: S.Set TheoremId
+  } deriving Show
 
 data Proof = Proof
   { proofFor      :: Trait Space Property
   , proofTheorems :: [Theorem Property]
   , proofTraits   :: [Trait Space Property]
-  }
-  deriving Show
+  } deriving Show
 
 (~>) :: F.Formula p -> F.Formula p -> Implication p
 (~>) = Implication

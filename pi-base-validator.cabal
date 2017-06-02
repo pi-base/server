@@ -41,6 +41,7 @@ library
                      Graph.Root
                      Graph.Types
                      Logic
+                     Logic.Universe
                      Page.Parser
                      Page.Property
                      Page.Space

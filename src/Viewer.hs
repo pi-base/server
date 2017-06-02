@@ -17,7 +17,7 @@ import Formula hiding ((.=))
 import           Data.Aeson
 import qualified Data.Map   as M
 
-newtype Proofs = Proofs (Map TraitId [Assumption]) deriving Show
+newtype Proofs = Proofs (Map TraitId Assumptions) deriving Show
 
 data Viewer = Viewer
   { viewerProperties :: [Property]
@@ -60,9 +60,9 @@ empty = Viewer
   }
 
 instance ToJSON (Formula Property) where
-  toJSON (Conj subs) = object [ "and" .= toJSON subs ]
-  toJSON (Disj subs) = object [ "or"  .= toJSON subs ]
-  toJSON (Atom p v)  = object [ _id   .= v ]
+  toJSON (And subs) = object [ "and" .= toJSON subs ]
+  toJSON (Or  subs) = object [ "or"  .= toJSON subs ]
+  toJSON (Atom p v) = object [ _id   .= v ]
     where (PropertyId _id) = propertyId p
 
 instance ToJSON Space where
@@ -102,22 +102,23 @@ instance ToJSON (Trait Space Property) where
     ]
 
 instance ToJSON Proofs where
-  toJSON (Proofs proofs) = object . map fmt . limit $ M.toList proofs
-    where
-      fmt :: (TraitId, [Assumption]) -> (Text, Value)
-      fmt (TraitId _id, assumptions) = (_id, toValue $ collect assumptions)
+  toJSON _ = error "FIXME: ToJSON Proofs"
+  -- toJSON (Proofs proofs) = object . map fmt . limit $ M.toList proofs
+  --   where
+  --     fmt :: (TraitId, [Assumption]) -> (Text, Value)
+  --     fmt (TraitId _id, assumptions) = (_id, toValue $ collect assumptions)
 
-      collect :: [Assumption] -> ([TheoremId], [TraitId])
-      collect [] = ([],[])
-      collect (AssumedTheorem t : as) =
-        let (theorems, traits) = collect as
-        in (t : theorems, traits)
-      collect (AssumedTrait t : as) =
-        let (theorems, traits) = collect as
-        in (theorems, t :  traits)
+  --     collect :: [Assumption] -> ([TheoremId], [TraitId])
+  --     collect [] = ([],[])
+  --     collect (AssumedTheorem t : as) =
+  --       let (theorems, traits) = collect as
+  --       in (t : theorems, traits)
+  --     collect (AssumedTrait t : as) =
+  --       let (theorems, traits) = collect as
+  --       in (theorems, t :  traits)
 
-      toValue :: ([TheoremId], [TraitId]) -> Value
-      toValue (is, ts) = toJSON [toJSON is, toJSON ts]
+  --     toValue :: ([TheoremId], [TraitId]) -> Value
+  --     toValue (is, ts) = toJSON [toJSON is, toJSON ts]
 
 limit :: [a] -> [a]
 limit = id -- take 50

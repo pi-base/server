@@ -161,11 +161,11 @@ withViewer f (v,x) = (f v,x)
 recordTrait :: Trait Space Property -> Viewer -> Viewer
 recordTrait t v = v { viewerTraits = t : viewerTraits v }
 
-recordProof :: Trait Space Property -> Maybe [Assumption] -> Viewer -> Viewer
+recordProof :: Trait Space Property -> Maybe Assumptions -> Viewer -> Viewer
 recordProof Trait{..} (Just p) v = v { viewerProofs = insertProof traitId p $ viewerProofs v }
 recordProof _ Nothing v = v
 
-insertProof :: TraitId -> [Assumption] -> Proofs -> Proofs
+insertProof :: TraitId -> Assumptions -> Proofs -> Proofs
 insertProof _id p (Proofs pmap) = Proofs $ M.insert _id p pmap
 
 addError :: Monad m => Error -> V m

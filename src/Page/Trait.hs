@@ -10,6 +10,7 @@ import Data.Attoparsec.Text hiding (space)
 import Data.Either.Combinators (mapLeft)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text           as T
+import qualified Data.Set            as S
 
 import Core
 import Page.Parser (Page(..))
@@ -19,7 +20,19 @@ data Frontmatter = Frontmatter
   , space :: Text
   , property :: Text
   , value :: Bool
+  , proof :: Maybe Assumptions
   } deriving Generic
+
+instance ToJSON Assumptions where
+  toJSON Assumptions{..} = object
+    [ "traits"   .= (map unTraitId $ S.toList assumedTraits)
+    , "theorems" .= (map unTheoremId $ S.toList assumedTheorems)
+    ]
+
+instance FromJSON Assumptions where
+  parseJSON = withObject "Assumptions" $ \o -> Assumptions
+    <$> o .: "traits"
+    <*> o .: "theorems"
 
 instance ToJSON Frontmatter
 instance FromJSON Frontmatter
@@ -27,7 +40,7 @@ instance FromJSON Frontmatter
 path :: Trait Space Property -> TreeFilePath
 path Trait{..} = encodeUtf8 $ "spaces/" <> (spaceSlug traitSpace) <> "/properties/" <> (propertySlug traitProperty) <> ".md"
 
-parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe [Assumption])
+parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Assumptions)
 parse (Page _ Frontmatter{..} main sections) = do
   let trait = Trait uid space property value main
   case HM.lookup "Proof" $ HM.fromList sections of
@@ -36,7 +49,7 @@ parse (Page _ Frontmatter{..} main sections) = do
       pids <- parseProof p
       return (trait, Just pids)
 
-write :: (Trait Space Property, Maybe [Assumption]) -> Page Frontmatter
+write :: (Trait Space Property, Maybe Assumptions) -> Page Frontmatter
 write (t@Trait{..}, proof) = Page
   { pagePath = path t
   , pageFrontmatter = Frontmatter
@@ -44,23 +57,29 @@ write (t@Trait{..}, proof) = Page
     , space = spaceSlug traitSpace
     , property = propertySlug traitProperty
     , value = traitValue
+    , proof = proof
     }
   , pageMain = traitDescription
-  , pageSections = case proof of
-      Just assumptions -> error "assumptions"
-      Nothing -> []
+  , pageSections = []
   }
+
+data Assumption = AssumedTrait TraitId | AssumedTheorem TheoremId
+
+parseProof :: Text -> Either Error Assumptions
+parseProof text = case parseOnly (sepBy1 parseAssumption "\n") text of
+  Left err -> Left $ ParseError "proof" err
+  Right as -> Right $ foldAssumptions as
+
+parseAssumption = do
+  _   <- "* ["
+  _id <- takeTill $ \c -> c == ']'
+  _   <- takeTill $ \c -> c == '\n'
+  return $ assumptionFromId _id
 
 assumptionFromId :: Text -> Assumption
 assumptionFromId _id = case T.uncons _id of
   Just ('T', _) -> AssumedTrait $ TraitId _id
   _             -> AssumedTheorem $ TheoremId _id
 
-parseProof :: Text -> Either Error [Assumption]
-parseProof = mapLeft (ParseError "proof") . parseOnly (sepBy1 parseAssumption "\n")
-  where
-    parseAssumption = do
-      _   <- "* ["
-      _id <- takeTill $ \c -> c == ']'
-      _   <- takeTill $ \c -> c == '\n'
-      return $ assumptionFromId _id
+foldAssumptions :: [Assumption] -> Assumptions
+foldAssumptions = error "foldAssumptions"
