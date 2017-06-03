@@ -21,7 +21,7 @@ instance Defaultable UpdateTheoremInput where
 
 updateTheorem :: UpdateTheoremInput -> G G.Theorem
 updateTheorem UpdateTheoremInput{..} = do
-  (_userId, user) <- requireAuthPair
+  (Entity _id user) <- requireToken
   ms <- D.findTheorem $ TheoremId uid
   case ms of
     Nothing -> halt "Could not find theorem"

@@ -21,7 +21,7 @@ instance Defaultable UpdateSpaceInput where
 
 updateSpace :: UpdateSpaceInput -> G G.Space
 updateSpace UpdateSpaceInput{..} = do
-  (_userId, user) <- requireAuthPair
+  (Entity _id user) <- requireToken
   ms <- D.findSpace $ SpaceId uid
   case ms of
     Nothing -> halt "Could not find space"

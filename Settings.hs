@@ -95,15 +95,13 @@ instance FromJSON AppSettings where
         appRepoPath    <- o .:  "repo-path"
         appFrontendUrl <- o .:? "frontend-url" .!= "http://localhost:3000"
 
-        token <- o .: "github-auth"
-        let appGitHubToken = GitHub.OAuth $ fromString token
-
         appGitHubOwner <- o .: "github-owner"
         appGitHubRepo  <- o .: "github-repo"
 
         appGitHubWebhookSecret <- o .: "github-webhook-secret"
+        appGitHubToken         <- (GitHub.OAuth . fromString) <$> o .: "github-auth"
 
-        appGitHubClientId <- o .: "github-client-id"
+        appGitHubClientId     <- o .: "github-client-id"
         appGitHubClientSecret <- o .: "github-client-secret"
 
         return AppSettings {..}

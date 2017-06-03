@@ -8,7 +8,8 @@ import GraphQL.Resolver        as Graph.Import
 import GraphQL.Value.FromValue as Graph.Import (FromValue)
 
 import Import as Graph.Import hiding (Handler, Enum, Field, Response, Value)
-import Yesod.Auth as Graph.Import (requireAuthPair)
+
+import Handler.Helpers as Graph.Import
 
 import qualified Import (Handler)
 

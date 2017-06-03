@@ -130,8 +130,8 @@ library
                  , either
                  , exceptions
                  , foreign-store
-                 , github
                  , github-types
+                 , github                        >= 0.15       && < 1.0
                  , github-webhook-handler
                  , gitlib
                  , gitlib-libgit2

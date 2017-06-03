@@ -6,18 +6,21 @@ host:           "_env:HOST:*4" # any IPv4 host
 port:           "_env:PORT:3000" # NB: The port `yesod devel` uses is distinct from this value. Set the `yesod devel` port from the command line.
 ip-from-header: "_env:IP_FROM_HEADER:false"
 
-repo-path:    "_env:REPO_PATH:/data/src/pi-base/data"
+frontend-url: "_env:PI_BASE_VIEWER_URL:http://localhost:3001"
 
-frontend-url: "_env:PI_BASE_VIEWER_URL:http://localhost:3000"
+github-owner: "_env:GITHUB_OWNER:pi-base"
+github-repo:  "_env:GITHUB_REPO:data"
 
-github-owner: "_env:GITHUB_OWNER:jamesdabbs"
-github-repo:  "_env:GITHUB_REPO:pi-base-data"
+# Path to a copy of the pi-base/data repo on the local machine
+repo-path: "_env:REPO_PATH:"
 
-github-auth:           "_env:GITHUB_AUTH:fixme"
-github-webhook-secret: "_env:GITHUB_WEBHOOK_SECRET:fixme"
+# Authorization to use for the webhook validator
+github-auth:           "_env:GITHUB_AUTH:"
+github-webhook-secret: "_env:GITHUB_WEBHOOK_SECRET:"
 
-github-client-id: "_env:GITHUB_CLIENT_ID:fixme"
-github-client-secret: "_env:GITHUB_CLIENT_SECRET:fixme"
+# OAuth app credentials for signing in with Github
+github-client-id:     "_env:GITHUB_CLIENT_ID:"
+github-client-secret: "_env:GITHUB_CLIENT_SECRET:"
 
 # Default behavior: determine the application root from the request headers.
 # Uncomment to set an explicit approot

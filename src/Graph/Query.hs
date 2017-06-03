@@ -8,12 +8,12 @@ import qualified Data.Aeson
 import qualified Data.Map as M
 import qualified Data.Text.Lazy as TL
 import           Database.Persist.Types (Entity(..))
-import           Yesod.Auth (requireAuth)
 
 import           Core hiding (Handler)
 import           Data
 import           Formula (Formula)
 import qualified Graph.Types as G
+import           Handler.Helpers (requireToken)
 import           Model (User(..))
 import qualified Util
 import           Viewer (Viewer(..))
@@ -71,7 +71,7 @@ propertiesR Viewer{..} = pure $ map propertyR viewerProperties
 
 user :: G G.User
 user = do
-  (Entity _id User{..}) <- requireAuth
+  (Entity _id User{..}) <- requireToken
   return $ pure "User" :<> pure userName
 
 viewer :: MonadStore m => Maybe Version -> Handler m G.Viewer

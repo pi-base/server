@@ -21,5 +21,5 @@ instance Defaultable CreatePropertyInput where
 
 createProperty :: CreatePropertyInput -> G G.Property
 createProperty CreatePropertyInput{..} = do
-  (_userId, user) <- requireAuthPair
+  (Entity _id user) <- requireToken
   error "createProperty"

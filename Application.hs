@@ -14,6 +14,7 @@ module Application
     ) where
 
 import Control.Monad.Logger                 (liftLoc, runLoggingT)
+import qualified Data.Text                  as T
 import Database.Persist.Sqlite              (createSqlitePool, runSqlPool,
                                              sqlDatabase, sqlPoolSize)
 import Import
@@ -28,6 +29,8 @@ import Network.Wai.Middleware.RequestLogger (Destination (Logger),
                                              IPAddrSource (..),
                                              OutputFormat (..), destination,
                                              mkRequestLogger, outputFormat)
+import System.Environment                   (lookupEnv)
+import System.Exit                          (die)
 import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
                                              toLogStr)
 
@@ -81,6 +84,19 @@ makeFoundation appSettings = do
 
     -- Return the foundation
     return $ mkFoundation pool
+
+checkEnv :: IO ()
+checkEnv = do
+  let required = ["REPO_PATH", "GITHUB_AUTH", "GITHUB_WEBHOOK_SECRET", "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"]
+
+  missing <- filterM (lookupEnv >=> return . isNothing) required
+  when (length missing > 0) $ do
+    putStrLn $ "Missing required environment variables:"
+    forM_ missing $ \k ->
+      putStrLn $ "* " <> T.pack k
+    putStrLn "See config/settings.yml for more details on each key"
+    putStrLn "If you do not need a particular feature, set the environment variable to a non-empty string to skip this check."
+    die "Exiting"
 
 corsPolicy :: CorsResourcePolicy
 corsPolicy = simpleCorsResourcePolicy
@@ -136,7 +152,9 @@ getApplicationDev = do
     return (wsettings, app)
 
 getAppSettings :: IO AppSettings
-getAppSettings = loadYamlSettings [configSettingsYml] [] useEnv
+getAppSettings = do
+  checkEnv
+  loadYamlSettings [configSettingsYml] [] useEnv
 
 -- | main function for use by yesod devel
 develMain :: IO ()

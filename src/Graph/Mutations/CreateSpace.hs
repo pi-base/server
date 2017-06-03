@@ -21,5 +21,5 @@ instance Defaultable CreateSpaceInput where
 
 createSpace :: CreateSpaceInput -> G G.Space
 createSpace CreateSpaceInput{..} = do
-  (_userId, user) <- requireAuthPair
+  (Entity _id user) <- requireToken
   error "createSpace"

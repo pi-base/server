@@ -6,8 +6,7 @@ import Database.Persist.Sql (ConnectionPool, runSqlPool)
 import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 
-import qualified Data.Text (replace)
-import Handler.Helpers (createToken)
+import Handler.Helpers (createToken, maybeToken)
 
 import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
@@ -62,14 +61,6 @@ createGithubUser user = do
   _ <- useRepo $ ensureUserBranch user
   _ <- createToken userId
   return userId
-
-userWithToken :: Text -> Handler (Maybe UserId)
-userWithToken header = do
-  let trimmed = Data.Text.replace "Bearer " "" header
-  mtoken <- runDB . getBy $ UniqueToken trimmed
-  case mtoken of
-    Nothing -> return Nothing
-    Just (Entity _ token) -> return . Just $ tokenUserId token
 
 -- | A convenient synonym for creating forms.
 type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
@@ -238,11 +229,9 @@ instance YesodAuth App where
 
     authHttpManager = getHttpManager
 
-    maybeAuthId = do
-      mtoken <- lookupHeader "Authorization"
-      case mtoken of
-        Nothing -> return Nothing
-        Just token -> userWithToken $ decodeUtf8 token
+    maybeAuthId = maybeToken >>= \case
+      Just (Entity _id _) -> return $ Just _id
+      Nothing             -> return Nothing
 
 -- | Access function to determine if a user is logged in.
 isAuthenticated :: Handler AuthResult

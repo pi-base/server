@@ -21,7 +21,7 @@ instance Defaultable UpdatePropertyInput where
 
 updateProperty :: UpdatePropertyInput -> G G.Property
 updateProperty UpdatePropertyInput{..} = do
-  (_userId, user) <- requireAuthPair
+  (Entity _id user) <- requireToken
   ms <- D.findProperty $ PropertyId uid
   case ms of
     Nothing -> halt "Could not find property"
