@@ -12,6 +12,7 @@ module Data
   , findProperty
   , findSpace
   , findTheorem
+  , createProperty
   , createSpace
   , updateProperty
   , updateSpace
@@ -210,10 +211,10 @@ updateSpace user space description = useRepo $ do
       [Page.Parser.write $ Page.Space.write space]
     return $ Just updated
 
-makeSpaceId :: MonadStore m => m SpaceId
-makeSpaceId = do
+makeId :: MonadStore m => m Text
+makeId = do
   uuid <- liftIO UUID.nextRandom
-  return . SpaceId $ "s" <> UUID.toText uuid
+  return $ UUID.toText uuid
 
 slugify :: Text -> Text
 slugify t = t
@@ -221,11 +222,20 @@ slugify t = t
 createSpace :: MonadStore m
             => User -> Text -> Text -> m Space
 createSpace user name description = useRepo $ do
-  _id <- makeSpaceId
-  let space = Space _id (slugify name) name description Nothing
+  _id <- makeId
+  let space = Space (SpaceId $ "s" <> _id) (slugify name) name description Nothing
   writeContents user ("Add " <> name)
     [Page.Parser.write $ Page.Space.write space]
   return space
+
+createProperty :: MonadStore m
+               => User -> Text -> Text -> m Property
+createProperty user name description = useRepo $ do
+  _id <- makeId
+  let property = Property (PropertyId $ "p" <> _id) (slugify name) name Nothing description
+  writeContents user ("Add " <> name)
+    [Page.Parser.write $ Page.Property.write property]
+  return property
 
 findSpace :: MonadStore m => SpaceId -> m (Maybe Space)
 findSpace _id = storeMaster >>= \case
