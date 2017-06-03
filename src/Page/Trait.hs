@@ -37,7 +37,7 @@ instance ToJSON Frontmatter
 instance FromJSON Frontmatter
 
 path :: Trait Space Property -> TreeFilePath
-path Trait{..} = encodeUtf8 $ "spaces/" <> (spaceSlug traitSpace) <> "/properties/" <> (propertySlug traitProperty) <> ".md"
+path Trait{..} = encodeUtf8 $ "spaces/" <> (unSpaceId $ spaceId traitSpace) <> "/properties/" <> (unPropertyId $ propertyId traitProperty) <> ".md"
 
 parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Assumptions)
 parse (Page _ Frontmatter{..} main sections) = do
@@ -49,15 +49,15 @@ parse (Page _ Frontmatter{..} main sections) = do
       return (trait, Just pids)
 
 write :: (Trait Space Property, Maybe Assumptions) -> Page Frontmatter
-write (t@Trait{..}, proof) = Page
+write (t, proof) = Page
   { pagePath = path t
   , pageFrontmatter = Frontmatter
-    { space    = spaceSlug traitSpace
-    , property = propertySlug traitProperty
-    , value    = traitValue
+    { space    = unSpaceId $ traitSpaceId t
+    , property = unPropertyId $ traitPropertyId t
+    , value    = traitValue t
     , proof    = proof
     }
-  , pageMain = traitDescription
+  , pageMain = traitDescription t
   , pageSections = []
   }
 

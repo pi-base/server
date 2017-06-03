@@ -69,7 +69,6 @@ instance ToJSON Space where
   toJSON Space{..} = object
     [ "uid"               .= spaceId
     , "name"              .= spaceName
-    , "slug"              .= spaceSlug
     , "description"       .= spaceDescription
     , "proof_of_topology" .= spaceTopology
     ]
@@ -78,7 +77,6 @@ instance ToJSON Property where
   toJSON Property{..} = object
     [ "uid"         .= propertyId
     , "name"        .= propertyName
-    , "slug"        .= propertySlug
     , "aliases"     .= propertyAliases
     , "description" .= propertyDescription
     ]

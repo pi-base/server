@@ -28,8 +28,9 @@ class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where
 instance (MonadStore m) => MonadStore (ReaderT LgRepo m) where
   getStore = lift getStore
 
+-- TODO: enforce that only one thread gets to write to a branch at a time
 data Store = Store
-  { storeRepo  :: MVar LgRepo
+  { storeRepo  :: LgRepo
   , storeCache :: MVar (Maybe Viewer)
   }
 
@@ -41,8 +42,9 @@ mkStore path = do
         , repoIsBare     = False
         , repoAutoCreate = False
         }
-  repo <- openLgRepository opts
-  Store <$> newMVar repo <*> newMVar Nothing
+  repo  <- openLgRepository opts
+  cache <- newMVar Nothing
+  return $ Store repo cache
 
 storeCached :: MonadStore m
             => m (Either a Viewer)
@@ -60,7 +62,7 @@ useRepo :: MonadStore m
         -> m a
 useRepo handler = do
   Store{..} <- getStore
-  withMVar storeRepo $ flip runLgRepository handler
+  runLgRepository storeRepo handler
 
 eachBlob :: (MonadGit r m)
          => Tree r
@@ -137,6 +139,9 @@ writeContents :: MonadStore m
 writeContents user message files = do
   branch <- ensureUserBranch user
 
+  traceM "Modifying ref"
   modifyGitRef user branch message $ do
-    forM_ files $ \(path, contents) ->
+    forM_ files $ \(path, contents) -> do
+      traceM $ "Writing to " ++ show path
+      traceM "Making commit"
       (lift $ createBlobUtf8 contents) >>= putBlob path

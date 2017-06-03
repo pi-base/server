@@ -22,4 +22,5 @@ instance Defaultable CreateSpaceInput where
 createSpace :: CreateSpaceInput -> G G.Space
 createSpace CreateSpaceInput{..} = do
   (Entity _id user) <- requireToken
-  error "createSpace"
+  space <- D.createSpace user name description
+  G.spaceR mempty space

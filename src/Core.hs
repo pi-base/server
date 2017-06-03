@@ -116,14 +116,14 @@ data Trait s p = Trait
   , traitDescription :: !Text
   } deriving Show
 
+traitId :: Trait Space Property -> TraitId
+traitId = (,) <$> traitSpaceId <*> traitPropertyId
+
 traitSpaceId :: Trait Space p -> SpaceId
 traitSpaceId = spaceId . traitSpace
 
 traitPropertyId :: Trait s Property -> PropertyId
 traitPropertyId = propertyId . traitProperty
-
-traitId :: Trait Space Property -> TraitId
-traitId t = (traitSpaceId t, traitPropertyId t)
 
 data Match = Yes | No | Unknown
   deriving (Show, Eq, Ord)

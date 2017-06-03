@@ -12,6 +12,7 @@ module Data
   , findProperty
   , findSpace
   , findTheorem
+  , createSpace
   , updateProperty
   , updateSpace
   , updateTheorem
@@ -29,6 +30,8 @@ import Data.Aeson                       (FromJSON)
 import Data.Either.Combinators          (mapLeft)
 import Data.List                        (nub)
 import Data.Tagged                      (Tagged(..))
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
 import Git                              hiding (Object)
 import Git.Libgit2                      (LgRepo)
 import System.Process                   (callCommand)
@@ -199,13 +202,30 @@ gatherErrors s = do
       then Right viewer
       else Left $ nub errors
 
-updateSpace :: (MonadStore m)
+updateSpace :: MonadStore m
             => User -> Space -> Text -> m (Maybe Space)
 updateSpace user space description = useRepo $ do
     let updated = space { spaceDescription = description }
     writeContents user ("Updated " <> spaceName space)
       [Page.Parser.write $ Page.Space.write space]
     return $ Just updated
+
+makeSpaceId :: MonadStore m => m SpaceId
+makeSpaceId = do
+  uuid <- liftIO UUID.nextRandom
+  return . SpaceId $ "s" <> UUID.toText uuid
+
+slugify :: Text -> Text
+slugify t = t
+
+createSpace :: MonadStore m
+            => User -> Text -> Text -> m Space
+createSpace user name description = useRepo $ do
+  _id <- makeSpaceId
+  let space = Space _id (slugify name) name description Nothing
+  writeContents user ("Add " <> name)
+    [Page.Parser.write $ Page.Space.write space]
+  return space
 
 findSpace :: MonadStore m => SpaceId -> m (Maybe Space)
 findSpace _id = storeMaster >>= \case
