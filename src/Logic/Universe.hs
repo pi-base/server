@@ -28,11 +28,9 @@ type Evidence = (TheoremId, S.Set PropertyId)
 data Universe = Universe
   { uSpaces        :: M.Map SpaceId Space
   , uProperties    :: M.Map PropertyId Property
-  , uTraits        :: M.Map TraitId (Trait SpaceId PropertyId)
   , uTheorems      :: M.Map TheoremId (Implication PropertyId)
+  , uTraits        :: M.Map SpaceId (M.Map PropertyId (Trait Space Property))
   , uProofs        :: M.Map TraitId Assumptions
-  , uSpaceIndex    :: M.Map SpaceId (M.Map PropertyId TraitId)
-  , uPropertyIndex :: M.Map PropertyId (M.Map SpaceId TraitId)
   , uRelTheorems   :: M.Map PropertyId [TheoremId]
   , uQueue         :: S.Set (SpaceId, PropertyId)
   , uId            :: Int
@@ -43,8 +41,8 @@ fromViewer Viewer{..} = flip execState initial $ do
   forM_ viewerTheorems $ \t ->
     insertTheorem (Just $ theoremId t) (map propertyId $ theoremImplication t)
 
-  forM_ viewerTraits $ \Trait{..} ->
-    insertTrait (Just traitId) (spaceId traitSpace) (propertyId traitProperty) traitValue Nothing
+  forM_ viewerTraits $ \t ->
+    insertTrait (traitSpaceId t) (traitPropertyId t) (traitValue t) Nothing
 
   where
     initial = empty
@@ -59,8 +57,6 @@ empty = Universe
   , uTraits        = mempty
   , uTheorems      = mempty
   , uProofs        = mempty
-  , uSpaceIndex    = mempty
-  , uPropertyIndex = mempty
   , uRelTheorems   = mempty
   , uQueue         = mempty
   , uId            = 1
@@ -73,11 +69,9 @@ contains :: SpaceId -> PropertyId -> Universe -> Bool
 contains sid pid = M.member pid . attributes sid
 
 attributes :: SpaceId -> Universe -> Properties
-attributes sid Universe{..} = case M.lookup sid uSpaceIndex of
+attributes sid Universe{..} = case M.lookup sid uTraits of
   Nothing -> M.empty
-  Just props -> M.mapMaybe (lookupTraitValue uTraits) props
-  where
-    lookupTraitValue traits tid = traitValue <$> M.lookup tid traits
+  Just props -> M.map traitValue props
 
 relevantTheorems :: PropertyId -> Universe -> [(TheoremId, Implication PropertyId)]
 relevantTheorems pid u = z $ map withImplication theoremIds
@@ -95,24 +89,25 @@ nextId = do
   _id <- gets uId
   return $ "x" <> tshow _id
 
-insertTrait :: Maybe TraitId
-            -> SpaceId
+insertTrait :: SpaceId
             -> PropertyId
             -> Bool
             -> Maybe Evidence
             -> State Universe ()
-insertTrait mtid sid pid value mev = do
-  tid <- maybe (TraitId <$> nextId) return mtid
-  let trait = Trait tid sid pid value "" :: Trait SpaceId PropertyId
-  modify $ \u -> u
-    { uTraits        = M.insert tid trait $ uTraits u
-    , uSpaceIndex    = addNested sid pid tid $ uSpaceIndex u
-    , uPropertyIndex = addNested pid sid tid $ uPropertyIndex u
-    , uProofs = case mev of
-        Just ev -> M.insert tid (buildProof u trait ev) $ uProofs u
-        Nothing -> uProofs u
-    , uQueue = S.insert (sid, pid) $ uQueue u
-    }
+insertTrait sid pid value mev = modify $ \u@Universe{..} ->
+    let mtrait = Trait
+          <$> M.lookup sid uSpaces
+          <*> M.lookup pid uProperties
+          <*> pure value
+          <*> pure ""
+    in case mtrait of
+      Nothing    -> u
+      Just trait -> u { uTraits = addNested sid pid trait $ uTraits
+                      , uQueue  = S.insert (sid, pid) uQueue
+                      , uProofs = case mev of
+                          Just ev -> M.insert (sid, pid) (buildProof trait ev) uProofs
+                          Nothing -> uProofs
+                      }
 
 addNested :: (Ord k1, Ord k2)
           => k1 -> k2 -> val -> M.Map k1 (M.Map k2 val) -> M.Map k1 (M.Map k2 val)
@@ -207,20 +202,18 @@ withQueue handler universe =
   in catMaybes . map (expandTrait u) $ M.toList newProofs
 
 expandTrait :: Universe -> (TraitId, a) -> Maybe (Trait Space Property, a)
-expandTrait Universe{..} (tid, a) = do
-  t <- M.lookup tid uTraits
-  s <- M.lookup (traitSpace t) uSpaces
-  p <- M.lookup (traitProperty t) uProperties
+expandTrait Universe{..} ((spaceId, propertyId), a) = do
+  t <- M.lookup spaceId uTraits >>= M.lookup propertyId
+  s <- M.lookup spaceId uSpaces
+  p <- M.lookup propertyId uProperties
   return $ (t { traitSpace = s, traitProperty = p }, a)
 
 fromJust :: Maybe a -> a
 fromJust Nothing = error "fromJust Nothing"
 fromJust (Just a) = a
 
-buildProof :: Universe -> Trait SpaceId PropertyId -> Evidence -> Assumptions
-buildProof Universe{..} Trait{..} (thrmId, props) =
-  let traitIds = fromJust $ M.lookup traitSpace uSpaceIndex
-  in Assumptions
-    { assumedTraits   = S.map (\pid -> fromJust $ M.lookup pid traitIds) props
+buildProof :: Trait Space Property -> Evidence -> Assumptions
+buildProof trait (thrmId, props) = Assumptions
+    { assumedTraits   = S.map (\pid -> (traitSpaceId trait, pid)) props
     , assumedTheorems = S.singleton thrmId
     }

@@ -94,8 +94,7 @@ instance ToJSON (Theorem Property) where
 
 instance ToJSON (Trait Space Property) where
   toJSON Trait{..} = object
-    [ "uid"         .= traitId
-    , "space"       .= spaceId traitSpace
+    [ "space"       .= spaceId traitSpace
     , "property"    .= propertyId traitProperty
     , "value"       .= traitValue
     , "description" .= traitDescription

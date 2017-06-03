@@ -16,8 +16,7 @@ import Core
 import Page.Parser (Page(..))
 
 data Frontmatter = Frontmatter
-  { uid :: TraitId
-  , space :: Text
+  { space :: Text
   , property :: Text
   , value :: Bool
   , proof :: Maybe Assumptions
@@ -25,7 +24,7 @@ data Frontmatter = Frontmatter
 
 instance ToJSON Assumptions where
   toJSON Assumptions{..} = object
-    [ "traits"   .= (map unTraitId $ S.toList assumedTraits)
+    [ "traits"   .= S.toList assumedTraits
     , "theorems" .= (map unTheoremId $ S.toList assumedTheorems)
     ]
 
@@ -42,7 +41,7 @@ path Trait{..} = encodeUtf8 $ "spaces/" <> (spaceSlug traitSpace) <> "/propertie
 
 parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Assumptions)
 parse (Page _ Frontmatter{..} main sections) = do
-  let trait = Trait uid space property value main
+  let trait = Trait space property value main
   case HM.lookup "Proof" $ HM.fromList sections of
     Nothing -> return (trait, Nothing)
     Just p -> do
@@ -53,11 +52,10 @@ write :: (Trait Space Property, Maybe Assumptions) -> Page Frontmatter
 write (t@Trait{..}, proof) = Page
   { pagePath = path t
   , pageFrontmatter = Frontmatter
-    { uid = traitId
-    , space = spaceSlug traitSpace
+    { space    = spaceSlug traitSpace
     , property = propertySlug traitProperty
-    , value = traitValue
-    , proof = proof
+    , value    = traitValue
+    , proof    = proof
     }
   , pageMain = traitDescription
   , pageSections = []
@@ -76,10 +74,11 @@ parseAssumption = do
   _   <- takeTill $ \c -> c == '\n'
   return $ assumptionFromId _id
 
-assumptionFromId :: Text -> Assumption
-assumptionFromId _id = case T.uncons _id of
-  Just ('T', _) -> AssumedTrait $ TraitId _id
-  _             -> AssumedTheorem $ TheoremId _id
+assumptionFromId = error "assumptionFromId"
+-- assumptionFromId :: Text -> Assumption
+-- assumptionFromId _id = case T.uncons _id of
+--   Just ('T', _) -> AssumedTrait $ TraitId _id
+--   _             -> AssumedTheorem $ TheoremId _id
 
 foldAssumptions :: [Assumption] -> Assumptions
 foldAssumptions = error "foldAssumptions"

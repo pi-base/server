@@ -30,7 +30,7 @@ assertTrait Trait{..} = do
   (gets $ U.lookup space property) >>= \case
     -- TODO: error when this is disprovable
     Just  _ -> return ()
-    Nothing -> U.insertTrait Nothing space property traitValue Nothing
+    Nothing -> U.insertTrait space property traitValue Nothing
 
 assertTheorem :: Implication PropertyId -> State U.Universe ()
 assertTheorem i = do
@@ -56,7 +56,7 @@ applyTheorem sid (tid, (Implication ant con)) = do
     force (Atom pid v) evidence = do
       present <- gets $ U.contains sid pid
       unless present $
-        U.insertTrait Nothing sid pid v (Just (tid, evidence))
+        U.insertTrait sid pid v (Just (tid, evidence))
 
     force (And sf) evidence = mapM_ (flip force evidence) sf
     force (Or  sf) evidence = do

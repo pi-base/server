@@ -16,7 +16,7 @@ createToken :: (BaseBackend (YesodPersistBackend site) ~
             => UserId
             -> HandlerT site IO Token
 createToken userId = do
-  now <- liftIO getCurrentTime
+  now  <- liftIO getCurrentTime
   uuid <- liftIO UUID.nextRandom
 
   let token = Token
@@ -53,6 +53,6 @@ requireToken = maybeToken >>= \case
   Nothing -> sendStatusJSON status401 $ object
     [ ("errors" :: Text) .= object
       [ "message" .= ("Invalid Authorization token" :: Text)
-      , "type" .= ("NOT_AUTHORIZED" :: Text)
+      , "type"    .= ("NOT_AUTHORIZED" :: Text)
       ]
     ]

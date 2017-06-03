@@ -162,7 +162,7 @@ recordTrait :: Trait Space Property -> Viewer -> Viewer
 recordTrait t v = v { viewerTraits = t : viewerTraits v }
 
 recordProof :: Trait Space Property -> Maybe Assumptions -> Viewer -> Viewer
-recordProof Trait{..} (Just p) v = v { viewerProofs = insertProof traitId p $ viewerProofs v }
+recordProof t (Just p) v = v { viewerProofs = insertProof (traitSpaceId t, traitPropertyId t) p $ viewerProofs v }
 recordProof _ Nothing v = v
 
 insertProof :: TraitId -> Assumptions -> Proofs -> Proofs

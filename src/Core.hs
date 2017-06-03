@@ -41,10 +41,7 @@ newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSO
 instance Show TheoremId where
   show = T.unpack . unTheoremId
 
-newtype TraitId = TraitId { unTraitId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
-
-instance Show TraitId where
-  show = T.unpack . unTraitId
+type TraitId = (SpaceId, PropertyId)
 
 data Error = NotATree TreeFilePath
            | ParseError TreeFilePath String
@@ -113,14 +110,20 @@ instance Show p => Show (Theorem p) where
   show t@Theorem{..} = "[" ++ show theoremId ++ "|" ++ show (theoremImplication t) ++ "]"
 
 data Trait s p = Trait
-  { traitId          :: !TraitId
-  , traitSpace       :: !s
+  { traitSpace       :: !s
   , traitProperty    :: !p
   , traitValue       :: !Bool
   , traitDescription :: !Text
-  -- , traitDeduced     :: !Bool
-  }
-  deriving Show
+  } deriving Show
+
+traitSpaceId :: Trait Space p -> SpaceId
+traitSpaceId = spaceId . traitSpace
+
+traitPropertyId :: Trait s Property -> PropertyId
+traitPropertyId = propertyId . traitProperty
+
+traitId :: Trait Space Property -> TraitId
+traitId t = (traitSpaceId t, traitPropertyId t)
 
 data Match = Yes | No | Unknown
   deriving (Show, Eq, Ord)
