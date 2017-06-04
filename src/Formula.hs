@@ -13,6 +13,8 @@ module Formula
 
 import Prelude hiding (negate)
 
+import Types (Formula(..))
+
 import           Control.Monad (void, mzero)
 import           Data.Aeson hiding ((.=))
 import qualified Data.Aeson as A
@@ -26,11 +28,6 @@ import           Data.String (IsString)
 import           Data.Text (Text, strip)
 
 import Util (unionN)
-
-data Formula p = Atom p Bool
-               | And [Formula p]
-               | Or [Formula p]
-               deriving (Eq, Functor)
 
 enclose :: (IsString s, Monoid s) => s -> s
 enclose s = "(" <> s <> ")"

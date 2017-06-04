@@ -6,7 +6,6 @@
 
 module Viewer
   ( Viewer(..)
-  , Proofs(..)
   , empty
   ) where
 
@@ -22,6 +21,6 @@ empty = Viewer
   , viewerProperties = []
   , viewerTraits = []
   , viewerTheorems = []
-  , viewerProofs = Proofs M.empty
-  , viewerVersion = ""
+  , viewerProofs = M.empty
+  , viewerVersion = Version ""
   }

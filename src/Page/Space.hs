@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Page.Space
   ( parse
+  , parser
   , write
   ) where
 
@@ -18,6 +19,8 @@ data Frontmatter = Frontmatter
 
 instance ToJSON Frontmatter
 instance FromJSON Frontmatter
+
+parser = parse
 
 parse :: Page Frontmatter -> Either Error Space
 parse (Page _ Frontmatter{..} main sections) = Right $ Space

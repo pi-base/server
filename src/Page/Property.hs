@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Page.Property
-  ( parse
+  ( parser
+  , parse
   , write
   ) where
 
@@ -18,6 +19,8 @@ data Frontmatter = Frontmatter
 
 instance ToJSON Frontmatter
 instance FromJSON Frontmatter
+
+parser = parse
 
 parse :: Page Frontmatter -> Either Error Property
 parse (Page _ Frontmatter{..} main _sections) = Right $ Property

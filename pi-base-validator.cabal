@@ -29,6 +29,8 @@ library
                      Core
                      Data
                      Data.Git
+                     Data.Parse
+                     Formula
                      Graph.Import
                      Graph.Mutations
                      Graph.Mutations.AssertTrait
@@ -49,7 +51,7 @@ library
                      Page.Theorem
                      Page.Trait
                      Services.Github
-                     Formula
+                     Types
                      Util
                      Viewer
 

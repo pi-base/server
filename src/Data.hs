@@ -4,10 +4,11 @@ module Data
   , Viewer(..)
   , Committish(..)
   , mkStore
+  -- TODO: refactor vvv to use Data.Parse
   , storeMaster
-  , fetchPullRequest
   , parseViewer
   , viewerAtRef
+  , fetchPullRequest
   --
   , findProperty
   , findSpace
@@ -17,7 +18,6 @@ module Data
   , updateProperty
   , updateSpace
   , updateTheorem
-  , getVersion
   , getSpaceDescription
   , getPropertyDescription
   , getTheoremDescription
@@ -38,6 +38,7 @@ import Git                              hiding (Object)
 import Git.Libgit2                      (LgRepo)
 import System.Process                   (callCommand)
 
+import qualified Page
 import qualified Page.Parser
 import qualified Page.Property
 import qualified Page.Space
@@ -53,10 +54,7 @@ import qualified Viewer as V
 
 type V m = StateT (Viewer, [Error]) (ReaderT LgRepo m) ()
 
-lookupCommitish :: MonadGit r m => Committish -> m (Maybe (Oid r))
-lookupCommitish (Ref ref) = resolveReference $ "refs/heads/" <> ref
-lookupCommitish (Sha sha) = Just <$> parseOid sha
-
+-- TODO: replace with Data.Parse.viewer
 storeMaster :: MonadStore m
             => m (Either [Error] Viewer)
 storeMaster = storeCached $ parseViewer (Ref "master")
@@ -77,23 +75,14 @@ parseAt :: MonadStore m
 parseAt commish initial f = useRepo . gatherErrors initial $ do
   eref <- lift $ lookupCommitish commish
   case eref of
-    Nothing -> return . Just $ CommitNotFound commish
-    Just ref -> do
-      cmt <- lift . lookupCommit $ Tagged ref
-      f cmt
-
-parseVersion :: Commit r -> Oid r
-parseVersion cmt = case commitOid cmt of
-  (Tagged oid) -> oid
-
-getVersion = parseAt (Ref "master") $ \cmt -> tshow $ parseVersion cmt
+    Nothing  -> return . Just $ CommitNotFound commish
+    Just ref -> (lift . lookupCommit $ Tagged ref) >>= f
 
 parseViewer :: MonadStore m
             => Committish
             -> m (Either [Error] Viewer)
 parseViewer commish = parseAt commish V.empty $ \cmt -> do
-  let version = parseVersion cmt
-  modify' $ \(v,e) -> (v { viewerVersion = tshow version }, e)
+  modify' $ \(v,e) -> (v { viewerVersion = commitVersion cmt }, e)
 
   tree <- lift $ lookupTree $ commitTree cmt
 
@@ -182,8 +171,8 @@ recordProof :: Trait Space Property -> Maybe Assumptions -> Viewer -> Viewer
 recordProof t (Just p) v = v { viewerProofs = insertProof (traitSpaceId t, traitPropertyId t) p $ viewerProofs v }
 recordProof _ Nothing v = v
 
-insertProof :: TraitId -> Assumptions -> Proofs -> Proofs
-insertProof _id p (Proofs pmap) = Proofs $ M.insert _id p pmap
+-- insertProof :: TraitId -> Assumptions -> Proofs -> Proofs
+insertProof = M.insert
 
 addError :: Monad m => Error -> V m
 addError e = modify' $ \(v, es) -> (v, e : es)

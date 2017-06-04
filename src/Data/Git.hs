@@ -10,6 +10,8 @@ module Data.Git
   , useRepo
   , writeContents
   , ensureUserBranch
+  , commitVersion
+  , lookupCommitish
   ) where
 
 import Core
@@ -71,6 +73,10 @@ eachBlob tree path = getDir tree path >>= \case
         return $ (filepath, blob) : results
       _ -> return results
 
+commitVersion :: Commit LgRepo -> Version
+commitVersion cmt = case commitOid cmt of
+  (Tagged oid) -> Version $ tshow oid
+
 getDir :: (MonadGit r m) => Tree r -> TreeFilePath -> m (Either Error (Tree r))
 getDir tree path = treeEntry tree path >>= \case
   Just (TreeEntry _id) -> lookupTree _id >>= return . Right
@@ -128,9 +134,10 @@ writeContents :: MonadStore m
 writeContents user message files = do
   branch <- ensureUserBranch user
 
-  traceM "Modifying ref"
   modifyGitRef user branch message $ do
     forM_ files $ \(path, contents) -> do
-      traceM $ "Writing to " ++ show path
-      traceM "Making commit"
       (lift $ createBlobUtf8 contents) >>= putBlob path
+
+lookupCommitish :: MonadGit r m => Committish -> m (Maybe (Oid r))
+lookupCommitish (Ref ref) = resolveReference $ "refs/heads/" <> ref
+lookupCommitish (Sha sha) = Just <$> parseOid sha

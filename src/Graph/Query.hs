@@ -49,8 +49,8 @@ theoremsR Viewer{..} = pure $ map theoremR viewerTheorems
 theoremR :: MonadStore m => Theorem Property -> Handler m G.Theorem
 theoremR t@Theorem{..} = pure $ pure "Theorem"
   :<> pure (unTheoremId theoremId)
-  :<> pure (encodeFormula theoremIf)
-  :<> pure (encodeFormula theoremThen)
+  :<> pure (encodeFormula $ theoremIf t)
+  :<> pure (encodeFormula $ theoremThen t)
   :<> getTheoremDescription t
 
 spacesR :: MonadStore m => Viewer -> Handler m (List G.Space)
@@ -74,7 +74,7 @@ user = do
   (Entity _id User{..}) <- requireToken
   return $ pure "User" :<> pure userName
 
-viewer :: MonadStore m => Maybe Version -> Handler m G.Viewer
+viewer :: MonadStore m => Maybe Text -> Handler m G.Viewer
 viewer mver = do
   eviewer <- case mver of
     (Just ver) -> parseViewer $ Sha ver
@@ -85,7 +85,7 @@ viewer mver = do
 
 viewerR :: MonadStore m => Viewer -> Handler m G.Viewer
 viewerR v = pure $ pure "Viewer"
-  :<> pure (viewerVersion v)
+  :<> pure (unVersion $ viewerVersion v)
   :<> spacesR v
   :<> propertiesR v
   :<> theoremsR v

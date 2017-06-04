@@ -1,6 +1,7 @@
 module Handler.Util
   ( deleteDerivedTraits
   , writeProofs
+  , newParse
   ) where
 
 import Git
@@ -17,14 +18,15 @@ import qualified Page.Trait as PT
 import Util (indexBy)
 import Viewer
 
+import qualified Data.Parse
+
 deleteDerivedTraits :: Text -> Handler ()
 deleteDerivedTraits ref = withViewerAt ref $ \Viewer{..} -> do
-  putStrLn $ "Parsed viewer @" <> viewerVersion
+  putStrLn $ "Parsed viewer @" <> unVersion viewerVersion
   user <- systemUser
   void . modifyGitRef user ref "Delete derived traits" $ do
     let traits = indexBy traitId viewerTraits
-        Proofs proofs = viewerProofs
-        deduced = catMaybes $ map (\_id -> M.lookup _id traits) $ M.keys proofs
+        deduced = catMaybes $ map (\_id -> M.lookup _id traits) $ M.keys viewerProofs
     putStrLn $ "Deleting " <> (tshow $ length deduced) <> " traits"
     forM_ deduced $ \trait -> dropEntry $ PT.path trait
   putStrLn "Done"
@@ -52,3 +54,5 @@ withViewerAt :: (MonadIO m, MonadTrans t, MonadStore (t m))
 withViewerAt ref f = viewerAtRef ref >>= \case
   Left errors  -> mapM_ (lift . putStrLn . explainError) errors
   Right viewer -> f viewer
+
+newParse = Data.Parse.viewer $ Ref "audit"

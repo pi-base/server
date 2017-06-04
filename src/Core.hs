@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 module Core
   ( module Core
@@ -12,47 +11,20 @@ import Control.Monad.Reader             as Core (MonadReader, ReaderT,
 import Control.Monad.Trans              as Core (lift)
 import Control.Monad.Trans.Control      as Core (MonadBaseControl)
 import Control.Monad.Trans.State.Strict as Core (StateT)
+import Data.Aeson                       as Core (FromJSON, ToJSON)
 import Data.ByteString                  as Core (ByteString)
 import Data.Map                         as Core (Map)
 import Data.Monoid                      as Core (Monoid)
 import Data.Text                        as Core (Text)
-import Git                              as Core (TreeFilePath, MonadGit)
+import Git                              as Core (TreeFilePath, MonadGit, Commit)
 import Git.Libgit2                      as Core (LgRepo)
 
-import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=))
+import Data.Aeson (ToJSON(..), object, (.=))
 import qualified Data.Set as S
 import qualified Data.Text as T
+
+import Types as Core
 import qualified Formula as F
-
-type Uid = Text
-type Record = (TreeFilePath, Text)
-type Version = Text
-
-data Committish = Ref Text | Sha Text deriving (Eq, Show)
-
-newtype SpaceId = SpaceId { unSpaceId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
-
-instance Show SpaceId where
-  show = T.unpack . unSpaceId
-
-newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
-
-instance Show PropertyId where
-  show = T.unpack . unPropertyId
-
-newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSON, FromJSON)
-
-instance Show TheoremId where
-  show = T.unpack . unTheoremId
-
-type TraitId = (SpaceId, PropertyId)
-
-data Error = NotATree TreeFilePath
-           | ParseError TreeFilePath String
-           | ReferenceError TreeFilePath [Uid]
-           | NotUnique Text Text
-           | CommitNotFound Committish
-           deriving (Show, Eq)
 
 explainError :: Error -> Text
 explainError (NotATree path) = decodeUtf8 path <> ": could not find directory"
@@ -62,62 +34,20 @@ explainError (NotUnique field value) = field <> " is not unique: " <> value
 
 instance ToJSON Error where
   toJSON err = object
-    [ "error" .= show err
+    [ "error" .= object
+      [ "type"    .= show err
+      , "message" .= explainError err
+      ]
     ]
-
-data Space = Space
-  { spaceId          :: !SpaceId
-  , spaceSlug        :: !Text
-  , spaceName        :: !Text
-  , spaceDescription :: !Text
-  , spaceTopology    :: !(Maybe Text)
-  }
-
-instance Show Space where
-  show Space{..} = T.unpack $ "[" <> unSpaceId spaceId <> "|" <> spaceName <> "]"
-
-data Property = Property
-  { propertyId          :: !PropertyId
-  , propertySlug        :: !Text
-  , propertyName        :: !Text
-  , propertyAliases     :: !(Maybe [Text])
-  , propertyDescription :: !Text
-  }
-
-instance Show Property where
-  show Property{..} = T.unpack $ "[" <> _id <> "|" <> propertyName <> "]"
-    where
-      PropertyId _id = propertyId
-
-data Implication p = Implication (F.Formula p) (F.Formula p)
-  deriving (Eq, Functor)
 
 implicationProperties :: Ord p => Implication p -> S.Set p
 implicationProperties (Implication a c) = F.properties a `S.union` F.properties c
 
-instance Show p => Show (Implication p) where
-  show (Implication a c) = show a ++ " => " ++ show c
+theoremIf :: Theorem p -> Formula p
+theoremIf t = let (Implication a _) = theoremImplication t in a
 
-data Theorem p = Theorem
-  { theoremId          :: !TheoremId
-  , theoremIf          :: !(F.Formula p)
-  , theoremThen        :: !(F.Formula p)
-  , theoremConverse    :: !(Maybe [TheoremId])
-  , theoremDescription :: !Text
-  }
-
-theoremImplication :: Theorem p -> Implication p
-theoremImplication Theorem{..} = Implication theoremIf theoremThen
-
-instance Show p => Show (Theorem p) where
-  show t@Theorem{..} = "[" ++ show theoremId ++ "|" ++ show (theoremImplication t) ++ "]"
-
-data Trait s p = Trait
-  { traitSpace       :: !s
-  , traitProperty    :: !p
-  , traitValue       :: !Bool
-  , traitDescription :: !Text
-  } deriving Show
+theoremThen :: Theorem p -> Formula p
+theoremThen t = let (Implication _ c) = theoremImplication t in c
 
 traitId :: Trait Space Property -> TraitId
 traitId = (,) <$> traitSpaceId <*> traitPropertyId
@@ -127,20 +57,6 @@ traitSpaceId = spaceId . traitSpace
 
 traitPropertyId :: Trait s Property -> PropertyId
 traitPropertyId = propertyId . traitProperty
-
-data Match = Yes | No | Unknown
-  deriving (Show, Eq, Ord)
-
-data Assumptions = Assumptions
-  { assumedTraits   :: S.Set TraitId
-  , assumedTheorems :: S.Set TheoremId
-  } deriving Show
-
-data Proof = Proof
-  { proofFor      :: Trait Space Property
-  , proofTheorems :: [Theorem Property]
-  , proofTraits   :: [Trait Space Property]
-  } deriving Show
 
 (~>) :: F.Formula p -> F.Formula p -> Implication p
 (~>) = Implication
@@ -164,26 +80,7 @@ hydrateTheorem props theorem =
       (Left as, Left bs) -> Left $ as ++ bs
       (Left as, _) -> Left as
       (_, Left bs) -> Left bs
-      (Right a', Right c') -> Right $ theorem { theoremIf = a', theoremThen = c' }
-
-newtype Proofs = Proofs (Map TraitId Assumptions) deriving Show
-
-data Viewer = Viewer
-  { viewerProperties :: [Property]
-  , viewerSpaces     :: [Space]
-  , viewerTheorems   :: [Theorem Property]
-  , viewerTraits     :: [Trait Space Property]
-  , viewerProofs     :: Proofs
-  , viewerVersion    :: Text
-  } deriving Show
-
-type ViewerDiff = Viewer
-
--- TODO: enforce that only one thread gets to write to a branch at a time
-data Store = Store
-  { storeRepo  :: LgRepo
-  , storeCache :: MVar (Maybe Viewer)
-  }
+      (Right a', Right c') -> Right $ theorem { theoremImplication = Implication a' c' }
 
 class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where
   getStore :: m Store
@@ -193,3 +90,28 @@ instance (MonadStore m) => MonadStore (ReaderT LgRepo m) where
 
 class MonadStore m => MonadBranch m where
   withBranch :: m a -> m a
+
+instance Show SpaceId where
+  show = T.unpack . unSpaceId
+
+instance Show PropertyId where
+  show = T.unpack . unPropertyId
+
+instance Show TheoremId where
+  show = T.unpack . unTheoremId
+
+instance Show Space where
+  show Space{..} = T.unpack $ "[" <> unSpaceId spaceId <> "|" <> spaceName <> "]"
+
+instance Show Property where
+  show Property{..} = T.unpack $ "[" <> unPropertyId propertyId <> "|" <> propertyName <> "]"
+
+instance Show p => Show (Implication p) where
+  show (Implication a c) = show a ++ " => " ++ show c
+
+instance Show p => Show (Theorem p) where
+  show t@Theorem{..} = "[" ++ show theoremId ++ "|" ++ show theoremImplication ++ "]"
+
+instance Show Assumptions
+instance Show Proof
+instance Show Viewer

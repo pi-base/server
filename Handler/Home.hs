@@ -2,9 +2,10 @@ module Handler.Home where
 
 import Import
 
-import Data (Committish(..), getVersion, storeMaster, parseViewer)
+import Data (Committish(..), storeMaster, parseViewer)
 import Handler.Helpers (createToken)
 import Services.Github (checkPullRequest, webhookHandler)
+import Core (unVersion)
 import Viewer
 
 getMaster :: Handler Viewer
@@ -21,7 +22,7 @@ postHooksR :: Handler Value
 postHooksR = do
   pullRequest <- webhookHandler
   result      <- checkPullRequest pullRequest
-  returnJson $ viewerVersion <$> result
+  returnJson $ (unVersion . viewerVersion) <$> result
 
 activeToken :: UserId -> Handler Token
 activeToken userId = do
@@ -38,5 +39,5 @@ getFrontendR = do
     Just _id -> (runDB $ get _id) >>= \case
       Nothing -> redirect appFrontendUrl
       Just _ -> do
-        Token{..}       <- activeToken _id
+        Token{..} <- activeToken _id
         redirect $ appFrontendUrl <> "/login/" <> tokenUuid

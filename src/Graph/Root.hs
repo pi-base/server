@@ -30,7 +30,7 @@ data Operation = Named Name | Anonymous
 
 type QueryRoot = Graph.Import.Object "QueryRoot" '[]
   '[ Field "__typename" Text
-   , Argument "version" (Maybe Version) :> Field "viewer" Viewer
+   , Argument "version" (Maybe Text) :> Field "viewer" Viewer
    , Field "me" G.User
    -- Mutations
    , Argument "input" CreateSpaceInput    :> Field "createSpace"    Space
