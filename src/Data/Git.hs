@@ -1,6 +1,7 @@
 module Data.Git
   ( Store
   , MonadStore(..)
+  , Tree
   , eachBlob
   , getDir
   , mkStore
@@ -21,18 +22,6 @@ import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
 import Git.Libgit2 (LgRepo, openLgRepository, runLgRepository)
-
-class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where
-  getStore :: m Store
-
-instance (MonadStore m) => MonadStore (ReaderT LgRepo m) where
-  getStore = lift getStore
-
--- TODO: enforce that only one thread gets to write to a branch at a time
-data Store = Store
-  { storeRepo  :: LgRepo
-  , storeCache :: MVar (Maybe Viewer)
-  }
 
 mkStore :: FilePath -> IO Store
 mkStore path = do

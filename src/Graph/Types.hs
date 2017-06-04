@@ -51,6 +51,7 @@ type Error = Object "Error" '[]
 
 type Viewer = Object "Viewer" '[]
   '[ Field "__typename" Text
+   , Field "version"    Text
    , Field "spaces"     (List Space)
    , Field "properties" (List Property)
    , Field "theorems"   (List Theorem)

@@ -38,7 +38,7 @@ type QueryRoot = Graph.Import.Object "QueryRoot" '[]
    , Argument "input" UpdateSpaceInput    :> Field "updateSpace"    Space
    , Argument "input" UpdatePropertyInput :> Field "updateProperty" Property
    , Argument "input" UpdateTheoremInput  :> Field "updateTheorem"  Theorem
-   , Argument "input" AssertTraitInput    :> Field "assertTrait"    (List Trait)
+   , Argument "input" AssertTraitInput    :> Field "assertTrait"    Viewer
    ]
 
 data QueryData = QueryData

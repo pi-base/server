@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Core
   ( module Core
   ) where
@@ -15,7 +16,8 @@ import Data.ByteString                  as Core (ByteString)
 import Data.Map                         as Core (Map)
 import Data.Monoid                      as Core (Monoid)
 import Data.Text                        as Core (Text)
-import Git                              as Core (TreeFilePath)
+import Git                              as Core (TreeFilePath, MonadGit)
+import Git.Libgit2                      as Core (LgRepo)
 
 import Data.Aeson (ToJSON(..), FromJSON(..), object, (.=))
 import qualified Data.Set as S
@@ -25,6 +27,8 @@ import qualified Formula as F
 type Uid = Text
 type Record = (TreeFilePath, Text)
 type Version = Text
+
+data Committish = Ref Text | Sha Text deriving (Eq, Show)
 
 newtype SpaceId = SpaceId { unSpaceId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
 
@@ -47,6 +51,7 @@ data Error = NotATree TreeFilePath
            | ParseError TreeFilePath String
            | ReferenceError TreeFilePath [Uid]
            | NotUnique Text Text
+           | CommitNotFound Committish
            deriving (Show, Eq)
 
 explainError :: Error -> Text
@@ -69,9 +74,7 @@ data Space = Space
   }
 
 instance Show Space where
-  show Space{..} = T.unpack $ "[" <> _id <> "|" <> spaceName <> "]"
-    where
-      SpaceId _id = spaceId
+  show Space{..} = T.unpack $ "[" <> unSpaceId spaceId <> "|" <> spaceName <> "]"
 
 data Property = Property
   { propertyId          :: !PropertyId
@@ -162,3 +165,31 @@ hydrateTheorem props theorem =
       (Left as, _) -> Left as
       (_, Left bs) -> Left bs
       (Right a', Right c') -> Right $ theorem { theoremIf = a', theoremThen = c' }
+
+newtype Proofs = Proofs (Map TraitId Assumptions) deriving Show
+
+data Viewer = Viewer
+  { viewerProperties :: [Property]
+  , viewerSpaces     :: [Space]
+  , viewerTheorems   :: [Theorem Property]
+  , viewerTraits     :: [Trait Space Property]
+  , viewerProofs     :: Proofs
+  , viewerVersion    :: Text
+  } deriving Show
+
+type ViewerDiff = Viewer
+
+-- TODO: enforce that only one thread gets to write to a branch at a time
+data Store = Store
+  { storeRepo  :: LgRepo
+  , storeCache :: MVar (Maybe Viewer)
+  }
+
+class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where
+  getStore :: m Store
+
+instance (MonadStore m) => MonadStore (ReaderT LgRepo m) where
+  getStore = lift getStore
+
+class MonadStore m => MonadBranch m where
+  withBranch :: m a -> m a

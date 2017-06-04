@@ -17,6 +17,7 @@ module Data
   , updateProperty
   , updateSpace
   , updateTheorem
+  , getVersion
   , getSpaceDescription
   , getPropertyDescription
   , getTheoremDescription
@@ -50,8 +51,6 @@ import Util
 import Viewer
 import qualified Viewer as V
 
-data Committish = Ref Text | Sha Text
-
 type V m = StateT (Viewer, [Error]) (ReaderT LgRepo m) ()
 
 lookupCommitish :: MonadGit r m => Committish -> m (Maybe (Oid r))
@@ -70,41 +69,55 @@ fetchPullRequest path = liftIO $ do
 viewerAtRef :: MonadStore m => Text -> m (Either [Error] Viewer)
 viewerAtRef = parseViewer . Ref
 
+parseAt :: MonadStore m
+        => Committish
+       -> a
+       -> (Commit LgRepo -> StateT (a, [Error]) (ReaderT LgRepo m) (Maybe Error))
+       -> m (Either [Error] a)
+parseAt commish initial f = useRepo . gatherErrors initial $ do
+  eref <- lift $ lookupCommitish commish
+  case eref of
+    Nothing -> return . Just $ CommitNotFound commish
+    Just ref -> do
+      cmt <- lift . lookupCommit $ Tagged ref
+      f cmt
+
+parseVersion :: Commit r -> Oid r
+parseVersion cmt = case commitOid cmt of
+  (Tagged oid) -> oid
+
+getVersion = parseAt (Ref "master") $ \cmt -> tshow $ parseVersion cmt
+
 parseViewer :: MonadStore m
             => Committish
             -> m (Either [Error] Viewer)
-parseViewer commish = useRepo . gatherErrors $ do
-  eref <- lift $ lookupCommitish commish
-  case eref of
-    Nothing -> return . Just $ NotATree "check your branch name"
-    Just ref -> do
-      cmt <- lift $ lookupCommit $ Tagged ref
-      case commitOid cmt of
-        (Tagged oid) -> modify' $ \(v,e) -> (v { viewerVersion = T.pack $ show oid }, e)
+parseViewer commish = parseAt commish V.empty $ \cmt -> do
+  let version = parseVersion cmt
+  modify' $ \(v,e) -> (v { viewerVersion = tshow version }, e)
 
-      tree <- lift $ lookupTree $ commitTree cmt
+  tree <- lift $ lookupTree $ commitTree cmt
 
-      lift (eachBlob tree "properties") >>= mapM_ addProperty
+  lift (eachBlob tree "properties") >>= mapM_ addProperty
 
-      (v, _) <- get
-      let propsBySlug = indexBy propertySlug $ viewerProperties v
-      lift (eachBlob tree "spaces") >>= mapM_ (\(path, blob) ->
-        if "README.md" `BS.isSuffixOf` path
-          then addSpace (path, blob)
-          else return ())
+  (v, _) <- get
+  let propsBySlug = indexBy propertySlug $ viewerProperties v
+  lift (eachBlob tree "spaces") >>= mapM_ (\(path, blob) ->
+    if "README.md" `BS.isSuffixOf` path
+      then addSpace (path, blob)
+      else return ())
 
-      (v', _) <- get
-      let spacesBySlug = indexBy spaceSlug $ viewerSpaces v'
-      lift (eachBlob tree "spaces") >>= mapM_ (\(path, blob) ->
-        if "README.md" `BS.isSuffixOf` path
-          then return ()
-          else addTrait spacesBySlug propsBySlug (path, blob))
+  (v', _) <- get
+  let spacesBySlug = indexBy spaceSlug $ viewerSpaces v'
+  lift (eachBlob tree "spaces") >>= mapM_ (\(path, blob) ->
+    if "README.md" `BS.isSuffixOf` path
+      then return ()
+      else addTrait spacesBySlug propsBySlug (path, blob))
 
-      lift (eachBlob tree "theorems") >>= mapM_ (addTheorem propsBySlug)
+  lift (eachBlob tree "theorems") >>= mapM_ (addTheorem propsBySlug)
 
-      validate
+  validate
 
-      return Nothing
+  return Nothing
 
 getSpaceDescription :: MonadStore m
                     => Space -> m Text
@@ -194,9 +207,9 @@ hydrateTrait path ss ps t@Trait{..} = case (M.lookup traitSpace ss, M.lookup tra
   (Nothing, _) -> Left $ ReferenceError path [traitSpace]
   (_, Nothing) -> Left $ ReferenceError path [traitProperty]
 
-gatherErrors :: Monad m => StateT (Viewer, [Error]) m (Maybe Error) -> m (Either [Error] Viewer)
-gatherErrors s = do
-  (ret, (viewer, errors)) <- runStateT s (V.empty, [])
+gatherErrors :: Monad m => a -> StateT (a, [Error]) m (Maybe Error) -> m (Either [Error] a)
+gatherErrors v s = do
+  (ret, (viewer, errors)) <- runStateT s (v, [])
   return $ case ret of
     Just err -> Left $ err : errors
     Nothing  -> if null errors

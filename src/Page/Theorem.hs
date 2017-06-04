@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Page.Theorem
-  ( parse
+  ( parser
+  , parse
   , write
   ) where
 
@@ -30,6 +31,8 @@ instance FromJSON Frontmatter where
     <*> o .: "if"
     <*> o .: "then"
     <*> o .:? "converse"
+
+parser = parse
 
 parse :: Page Frontmatter -> Either Error (Theorem Text)
 parse (Page _ Frontmatter{..} main _sections) = Right $ Theorem

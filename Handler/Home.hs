@@ -2,7 +2,7 @@ module Handler.Home where
 
 import Import
 
-import Data (Committish(..), storeMaster, parseViewer)
+import Data (Committish(..), getVersion, storeMaster, parseViewer)
 import Handler.Helpers (createToken)
 import Services.Github (checkPullRequest, webhookHandler)
 import Viewer
@@ -13,16 +13,9 @@ getMaster = storeMaster >>=
 
 getHomeR :: Handler Value
 getHomeR = do
-  viewer <- getMaster
-  return $ object
-    [ ("version" :: Text) .= viewerVersion viewer
-    ]
-
-getViewerR :: Handler Value
-getViewerR = getMaster >>= returnJson
-
-getViewerBranchR :: Text -> Handler Value
-getViewerBranchR ref = (parseViewer $ Ref ref) >>= returnJson
+  -- version <- getVersion $ Branch "master"
+  let version = error "version" :: Text
+  return $ object [ "version" .= version ]
 
 postHooksR :: Handler Value
 postHooksR = do

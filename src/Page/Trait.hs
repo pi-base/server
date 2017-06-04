@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Page.Trait
   ( Page.Trait.parse
+  , parser
   , path
   , write
   ) where
@@ -16,10 +17,10 @@ import Core
 import Page.Parser (Page(..))
 
 data Frontmatter = Frontmatter
-  { space :: Text
-  , property :: Text
-  , value :: Bool
-  , proof :: Maybe Assumptions
+  { space    :: !Text
+  , property :: !Text
+  , value    :: !Bool
+  , proof    :: !(Maybe Assumptions)
   } deriving Generic
 
 instance ToJSON Assumptions where
@@ -47,6 +48,8 @@ parse (Page _ Frontmatter{..} main sections) = do
     Just p -> do
       pids <- parseProof p
       return (trait, Just pids)
+
+parser = Page.Trait.parse
 
 write :: (Trait Space Property, Maybe Assumptions) -> Page Frontmatter
 write (t, proof) = Page

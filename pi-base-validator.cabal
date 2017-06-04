@@ -42,6 +42,7 @@ library
                      Graph.Types
                      Logic
                      Logic.Universe
+                     Page
                      Page.Parser
                      Page.Property
                      Page.Space

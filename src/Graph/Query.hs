@@ -80,11 +80,15 @@ viewer mver = do
     (Just ver) -> parseViewer $ Sha ver
     _ -> storeMaster
   case eviewer of
-    Left errs -> error $ show errs -- TODO: ViewerOrError
-    Right v -> pure $ pure "Viewer"
-      :<> spacesR v
-      :<> propertiesR v
-      :<> theoremsR v
+    Left errs -> error $ show errs
+    Right v -> viewerR v
+
+viewerR :: MonadStore m => Viewer -> Handler m G.Viewer
+viewerR v = pure $ pure "Viewer"
+  :<> pure (viewerVersion v)
+  :<> spacesR v
+  :<> propertiesR v
+  :<> theoremsR v
 
 encodeFormula :: Formula Property -> Text
 encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map (unPropertyId . propertyId)

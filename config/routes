@@ -4,9 +4,7 @@
 /favicon.ico FaviconR GET
 /robots.txt  RobotsR  GET
 
-/             HomeR         GET
-/viewer       ViewerR       GET
-/viewer/#Text ViewerBranchR GET
+/ HomeR GET
 
 /github/hooks HooksR POST
 
