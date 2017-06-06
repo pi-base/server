@@ -25,9 +25,7 @@ instance Defaultable AssertTraitInput where
 assertTrait :: AssertTraitInput -> G G.Viewer
 assertTrait AssertTraitInput{..} = do
   (Entity _ user) <- requireToken
-  updates <- t user (SpaceId spaceId) (PropertyId propertyId) value ""
-  G.viewerR updates
-
-  where
-    t = error "Implement assertTrait"
-
+  updates <- D.assertTrait user (SpaceId spaceId) (PropertyId propertyId) value ""
+  case updates of
+    Left err -> error $ show err
+    Right view -> G.viewerR view

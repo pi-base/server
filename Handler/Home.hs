@@ -2,10 +2,10 @@ module Handler.Home where
 
 import Import
 
-import Data (Committish(..), storeMaster, parseViewer)
+import Data            (storeMaster, parseViewer)
 import Handler.Helpers (createToken)
 import Services.Github (checkPullRequest, webhookHandler)
-import Core (unVersion)
+import Core            (unVersion)
 import Viewer
 
 getMaster :: Handler Viewer

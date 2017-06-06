@@ -1,12 +1,7 @@
 module Data.Git
-  ( Store
-  , MonadStore(..)
-  , Tree
-  , eachBlob
-  , getDir
-  , mkStore
-  , storeCached
+  ( getDir
   , modifyGitRef
+  , openRepo
   , useRepo
   , writeContents
   , ensureUserBranch
@@ -16,37 +11,19 @@ module Data.Git
 
 import Core
 import Model (User(..))
-import Viewer
 
-import Control.Concurrent.MVar.Lifted (modifyMVar)
-import Control.Monad.Trans.Control (MonadBaseControl)
 import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
 import Git.Libgit2 (LgRepo, openLgRepository, runLgRepository)
 
-mkStore :: FilePath -> IO Store
-mkStore path = do
-  let opts = RepositoryOptions
-        { repoPath       = path
-        , repoWorkingDir = Nothing
-        , repoIsBare     = False
-        , repoAutoCreate = False
-        }
-  repo  <- openLgRepository opts
-  cache <- newMVar Nothing
-  return $ Store repo cache
-
-storeCached :: MonadStore m
-            => m (Either a Viewer)
-            -> m (Either a Viewer)
-storeCached f = do
-  Store{..} <- getStore
-  modifyMVar storeCache $ \mev -> case mev of
-    Just viewer -> return $ (Just viewer, Right viewer)
-    _ -> f >>= \case
-      Left err     -> return $ (Nothing, Left err)
-      Right viewer -> return $ (Just viewer, Right viewer)
+openRepo :: FilePath -> IO LgRepo
+openRepo path = openLgRepository $ RepositoryOptions
+  { repoPath       = path
+  , repoWorkingDir = Nothing
+  , repoIsBare     = False
+  , repoAutoCreate = False
+  }
 
 useRepo :: MonadStore m
         => ReaderT LgRepo m a
@@ -54,24 +31,6 @@ useRepo :: MonadStore m
 useRepo handler = do
   Store{..} <- getStore
   runLgRepository storeRepo handler
-
-eachBlob :: (MonadGit r m)
-         => Tree r
-         -> TreeFilePath
-         -> m [Record]
-eachBlob tree path = getDir tree path >>= \case
-  Left _err -> return []
-  Right dir -> do
-    entries <- listTreeEntries dir
-    foldM step [] entries
-
-  where
-    step :: MonadGit r m => [Record] -> (TreeFilePath, TreeEntry r) -> m [Record]
-    step results (filepath, entry) = case entry of
-      BlobEntry _id _ -> do
-        blob   <- catBlobUtf8 _id
-        return $ (filepath, blob) : results
-      _ -> return results
 
 commitVersion :: Commit LgRepo -> Version
 commitVersion cmt = case commitOid cmt of

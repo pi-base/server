@@ -4,6 +4,7 @@ module Logic
   , U.check
   , deduceTraits
   , U.search
+  , viewUpdates
   ) where
 
 import Control.Monad.State.Strict (State, gets)
@@ -17,6 +18,9 @@ import Viewer
 
 deduceTraits :: Viewer -> [(Trait Space Property, Assumptions)]
 deduceTraits v = U.withQueue checkImplications $ U.fromViewer v
+
+viewUpdates :: State U.Universe () -> Viewer
+viewUpdates = error "viewUpdates"
 
 counterexamples :: Implication PropertyId -> U.Universe -> [SpaceId]
 counterexamples (Implication ant con) = U.search f Yes

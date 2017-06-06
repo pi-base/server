@@ -10,27 +10,33 @@ import Control.Monad.Reader             as Core (MonadReader, ReaderT,
                                                  ask, asks, runReaderT)
 import Control.Monad.Trans              as Core (lift)
 import Control.Monad.Trans.Control      as Core (MonadBaseControl)
+import Control.Monad.Trans.Except       as Core (ExceptT, runExceptT, except)
 import Control.Monad.Trans.State.Strict as Core (StateT)
 import Data.Aeson                       as Core (FromJSON, ToJSON)
 import Data.ByteString                  as Core (ByteString)
+import Data.Either.Combinators          as Core (mapLeft, mapRight)
 import Data.Map                         as Core (Map)
 import Data.Monoid                      as Core (Monoid)
 import Data.Text                        as Core (Text)
+import Data.Void                        as Core (Void)
 import Git                              as Core (TreeFilePath, MonadGit, Commit)
 import Git.Libgit2                      as Core (LgRepo)
+
+import Model as Core
+import Types as Core
 
 import Data.Aeson (ToJSON(..), object, (.=))
 import qualified Data.Set as S
 import qualified Data.Text as T
 
-import Types as Core
 import qualified Formula as F
 
 explainError :: Error -> Text
 explainError (NotATree path) = decodeUtf8 path <> ": could not find directory"
 explainError (ParseError path msg) = decodeUtf8 path <> ": error while parsing - " <> T.pack msg
-explainError (ReferenceError path ids) = decodeUtf8 path <> ": invalid reference - " <> (T.pack $ show ids)
+explainError (ReferenceError path ids) = decodeUtf8 path <> ": invalid reference - " <> tshow ids
 explainError (NotUnique field value) = field <> " is not unique: " <> value
+explainError (CommitNotFound c) = "Could not find commit at " <> tshow c
 
 instance ToJSON Error where
   toJSON err = object
@@ -82,15 +88,6 @@ hydrateTheorem props theorem =
       (_, Left bs) -> Left bs
       (Right a', Right c') -> Right $ theorem { theoremImplication = Implication a' c' }
 
-class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where
-  getStore :: m Store
-
-instance (MonadStore m) => MonadStore (ReaderT LgRepo m) where
-  getStore = lift getStore
-
-class MonadStore m => MonadBranch m where
-  withBranch :: m a -> m a
-
 instance Show SpaceId where
   show = T.unpack . unSpaceId
 
@@ -115,3 +112,5 @@ instance Show p => Show (Theorem p) where
 instance Show Assumptions
 instance Show Proof
 instance Show Viewer
+
+instance Exception Error

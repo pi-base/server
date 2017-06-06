@@ -26,6 +26,7 @@ data Error = NotATree TreeFilePath
            | ReferenceError TreeFilePath [Uid]
            | NotUnique Text Text
            | CommitNotFound Committish
+           | KeyError Text
            deriving (Show, Eq)
 
 data Space = Space
@@ -94,3 +95,9 @@ data Store = Store
   { storeRepo  :: LgRepo
   , storeCache :: MVar (Maybe Viewer)
   }
+
+class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where
+  getStore :: m Store
+
+instance (MonadStore m) => MonadStore (ReaderT LgRepo m) where
+  getStore = lift getStore

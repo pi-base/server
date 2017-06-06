@@ -34,10 +34,8 @@ instance FromJSON Frontmatter where
       <*> o .: "then"
       <*> o .:? "converse"
 
-parser :: Parser Frontmatter (Theorem PropertyId)
-parser f = do
-  thrm <- parse f
-  return $ PropertyId <$> thrm
+parser :: Parser Frontmatter (Theorem Text)
+parser = parse
 
 parse :: Page Frontmatter -> Either Error (Theorem Text)
 parse (Page _ Frontmatter{..} main _sections) = Right $ Theorem

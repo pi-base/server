@@ -5,8 +5,8 @@ module Services.Github
 
 import Import
 import qualified Core (Error, explainError)
-import Data (Committish(..), parseViewer, fetchPullRequest)
-import Viewer (Viewer)
+import Data (parseViewer, fetchPullRequest)
+import Types (Viewer, Committish(..))
 
 import Control.Monad (unless)
 import Crypto.Hash

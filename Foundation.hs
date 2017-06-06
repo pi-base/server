@@ -15,7 +15,7 @@ import qualified Yesod.Core.Unsafe as Unsafe
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 
-import Data (Store, MonadStore(..))
+import Types (Store, MonadStore(..))
 import Data.Git (useRepo, ensureUserBranch)
 
 -- | The foundation datatype for your application. This can be a good place to
