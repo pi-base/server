@@ -16,13 +16,12 @@ import Logic (deduceTraits)
 import qualified Page.Parser
 import qualified Page.Trait as PT
 import Util (indexBy)
-import Viewer
 
 import qualified Data.Parse
 
 deleteDerivedTraits :: Text -> Handler ()
 deleteDerivedTraits ref = withViewerAt ref $ \View{..} -> do
-  putStrLn $ "Parsed viewer @" <> unVersion viewVersion
+  putStrLn $ "Parsed viewer @" <> maybe "??" unVersion viewVersion
   user <- systemUser
   error "deleteDerivedTraits"
   -- void . modifyGitRef user ref "Delete derived traits" $ do

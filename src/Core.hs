@@ -117,7 +117,6 @@ instance Show p => Show (Theorem p) where
 
 instance Show Assumptions
 instance Show Proof
-instance Show Viewer
 instance Show View
 
 instance Exception Error
@@ -129,7 +128,8 @@ instance Monoid View where
     , viewTheorems   = mappend (viewTheorems a)   (viewTheorems b)
     , viewProofs     = mappend (viewProofs a)     (viewProofs b)
     , viewTraits     = SM.unionWith mappend (viewTraits a) (viewTraits b)
-    , viewVersion    = viewVersion a
+    , viewVersion    = Nothing
     }
 
-  mempty = View mempty mempty mempty mempty mempty (Version "")
+  mempty = View mempty mempty mempty mempty mempty Nothing
+

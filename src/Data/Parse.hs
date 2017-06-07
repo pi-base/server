@@ -33,7 +33,7 @@ buildView ss ps ts is version = View
   , viewTraits     = M.map (indexBy traitProperty) $ groupBy traitSpace $ map identifyTrait ts
   , viewTheorems   = indexBy theoremId $ map (fmap propertyId) is
   , viewProofs     = mempty
-  , viewVersion    = version
+  , viewVersion    = Just version
   }
 
 viewer :: MonadStore m => Committish -> m (Either [Error] View)

@@ -12,13 +12,13 @@ import qualified Data.Set        as S
 
 type    Uid     = Text
 type    Record  = (TreeFilePath, Text)
-newtype Version = Version { unVersion :: Text }
+newtype Version = Version { unVersion :: Text } deriving (Eq, ToJSON, FromJSON)
 
 data Committish = Ref Text | Sha Text deriving (Eq, Show)
 
-newtype SpaceId    = SpaceId { unSpaceId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
+newtype SpaceId    = SpaceId    { unSpaceId    :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
 newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
-newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSON, FromJSON)
+newtype TheoremId  = TheoremId  { unTheoremId  :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
 
 type TraitId = (SpaceId, PropertyId)
 
@@ -85,24 +85,13 @@ data Proof = Proof
   , proofTraits   :: [Trait Space Property]
   }
 
--- TODO: deprecate Viewer in favor of View
-data Viewer = Viewer
-  { viewerProperties :: [Property]
-  , viewerSpaces     :: [Space]
-  , viewerTheorems   :: [Theorem Property]
-  , viewerTraits     :: [Trait Space Property]
-  , viewerProofs     :: Map TraitId Assumptions
-  , viewerVersion    :: Version
-  }
-
 data View = View
   { viewProperties :: M.Map PropertyId Property
   , viewSpaces     :: M.Map SpaceId    Space
   , viewTheorems   :: M.Map TheoremId  (Theorem PropertyId)
   , viewTraits     :: M.Map SpaceId    (M.Map PropertyId (Trait SpaceId PropertyId))
   , viewProofs     :: M.Map TraitId    Assumptions
-  -- TODO: should be Maybe Version (Just <=> persisted)
-  , viewVersion    :: Version
+  , viewVersion    :: Maybe Version
   }
 
 data Prover = Prover

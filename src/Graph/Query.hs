@@ -16,7 +16,6 @@ import qualified Graph.Types as G
 import           Handler.Helpers (requireToken)
 import           Model (User(..))
 import qualified Util
-import           Viewer (Viewer(..))
 
 spaceR :: MonadStore m
        => Space
@@ -85,20 +84,9 @@ viewer mver = do
     Left errs -> error $ show errs
     Right v   -> viewR v
 
-viewerR :: MonadStore m => Viewer -> Handler m G.Viewer
-viewerR Viewer{..} = error "TODO: replace with viewR"
-  -- pure $ pure "Viewer"
-  -- :<> pure (unVersion viewerVersion)
-  -- :<> spacesR viewerSpaces traitMap
-  -- :<> propertiesR viewerProperties
-  -- :<> theoremsR viewerTheorems
-  -- where
-  --   traitMap :: M.Map SpaceId [Trait Space Property]
-  --   traitMap = Util.groupBy (\Trait{..} -> spaceId traitSpace) viewerTraits
-
 viewR :: MonadStore m => View -> Handler m G.Viewer
 viewR View{..} = pure $ pure "Viewer"
-  :<> pure        (unVersion viewVersion)
+  :<> pure (maybe "" unVersion viewVersion)
   :<> spacesR     (M.elems viewSpaces    ) viewTraits viewProperties
   :<> propertiesR (M.elems viewProperties)
   :<> theoremsR   (M.elems viewTheorems  ) (findKey viewProperties)
