@@ -89,13 +89,14 @@ writeContents :: MonadStore m
               => User
               -> CommitMessage
               -> [(TreeFilePath, Text)]
-              -> m (Either String (Commit LgRepo))
+              -> m (Either String Version)
 writeContents user message files = do
   branch <- ensureUserBranch user
 
-  modifyGitRef user branch message $ do
+  ec <- modifyGitRef user branch message $ do
     forM_ files $ \(path, contents) -> do
       (lift $ createBlobUtf8 contents) >>= putBlob path
+  return $ commitVersion <$> ec
 
 lookupCommitish :: MonadGit r m => Committish -> m (Maybe (Oid r))
 lookupCommitish (Ref ref) = resolveReference $ "refs/heads/" <> ref

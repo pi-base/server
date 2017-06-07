@@ -8,8 +8,7 @@ module Core
 import ClassyPrelude                    as Core
 import Control.Applicative              as Core ((<|>))
 import Control.Monad.IO.Class           as Core (MonadIO, liftIO)
-import Control.Monad.Reader             as Core (MonadReader, ReaderT,
-                                                 ask, asks, runReaderT)
+import Control.Monad.Reader             as Core (MonadReader(..), ReaderT, asks, runReaderT)
 import Control.Monad.Trans              as Core (lift)
 import Control.Monad.Trans.Control      as Core (MonadBaseControl)
 import Control.Monad.Trans.Except       as Core (ExceptT, runExceptT, except)
@@ -40,6 +39,7 @@ explainError (ParseError path msg) = decodeUtf8 path <> ": error while parsing -
 explainError (ReferenceError path ids) = decodeUtf8 path <> ": invalid reference - " <> tshow ids
 explainError (NotUnique field value) = field <> " is not unique: " <> value
 explainError (CommitNotFound c) = "Could not find commit at " <> tshow c
+explainError e = tshow e
 
 instance ToJSON Error where
   toJSON err = object
@@ -61,6 +61,9 @@ theoremThen t = let (Implication _ c) = theoremImplication t in c
 theoremProperties :: Ord p => Theorem p -> S.Set p
 theoremProperties = implicationProperties . theoremImplication
 
+theoremName :: Theorem Property -> Text
+theoremName = T.pack . show . theoremImplication
+
 traitId :: Trait Space Property -> TraitId
 traitId = (,) <$> traitSpaceId <*> traitPropertyId
 
@@ -69,6 +72,11 @@ traitSpaceId = spaceId . traitSpace
 
 traitPropertyId :: Trait s Property -> PropertyId
 traitPropertyId = propertyId . traitProperty
+
+traitName :: Trait Space Property -> Text
+traitName Trait{..} = spaceName traitSpace <> ": " <> label <> propertyName traitProperty
+  where
+    label = if traitValue then "" else "~"
 
 (~>) :: F.Formula p -> F.Formula p -> Implication p
 (~>) = Implication
@@ -115,7 +123,6 @@ instance Show p => Show (Implication p) where
 instance Show p => Show (Theorem p) where
   show Theorem{..} = "[" ++ show theoremId ++ "|" ++ show theoremImplication ++ "]"
 
-instance Show Assumptions
 instance Show Proof
 instance Show View
 
@@ -123,12 +130,12 @@ instance Exception Error
 
 instance Monoid View where
   mappend a b = View
-    { viewProperties = mappend (viewProperties a) (viewProperties b)
-    , viewSpaces     = mappend (viewSpaces a)     (viewSpaces b)
-    , viewTheorems   = mappend (viewTheorems a)   (viewTheorems b)
-    , viewProofs     = mappend (viewProofs a)     (viewProofs b)
-    , viewTraits     = SM.unionWith mappend (viewTraits a) (viewTraits b)
-    , viewVersion    = Nothing
+    { _viewProperties = mappend (_viewProperties a) (_viewProperties b)
+    , _viewSpaces     = mappend (_viewSpaces a)     (_viewSpaces b)
+    , _viewTheorems   = mappend (_viewTheorems a)   (_viewTheorems b)
+    , _viewProofs     = mappend (_viewProofs a)     (_viewProofs b)
+    , _viewTraits     = SM.unionWith mappend (_viewTraits a) (_viewTraits b)
+    , _viewVersion    = Nothing
     }
 
   mempty = View mempty mempty mempty mempty mempty Nothing

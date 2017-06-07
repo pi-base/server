@@ -138,6 +138,7 @@ library
                  , gitlib
                  , gitlib-libgit2
                  , graphql-api
+                 , lens
                  , lifted-base
                  , mtl
                  , scientific

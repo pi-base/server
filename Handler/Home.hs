@@ -14,13 +14,13 @@ getMaster = storeMaster >>=
 getHomeR :: Handler Value
 getHomeR = do
   master <- getMaster
-  return $ object [ "version" .= viewVersion master ]
+  return $ object [ "version" .= _viewVersion master ]
 
 postHooksR :: Handler Value
 postHooksR = do
   pullRequest <- webhookHandler
   result      <- checkPullRequest pullRequest
-  let version = (maybe "??" unVersion . viewVersion) <$> result
+  let version = (maybe "??" unVersion . _viewVersion) <$> result
   returnJson version
 
 activeToken :: UserId -> Handler Token

@@ -18,38 +18,42 @@ data Frontmatter = Frontmatter
   { space    :: !Text
   , property :: !Text
   , value    :: !Bool
-  , proof    :: !(Maybe Assumptions)
+  , proof    :: !(Maybe Proof)
   } deriving Generic
 
-instance ToJSON Assumptions where
-  toJSON Assumptions{..} = object
-    [ "traits"   .= S.toList assumedTraits
-    , "theorems" .= (map unTheoremId $ S.toList assumedTheorems)
+instance ToJSON Frontmatter where
+  toJSON Frontmatter{..} = object $
+    [ "space"    .= space
+    , "property" .= property
+    , "value"    .= value
+    ]
+    -- Don't embed a `proof` field if there is no proof to show
+    <> maybe [] (\p -> ["proof" .= p]) proof
+
+instance ToJSON Proof where
+  toJSON Proof{..} = object
+    [ "properties" .= (map unPropertyId $ S.toList proofProperties)
+    , "theorems"   .= (map unTheoremId  $ S.toList proofTheorems)
     ]
 
-instance FromJSON Assumptions where
-  parseJSON = withObject "Assumptions" $ \o -> Assumptions
-    <$> o .: "traits"
-    <*> o .: "theorems"
-
-instance ToJSON Frontmatter
-instance FromJSON Frontmatter
+instance FromJSON Frontmatter where
+  parseJSON = withObject "Frontmatter" $ \o -> do
+    space    <- o .: "space"
+    property <- o .: "property"
+    value    <- o .: "value"
+    let proof = error "parse proof from frontmatter"
+    return Frontmatter{..}
 
 path :: Trait Space Property -> TreeFilePath
 path Trait{..} = encodeUtf8 $ "spaces/" <> (unSpaceId $ spaceId traitSpace) <> "/properties/" <> (unPropertyId $ propertyId traitProperty) <> ".md"
 
-parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Assumptions)
-parse (Page _ Frontmatter{..} main sections) = do
-  let trait = Trait space property value main
-  case HM.lookup "Proof" $ HM.fromList sections of
-    Nothing -> return (trait, Nothing)
-    Just p -> do
-      pids <- parseProof p
-      return (trait, Just pids)
+parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Proof)
+parse (Page _ Frontmatter{..} main _) =
+  return (Trait space property value main, proof)
 
 parser = Page.Trait.parse
 
-write :: (Trait Space Property, Maybe Assumptions) -> Page Frontmatter
+write :: (Trait Space Property, Maybe Proof) -> Page Frontmatter
 write (t, proof) = Page
   { pagePath = path t
   , pageFrontmatter = Frontmatter
@@ -61,25 +65,3 @@ write (t, proof) = Page
   , pageMain = traitDescription t
   , pageSections = []
   }
-
-data Assumption = AssumedTrait TraitId | AssumedTheorem TheoremId
-
-parseProof :: Text -> Either Error Assumptions
-parseProof text = case parseOnly (sepBy1 parseAssumption "\n") text of
-  Left err -> Left $ ParseError "proof" err
-  Right as -> Right $ foldAssumptions as
-
-parseAssumption = do
-  _   <- "* ["
-  _id <- takeTill $ \c -> c == ']'
-  _   <- takeTill $ \c -> c == '\n'
-  return $ assumptionFromId _id
-
-assumptionFromId = error "assumptionFromId"
--- assumptionFromId :: Text -> Assumption
--- assumptionFromId _id = case T.uncons _id of
---   Just ('T', _) -> AssumedTrait $ TraitId _id
---   _             -> AssumedTheorem $ TheoremId _id
-
-foldAssumptions :: [Assumption] -> Assumptions
-foldAssumptions = error "foldAssumptions"

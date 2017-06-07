@@ -86,10 +86,10 @@ viewer mver = do
 
 viewR :: MonadStore m => View -> Handler m G.Viewer
 viewR View{..} = pure $ pure "Viewer"
-  :<> pure (maybe "" unVersion viewVersion)
-  :<> spacesR     (M.elems viewSpaces    ) viewTraits viewProperties
-  :<> propertiesR (M.elems viewProperties)
-  :<> theoremsR   (M.elems viewTheorems  ) (findKey viewProperties)
+  :<> pure (maybe "" unVersion _viewVersion)
+  :<> spacesR     (M.elems _viewSpaces    ) _viewTraits _viewProperties
+  :<> propertiesR (M.elems _viewProperties)
+  :<> theoremsR   (M.elems _viewTheorems  ) (findKey _viewProperties)
 
 encodeFormula :: MonadThrow m => (p -> m Property) -> Formula p -> m Text
 encodeFormula f formula =

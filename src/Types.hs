@@ -3,6 +3,7 @@
 module Types where
 
 import Import.NoFoundation
+import Control.Lens (makeLenses)
 
 import Git         (TreeFilePath)
 import Git.Libgit2 (LgRepo)
@@ -31,6 +32,7 @@ data Error = NotATree TreeFilePath
            | CommitNotFound Committish
            | NotFound Text
            | LogicError LogicError
+           | PersistError String
            deriving (Show, Eq)
 
 data Space = Space
@@ -74,32 +76,22 @@ data Trait s p = Trait
 data Match = Yes | No | Unknown
   deriving (Show, Eq, Ord)
 
-data Assumptions = Assumptions
-  { assumedTraits   :: S.Set TraitId
-  , assumedTheorems :: S.Set TheoremId
-  }
-
 data Proof = Proof
-  { proofFor      :: Trait Space Property
-  , proofTheorems :: [Theorem Property]
-  , proofTraits   :: [Trait Space Property]
+  { proofSpace      :: SpaceId
+  , proofProperties :: S.Set PropertyId
+  , proofTheorems   :: S.Set TheoremId
   }
 
 data View = View
-  { viewProperties :: M.Map PropertyId Property
-  , viewSpaces     :: M.Map SpaceId    Space
-  , viewTheorems   :: M.Map TheoremId  (Theorem PropertyId)
-  , viewTraits     :: M.Map SpaceId    (M.Map PropertyId (Trait SpaceId PropertyId))
-  , viewProofs     :: M.Map TraitId    Assumptions
-  , viewVersion    :: Maybe Version
+  { _viewProperties :: M.Map PropertyId Property
+  , _viewSpaces     :: M.Map SpaceId    Space
+  , _viewTheorems   :: M.Map TheoremId  (Theorem PropertyId)
+  , _viewTraits     :: M.Map SpaceId    (M.Map PropertyId (Trait SpaceId PropertyId))
+  , _viewProofs     :: M.Map TraitId    Proof
+  , _viewVersion    :: Maybe Version
   }
 
-data Prover = Prover
-  { proverView            :: View
-  , proverRelatedTheorems :: M.Map PropertyId [TheoremId]
-  , proverQueue           :: S.Set (SpaceId, PropertyId)
-  , proverId              :: Int
-  }
+makeLenses ''View
 
 -- TODO: enforce that only one thread gets to write to a branch at a time
 data Store = Store

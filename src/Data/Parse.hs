@@ -28,12 +28,12 @@ import qualified Page.Trait
 type Slug = Text
 
 buildView ss ps ts is version = View
-  { viewSpaces     = indexBy spaceId ss
-  , viewProperties = indexBy propertyId ps
-  , viewTraits     = M.map (indexBy traitProperty) $ groupBy traitSpace $ map identifyTrait ts
-  , viewTheorems   = indexBy theoremId $ map (fmap propertyId) is
-  , viewProofs     = mempty
-  , viewVersion    = Just version
+  { _viewSpaces     = indexBy spaceId ss
+  , _viewProperties = indexBy propertyId ps
+  , _viewTraits     = M.map (indexBy traitProperty) $ groupBy traitSpace $ map identifyTrait ts
+  , _viewTheorems   = indexBy theoremId $ map (fmap propertyId) is
+  , _viewProofs     = mempty
+  , _viewVersion    = Just version
   }
 
 viewer :: MonadStore m => Committish -> m (Either [Error] View)

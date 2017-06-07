@@ -19,6 +19,7 @@ module Data
   , assertTrait
   ) where
 
+import           Control.Lens
 import qualified Data.Map.Strict as M
 import qualified Data.Text       as T
 import qualified Data.UUID       as UUID
@@ -123,40 +124,36 @@ assertTrait :: MonadStore m
 assertTrait user sid pid value description = do
   let branch = userBranchRef user
   P.viewSpace sid branch >>= \case
-    Right view -> do
-      trait <- buildTrait view sid pid value description
-      -- FIXME: the current implementation of `updates` will never include any spaces
-      case L.result view $ L.assertTrait trait of
-        Left err -> return $ Left [LogicError err]
-        Right updates -> do
-          persistUpdates updates user $ "Add " <> traitName trait
-          return $ Right updates
     Left errs -> return $ Left errs
+    Right v -> do
+      trait <- buildTrait v sid pid value description
+      case L.updates v $ L.assertTrait trait of
+        Left err -> return $ Left [LogicError err]
+        Right updates -> persistUpdates updates user $ "Add " <> traitName trait
 
 buildTrait :: MonadThrow m
            => View -> SpaceId -> PropertyId -> Bool -> Text -> m (Trait Space Property)
 buildTrait View{..} sid pid value description = do
-  space    <- fetch sid viewSpaces
-  property <- fetch pid viewProperties
+  space    <- fetch sid _viewSpaces
+  property <- fetch pid _viewProperties
   return $ Trait space property value description
 
-persistUpdates :: MonadStore m => View -> User -> Text -> m ()
-persistUpdates View{..} user message = useRepo $ do
-  let pages
-        =  map (Page.Parser.write . Page.Space.write)    (M.elems viewSpaces)
-        <> map (Page.Parser.write . Page.Property.write) (M.elems viewProperties)
-        -- TODO: reify theorems and traits (with proofs)
-        -- <> map (Page.Parser.write . Page.Theorem.write)  (M.elems viewTheorems)
-        -- <> map (Page.Parser.write . Page.Trait.write)    viewerTraits
-  writeContents user message pages
-  return ()
+persistUpdates :: MonadStore m => View -> User -> Text -> m (Either [Error] View)
+persistUpdates v user message = useRepo $ do
+  let
+    pages =  map (Page.Parser.write . Page.Theorem.write) (fullTheorems v)
+          <> map (Page.Parser.write . Page.Trait.write)   (fullTraits   v)
+
+  writeContents user message pages >>= \case
+    Left      msg -> return . Left  $ [PersistError msg]
+    Right version -> return . Right $ v { _viewVersion = Just version }
 
 findMaster f _id = storeMaster >>= \case
-  Left     _ -> return Nothing
-  Right view -> return . M.lookup _id $ f view
+  Left  _ -> return Nothing
+  Right v -> return . M.lookup _id $ f v
 
 findSpace :: MonadStore m => SpaceId -> m (Maybe Space)
-findSpace = findMaster viewSpaces
+findSpace = findMaster _viewSpaces
 
 updateProperty :: MonadStore m
             => User -> Property -> Text -> m (Maybe Property)
@@ -167,7 +164,7 @@ updateProperty user property description = useRepo $ do
   return $ Just updated
 
 findProperty :: MonadStore m => PropertyId -> m (Maybe Property)
-findProperty = findMaster viewProperties
+findProperty = findMaster _viewProperties
 
 updateTheorem :: MonadStore m
               => User -> Theorem Property -> Text -> m (Maybe (Theorem Property))
@@ -178,15 +175,7 @@ updateTheorem user theorem description = useRepo $ do
   return $ Just updated
 
 findTheorem :: MonadStore m => TheoremId -> m (Maybe (Theorem PropertyId))
-findTheorem = findMaster viewTheorems
-
-theoremName :: Theorem Property -> Text
-theoremName = T.pack . show . theoremImplication
-
-traitName :: Trait Space Property -> Text
-traitName Trait{..} = spaceName traitSpace <> ": " <> label <> propertyName traitProperty
-  where
-    label = if traitValue then "" else "~"
+findTheorem = findMaster _viewTheorems
 
 mkStore :: FilePath -> IO Store
 mkStore path = Store
@@ -203,3 +192,35 @@ storeCached f = do
     _ -> f >>= \case
       Left err     -> return $ (Nothing, Left err)
       Right viewer -> return $ (Just viewer, Right viewer)
+
+fullTheorems :: View -> [Theorem Property]
+fullTheorems v = M.foldr' acc [] $ v ^. viewTheorems
+  where
+    props :: Map PropertyId Property
+    props = v ^. viewProperties
+
+    acc :: Theorem PropertyId -> [Theorem Property] -> [Theorem Property]
+    acc t ts = case hydrateTheorem props t of
+      Left  _  -> ts
+      Right t' -> t' : ts
+
+fullTraits :: View -> [(Trait Space Property, Maybe Proof)]
+fullTraits v = foldr acc [] $ flattened
+  where
+    flattened :: [Trait SpaceId PropertyId]
+    flattened = join . M.elems . M.map M.elems $ v ^. viewTraits
+
+    acc :: Trait SpaceId PropertyId
+        -> [(Trait Space Property, Maybe Proof)]
+        -> [(Trait Space Property, Maybe Proof)]
+    acc t ts =
+      let
+        sid   = traitSpace t
+        pid   = traitProperty t
+        ms    = M.lookup sid $ v ^. viewSpaces
+        mp    = M.lookup pid $ v ^. viewProperties
+        proof = M.lookup (sid, pid) $ v ^. viewProofs
+      in
+        case (ms, mp) of
+          (Just s, Just p) -> (t { traitSpace = s, traitProperty = p }, proof) : ts
+          _ -> ts

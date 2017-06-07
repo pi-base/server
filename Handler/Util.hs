@@ -21,7 +21,7 @@ import qualified Data.Parse
 
 deleteDerivedTraits :: Text -> Handler ()
 deleteDerivedTraits ref = withViewerAt ref $ \View{..} -> do
-  putStrLn $ "Parsed viewer @" <> maybe "??" unVersion viewVersion
+  putStrLn $ "Parsed viewer @" <> maybe "??" unVersion _viewVersion
   user <- systemUser
   error "deleteDerivedTraits"
   -- void . modifyGitRef user ref "Delete derived traits" $ do
