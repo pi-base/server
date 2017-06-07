@@ -23,4 +23,4 @@ createSpace :: CreateSpaceInput -> G G.Space
 createSpace CreateSpaceInput{..} = do
   (Entity _ user) <- requireToken
   space <- D.createSpace user name description
-  G.spaceR mempty space
+  G.spaceR space mempty mempty

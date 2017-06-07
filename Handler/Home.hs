@@ -5,10 +5,9 @@ import Import
 import Data            (storeMaster, parseViewer)
 import Handler.Helpers (createToken)
 import Services.Github (checkPullRequest, webhookHandler)
-import Core            (unVersion)
-import Viewer
+import Core            (View(..), unVersion)
 
-getMaster :: Handler Viewer
+getMaster :: Handler View
 getMaster = storeMaster >>=
   either (sendStatusJSON status200) return
 
@@ -22,7 +21,7 @@ postHooksR :: Handler Value
 postHooksR = do
   pullRequest <- webhookHandler
   result      <- checkPullRequest pullRequest
-  returnJson $ (unVersion . viewerVersion) <$> result
+  returnJson $ (unVersion . viewVersion) <$> result
 
 activeToken :: UserId -> Handler Token
 activeToken userId = do

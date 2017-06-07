@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveTraversable #-}
 module Types where
 
 import Import.NoFoundation
@@ -6,8 +7,8 @@ import Import.NoFoundation
 import Git         (TreeFilePath)
 import Git.Libgit2 (LgRepo)
 
-import qualified Data.Set  as S
-import qualified Data.Text as T
+import qualified Data.Map.Strict as M
+import qualified Data.Set        as S
 
 type    Uid     = Text
 type    Record  = (TreeFilePath, Text)
@@ -21,12 +22,15 @@ newtype TheoremId  = TheoremId { unTheoremId :: Uid }   deriving (Eq, Ord, ToJSO
 
 type TraitId = (SpaceId, PropertyId)
 
+data LogicError = AssertionError deriving (Show, Eq)
+
 data Error = NotATree TreeFilePath
            | ParseError TreeFilePath String
            | ReferenceError TreeFilePath [Uid]
            | NotUnique Text Text
            | CommitNotFound Committish
-           | KeyError Text
+           | NotFound Text
+           | LogicError LogicError
            deriving (Show, Eq)
 
 data Space = Space
@@ -48,7 +52,7 @@ data Property = Property
 data Formula p = Atom p Bool
                | And [Formula p]
                | Or  [Formula p]
-               deriving (Eq, Functor)
+               deriving (Eq, Functor, Foldable, Traversable)
 
 data Implication p = Implication (Formula p) (Formula p)
   deriving (Eq, Functor)
@@ -81,6 +85,7 @@ data Proof = Proof
   , proofTraits   :: [Trait Space Property]
   }
 
+-- TODO: deprecate Viewer in favor of View
 data Viewer = Viewer
   { viewerProperties :: [Property]
   , viewerSpaces     :: [Space]
@@ -90,10 +95,27 @@ data Viewer = Viewer
   , viewerVersion    :: Version
   }
 
+data View = View
+  { viewProperties :: M.Map PropertyId Property
+  , viewSpaces     :: M.Map SpaceId    Space
+  , viewTheorems   :: M.Map TheoremId  (Theorem PropertyId)
+  , viewTraits     :: M.Map SpaceId    (M.Map PropertyId (Trait SpaceId PropertyId))
+  , viewProofs     :: M.Map TraitId    Assumptions
+  -- TODO: should be Maybe Version (Just <=> persisted)
+  , viewVersion    :: Version
+  }
+
+data Prover = Prover
+  { proverView            :: View
+  , proverRelatedTheorems :: M.Map PropertyId [TheoremId]
+  , proverQueue           :: S.Set (SpaceId, PropertyId)
+  , proverId              :: Int
+  }
+
 -- TODO: enforce that only one thread gets to write to a branch at a time
 data Store = Store
   { storeRepo  :: LgRepo
-  , storeCache :: MVar (Maybe Viewer)
+  , storeCache :: MVar (Maybe View)
   }
 
 class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where

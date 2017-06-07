@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Core
   ( module Core
   ) where
@@ -26,8 +28,9 @@ import Model as Core
 import Types as Core
 
 import Data.Aeson (ToJSON(..), object, (.=))
-import qualified Data.Set as S
-import qualified Data.Text as T
+import qualified Data.Map.Strict as SM
+import qualified Data.Set        as S
+import qualified Data.Text       as T
 
 import qualified Formula as F
 
@@ -54,6 +57,9 @@ theoremIf t = let (Implication a _) = theoremImplication t in a
 
 theoremThen :: Theorem p -> Formula p
 theoremThen t = let (Implication _ c) = theoremImplication t in c
+
+theoremProperties :: Ord p => Theorem p -> S.Set p
+theoremProperties = implicationProperties . theoremImplication
 
 traitId :: Trait Space Property -> TraitId
 traitId = (,) <$> traitSpaceId <*> traitPropertyId
@@ -107,10 +113,23 @@ instance Show p => Show (Implication p) where
   show (Implication a c) = show a ++ " => " ++ show c
 
 instance Show p => Show (Theorem p) where
-  show t@Theorem{..} = "[" ++ show theoremId ++ "|" ++ show theoremImplication ++ "]"
+  show Theorem{..} = "[" ++ show theoremId ++ "|" ++ show theoremImplication ++ "]"
 
 instance Show Assumptions
 instance Show Proof
 instance Show Viewer
+instance Show View
 
 instance Exception Error
+
+instance Monoid View where
+  mappend a b = View
+    { viewProperties = mappend (viewProperties a) (viewProperties b)
+    , viewSpaces     = mappend (viewSpaces a)     (viewSpaces b)
+    , viewTheorems   = mappend (viewTheorems a)   (viewTheorems b)
+    , viewProofs     = mappend (viewProofs a)     (viewProofs b)
+    , viewTraits     = SM.unionWith mappend (viewTraits a) (viewTraits b)
+    , viewVersion    = viewVersion a
+    }
+
+  mempty = View mempty mempty mempty mempty mempty (Version "")

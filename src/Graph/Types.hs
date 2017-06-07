@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 module Graph.Types where
 
-import Core (Version, Bool, Maybe, Text)
+import Core (Bool, Maybe, Text)
 
 import GraphQL.API
 

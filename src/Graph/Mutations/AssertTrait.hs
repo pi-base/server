@@ -28,4 +28,4 @@ assertTrait AssertTraitInput{..} = do
   updates <- D.assertTrait user (SpaceId spaceId) (PropertyId propertyId) value ""
   case updates of
     Left err -> error $ show err
-    Right view -> G.viewerR view
+    Right view -> G.viewR view

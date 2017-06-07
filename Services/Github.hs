@@ -6,7 +6,7 @@ module Services.Github
 import Import
 import qualified Core (Error, explainError)
 import Data (parseViewer, fetchPullRequest)
-import Types (Viewer, Committish(..))
+import Types (View, Committish(..))
 
 import Control.Monad (unless)
 import Crypto.Hash
@@ -27,7 +27,7 @@ webhookHandler = do
   validateSignature str
   either halt return . eitherDecode $ LBS.fromStrict str
 
-checkPullRequest :: PullRequestEvent -> Handler (Either [Core.Error] Viewer)
+checkPullRequest :: PullRequestEvent -> Handler (Either [Core.Error] View)
 checkPullRequest pre = do
   let
     pr   = pullRequestEventPullRequest pre
@@ -72,7 +72,7 @@ prStatusError _id sha errors = do
   issueComment _id $ explainErrors errors
   postStatus sha GH.StatusError "Errors found"
 
-prStatusOk :: Id Issue -> Name Commit -> Viewer -> Handler ()
+prStatusOk :: Id Issue -> Name Commit -> View -> Handler ()
 prStatusOk _id sha _viewer = do
   issueComment _id "No errors found"
   postStatus sha GH.StatusSuccess "No errors found"

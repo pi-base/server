@@ -6,12 +6,10 @@ module Page.Trait
   , write
   ) where
 
-import Data.Aeson
-import Data.Attoparsec.Text hiding (space)
-import Data.Either.Combinators (mapLeft)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text           as T
-import qualified Data.Set            as S
+import           Data.Aeson
+import           Data.Attoparsec.Text hiding (space)
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.Set             as S
 
 import Core
 import Page.Parser (Page(..))

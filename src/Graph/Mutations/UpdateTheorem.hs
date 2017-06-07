@@ -26,6 +26,6 @@ updateTheorem UpdateTheoremInput{..} = do
   case ms of
     Nothing -> halt "Could not find theorem"
     Just t ->
-      D.updateTheorem user t description >>= \case
-        Just up -> G.theoremR up
+      D.updateTheorem user (error "updateTheorem") description >>= \case
+        Just up -> G.theoremR (error "updateTheorem") up
         Nothing -> halt "Update failed"

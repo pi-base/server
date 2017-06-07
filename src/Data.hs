@@ -19,10 +19,11 @@ module Data
   , assertTrait
   ) where
 
-import qualified Data.Text      as T
-import qualified Data.UUID      as UUID
-import qualified Data.UUID.V4   as UUID
-import           System.Process (callCommand)
+import qualified Data.Map.Strict as M
+import qualified Data.Text       as T
+import qualified Data.UUID       as UUID
+import qualified Data.UUID.V4    as UUID
+import           System.Process  (callCommand)
 
 import qualified Data.Parse as P
 import qualified Logic      as L
@@ -35,9 +36,10 @@ import qualified Page.Trait
 
 import Core
 import Data.Git (openRepo, useRepo, writeContents)
+import Util     (fetch, indexBy)
 
 storeMaster :: MonadStore m
-            => m (Either [Error] Viewer)
+            => m (Either [Error] View)
 storeMaster = storeCached $ parseViewer (Ref "master")
 
 fetchPullRequest :: MonadIO m => FilePath -> m ()
@@ -45,12 +47,12 @@ fetchPullRequest path = liftIO $ do
   putStrLn $ "Pulling updates for repo"
   callCommand $ "cd " ++ path ++ " && git fetch origin"
 
-viewerAtRef :: MonadStore m => Text -> m (Either [Error] Viewer)
+viewerAtRef :: MonadStore m => Text -> m (Either [Error] View)
 viewerAtRef = parseViewer . Ref
 
 parseViewer :: MonadStore m
             => Committish
-            -> m (Either [Error] Viewer)
+            -> m (Either [Error] View)
 parseViewer commish = do
   eviewer <- P.viewer commish
   -- validate
@@ -65,10 +67,10 @@ getPropertyDescription :: MonadStore m
 getPropertyDescription Property{..} = return propertyDescription
 
 getTheoremDescription :: MonadStore m
-                      => Theorem Property -> m Text
+                      => Theorem p -> m Text
 getTheoremDescription Theorem{..} = return theoremDescription
 
-validate :: Viewer -> Either [Error] Viewer
+validate :: View -> Either [Error] View
 validate = error "validate"
   -- TODO: add other validators
   -- verifyUnique "Space ID" spaceId viewerSpaces
@@ -114,30 +116,47 @@ createProperty user name description = useRepo $ do
   return property
 
 userBranchRef :: User -> Committish
-userBranchRef User{..} = Ref $ "users/" <> userIdent
+userBranchRef User{..} = Ref $ "users/" <> userName
 
 assertTrait :: MonadStore m
-            => User -> SpaceId -> PropertyId -> Bool -> Text -> m (Either [Error] Viewer)
+            => User -> SpaceId -> PropertyId -> Bool -> Text -> m (Either [Error] View)
 assertTrait user sid pid value description = do
   let branch = userBranchRef user
   P.viewSpace sid branch >>= \case
     Right view -> do
-      let trait   = buildTrait view sid pid value description
-          updates = L.viewUpdates $ L.assertTrait trait
-      persistUpdates updates branch
-      return $ Right updates
+      trait <- buildTrait view sid pid value description
+      -- FIXME: the current implementation of `updates` will never include any spaces
+      case L.result view $ L.assertTrait trait of
+        Left err -> return $ Left [LogicError err]
+        Right updates -> do
+          persistUpdates updates user $ "Add " <> traitName trait
+          return $ Right updates
     Left errs -> return $ Left errs
 
-buildTrait :: Viewer -> SpaceId -> PropertyId -> Bool -> Text -> Trait Space Property
-buildTrait = error "buildTrait"
+buildTrait :: MonadThrow m
+           => View -> SpaceId -> PropertyId -> Bool -> Text -> m (Trait Space Property)
+buildTrait View{..} sid pid value description = do
+  space    <- fetch sid viewSpaces
+  property <- fetch pid viewProperties
+  return $ Trait space property value description
 
-persistUpdates :: MonadStore m => Viewer -> Committish -> m ()
-persistUpdates = error "persistUpdate"
+persistUpdates :: MonadStore m => View -> User -> Text -> m ()
+persistUpdates View{..} user message = useRepo $ do
+  let pages
+        =  map (Page.Parser.write . Page.Space.write)    (M.elems viewSpaces)
+        <> map (Page.Parser.write . Page.Property.write) (M.elems viewProperties)
+        -- TODO: reify theorems and traits (with proofs)
+        -- <> map (Page.Parser.write . Page.Theorem.write)  (M.elems viewTheorems)
+        -- <> map (Page.Parser.write . Page.Trait.write)    viewerTraits
+  writeContents user message pages
+  return ()
+
+findMaster f _id = storeMaster >>= \case
+  Left     _ -> return Nothing
+  Right view -> return . M.lookup _id $ f view
 
 findSpace :: MonadStore m => SpaceId -> m (Maybe Space)
-findSpace _id = storeMaster >>= \case
-  Left _ -> return Nothing
-  Right Viewer{..} -> return $ find (\Space{..} -> spaceId == _id) viewerSpaces
+findSpace = findMaster viewSpaces
 
 updateProperty :: MonadStore m
             => User -> Property -> Text -> m (Maybe Property)
@@ -148,9 +167,7 @@ updateProperty user property description = useRepo $ do
   return $ Just updated
 
 findProperty :: MonadStore m => PropertyId -> m (Maybe Property)
-findProperty _id = storeMaster >>= \case
-  Left _ -> return Nothing
-  Right Viewer{..} -> return $ find (\Property{..} -> propertyId == _id) viewerProperties
+findProperty = findMaster viewProperties
 
 updateTheorem :: MonadStore m
               => User -> Theorem Property -> Text -> m (Maybe (Theorem Property))
@@ -160,13 +177,16 @@ updateTheorem user theorem description = useRepo $ do
     [Page.Parser.write $ Page.Theorem.write updated]
   return $ Just updated
 
-findTheorem :: MonadStore m => TheoremId -> m (Maybe (Theorem Property))
-findTheorem _id = storeMaster >>= \case
-  Left _ -> return Nothing
-  Right Viewer{..} -> return $ find (\Theorem{..} -> theoremId == _id) viewerTheorems
+findTheorem :: MonadStore m => TheoremId -> m (Maybe (Theorem PropertyId))
+findTheorem = findMaster viewTheorems
 
 theoremName :: Theorem Property -> Text
 theoremName = T.pack . show . theoremImplication
+
+traitName :: Trait Space Property -> Text
+traitName Trait{..} = spaceName traitSpace <> ": " <> label <> propertyName traitProperty
+  where
+    label = if traitValue then "" else "~"
 
 mkStore :: FilePath -> IO Store
 mkStore path = Store
@@ -174,8 +194,8 @@ mkStore path = Store
   <*> newMVar Nothing
 
 storeCached :: MonadStore m
-            => m (Either a Viewer)
-            -> m (Either a Viewer)
+            => m (Either a View)
+            -> m (Either a View)
 storeCached f = do
   Store{..} <- getStore
   modifyMVar storeCache $ \mev -> case mev of

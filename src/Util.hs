@@ -1,5 +1,6 @@
 module Util
   ( dupes
+  , fetch
   , flatMapM
   , indexBy
   , groupBy
@@ -37,3 +38,12 @@ unionN = foldl' S.union S.empty
 flatMapM :: (Monoid (Element (t b)), MonoFoldable (t b), Traversable t, Monad m)
          => (a -> m b) -> t a -> m (Element (t b))
 flatMapM f m = mapM f m >>= return . concat
+
+data KeyError k = KeyError k deriving (Typeable, Show)
+
+instance (Show k, Typeable k) => Exception (KeyError k)
+
+fetch :: (MonadThrow m, Ord k, Show k, Typeable k) => k -> Map k v -> m v
+fetch k m = case M.lookup k m of
+  Just v  -> return v
+  Nothing -> throwM $ KeyError k

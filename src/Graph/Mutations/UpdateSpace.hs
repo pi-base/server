@@ -28,5 +28,5 @@ updateSpace UpdateSpaceInput{..} = do
     Just s ->
       D.updateSpace user s description >>= \case
         -- TODO: don't allow querying for traits here
-        Just us -> G.spaceR mempty us
+        Just us -> G.spaceR us mempty mempty
         Nothing -> halt "Update failed"

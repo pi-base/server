@@ -43,7 +43,6 @@ library
                      Graph.Root
                      Graph.Types
                      Logic
-                     Logic.Universe
                      Page
                      Page.Parser
                      Page.Property

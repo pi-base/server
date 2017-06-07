@@ -19,45 +19,47 @@ import qualified Util
 import           Viewer (Viewer(..))
 
 spaceR :: MonadStore m
-       => M.Map SpaceId [Trait Space Property]
-       -> Space
+       => Space
+       -> M.Map PropertyId (Trait SpaceId PropertyId)
+       -> M.Map PropertyId Property
        -> Handler m G.Space
-spaceR traitMap s@Space{..} = pure $ pure "Space"
+spaceR s@Space{..} traitMap propMap = pure $ pure "Space"
   :<> pure (unSpaceId spaceId)
   :<> pure spaceSlug
   :<> pure spaceName
   :<> getSpaceDescription s
   :<> pure spaceTopology
-  :<> traitsR traits
-  where
-    traits :: [Trait Space Property]
-    traits = maybe [] id $ M.lookup spaceId traitMap
+  :<> traitsR (M.elems traitMap) propMap
 
 
 traitsR :: MonadStore m
-        => [Trait Space Property]
+        => [Trait s PropertyId]
+        -> M.Map PropertyId Property
         -> Handler m (List G.Trait)
-traitsR = pure . map render
+traitsR traits props = pure $ map render traits
   where
     render Trait{..} = pure $ pure "Trait"
-      :<> propertyR traitProperty
+      :<> (findKey props traitProperty >>= propertyR)
       :<> pure traitValue
 
-theoremsR ::  MonadStore m => Viewer -> Handler m (List G.Theorem)
-theoremsR Viewer{..} = pure $ map theoremR viewerTheorems
+theoremsR ::  MonadStore m
+          => [Theorem p] -> (p -> m Property) -> Handler m (List G.Theorem)
+theoremsR ts f = pure $ map (theoremR f) ts
 
-theoremR :: MonadStore m => Theorem Property -> Handler m G.Theorem
-theoremR t@Theorem{..} = pure $ pure "Theorem"
+theoremR :: MonadStore m => (p -> m Property) -> Theorem p -> Handler m G.Theorem
+theoremR f t@Theorem{..} = pure $ pure "Theorem"
   :<> pure (unTheoremId theoremId)
-  :<> pure (encodeFormula $ theoremIf t)
-  :<> pure (encodeFormula $ theoremThen t)
+  :<> (encodeFormula f $ theoremIf t)
+  :<> (encodeFormula f $ theoremThen t)
   :<> getTheoremDescription t
 
-spacesR :: MonadStore m => Viewer -> Handler m (List G.Space)
-spacesR Viewer{..} = pure $ map (spaceR traitMap) viewerSpaces
-  where
-    traitMap :: M.Map SpaceId [Trait Space Property]
-    traitMap = Util.groupBy (\Trait{..} -> spaceId traitSpace) viewerTraits
+spacesR :: MonadStore m
+        => [Space]
+        -> M.Map SpaceId (M.Map PropertyId (Trait SpaceId PropertyId))
+        -> M.Map PropertyId Property
+        -> Handler m (List G.Space)
+spacesR ss traitMap propMap = pure $ map space ss
+  where space s = spaceR s (M.findWithDefault mempty (spaceId s) traitMap) propMap
 
 propertyR :: MonadStore m => Property -> Handler m G.Property
 propertyR p@Property{..} = pure $ pure "Property"
@@ -66,8 +68,8 @@ propertyR p@Property{..} = pure $ pure "Property"
   :<> pure propertyName
   :<> getPropertyDescription p
 
-propertiesR :: MonadStore m => Viewer -> Handler m (List G.Property)
-propertiesR Viewer{..} = pure $ map propertyR viewerProperties
+propertiesR :: MonadStore m => [Property] -> Handler m (List G.Property)
+propertiesR ps = pure $ map propertyR ps
 
 user :: G G.User
 user = do
@@ -81,14 +83,32 @@ viewer mver = do
     _ -> storeMaster
   case eviewer of
     Left errs -> error $ show errs
-    Right v -> viewerR v
+    Right v   -> viewR v
 
 viewerR :: MonadStore m => Viewer -> Handler m G.Viewer
-viewerR v = pure $ pure "Viewer"
-  :<> pure (unVersion $ viewerVersion v)
-  :<> spacesR v
-  :<> propertiesR v
-  :<> theoremsR v
+viewerR Viewer{..} = error "TODO: replace with viewR"
+  -- pure $ pure "Viewer"
+  -- :<> pure (unVersion viewerVersion)
+  -- :<> spacesR viewerSpaces traitMap
+  -- :<> propertiesR viewerProperties
+  -- :<> theoremsR viewerTheorems
+  -- where
+  --   traitMap :: M.Map SpaceId [Trait Space Property]
+  --   traitMap = Util.groupBy (\Trait{..} -> spaceId traitSpace) viewerTraits
 
-encodeFormula :: Formula Property -> Text
-encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map (unPropertyId . propertyId)
+viewR :: MonadStore m => View -> Handler m G.Viewer
+viewR View{..} = pure $ pure "Viewer"
+  :<> pure        (unVersion viewVersion)
+  :<> spacesR     (M.elems viewSpaces    ) viewTraits viewProperties
+  :<> propertiesR (M.elems viewProperties)
+  :<> theoremsR   (M.elems viewTheorems  ) (findKey viewProperties)
+
+encodeFormula :: MonadThrow m => (p -> m Property) -> Formula p -> m Text
+encodeFormula f formula =
+  mapM f formula >>=
+    return . TL.toStrict . decodeUtf8 . Data.Aeson.encode . map (unPropertyId . propertyId)
+
+findKey :: (MonadThrow m, Ord k, Show k) => M.Map k v -> k -> m v
+findKey props p = case M.lookup p props of
+  Nothing   -> throwM . Core.NotFound $ tshow p
+  Just prop -> return prop

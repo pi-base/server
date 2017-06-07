@@ -10,13 +10,14 @@ module Data.Parse
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map              as M
+import qualified Data.Set              as S
 import           Data.Tagged           (Tagged(..))
 import           Git
 
-import Core
+import Core     hiding (groupBy)
 import Conduit
 import Data.Git (commitVersion, getDir, lookupCommitish, useRepo)
-import Util     (indexBy)
+import Util     (groupBy, indexBy)
 
 import qualified Page
 import qualified Page.Property
@@ -26,7 +27,16 @@ import qualified Page.Trait
 
 type Slug = Text
 
-viewer :: MonadStore m => Committish -> m (Either [Error] Viewer)
+buildView ss ps ts is version = View
+  { viewSpaces     = indexBy spaceId ss
+  , viewProperties = indexBy propertyId ps
+  , viewTraits     = M.map (indexBy traitProperty) $ groupBy traitSpace $ map identifyTrait ts
+  , viewTheorems   = indexBy theoremId $ map (fmap propertyId) is
+  , viewProofs     = mempty
+  , viewVersion    = version
+  }
+
+viewer :: MonadStore m => Committish -> m (Either [Error] View)
 viewer commish = at commish $ \commit -> do
   (es, ss) <- runConduit $ spaces commit     .| sinkPair
   (ep, ps) <- runConduit $ properties commit .| sinkPair
@@ -37,10 +47,23 @@ viewer commish = at commish $ \commit -> do
   let errors = es ++ ep ++ ei ++ et
   if length errors > 1
     then return $ Left errors
-    else return $ Right $ Viewer ps ss is ts mempty (commitVersion commit)
+    else return $ Right $ buildView ss ps ts is (commitVersion commit)
 
-viewSpace :: MonadStore m => SpaceId -> Committish -> m (Either [Error] Viewer)
-viewSpace sid = viewer -- TODO: only parse traits from the specified space
+-- TODO: deduplicate this logic
+viewSpace :: MonadStore m => SpaceId -> Committish -> m (Either [Error] View)
+viewSpace sid commish = at commish $ \commit -> do
+  (es, ss) <- runConduit $ spaces     commit .| sinkPair
+  (ep, ps) <- runConduit $ properties commit .| sinkPair
+  (ei, is) <- runConduit $ theorems   commit .| hydrateTheorems ps .| sinkPair
+
+  case find (\s -> spaceId s == sid) ss of
+    Nothing -> return $ Left [NotFound $ "Space " <> tshow sid]
+    Just space -> do
+      (et, ts) <- runConduit $ traits commit [space] ps .| hydrateTraits [space] ps .| sinkPair
+      let errors = es ++ ep ++ ei ++ et
+      if length errors > 1
+        then return $ Left errors
+        else return . Right $ buildView ss ps ts is (commitVersion commit)
 
 at :: MonadStore m
    => Committish
@@ -76,10 +99,16 @@ traits :: MonadStore m
        -> [Property]
        -> ConduitM i (Either Error (Trait Slug Slug)) (ReaderT LgRepo m) ()
 traits commit ss ps = sourceCommitEntries commit "spaces"
-                    -- TODO: don't bother parsing for spaces, properties not in list
-                   .| filterC (\(path, _) -> not $ isReadme path)
+                   .| filterC (\(path, _) -> relevant path)
                    .| parseEntry Page.Trait.parser
                    .| mapC (fmap fst)
+  where
+    relevant :: TreeFilePath -> Bool
+    relevant path = S.member path paths
+
+    -- TODO: split and then check rather than building this whole n*n size set
+    paths :: S.Set TreeFilePath
+    paths = S.fromList [ "spaces/" <> (encodeUtf8 $ spaceSlug s) <> "/" <> (encodeUtf8 $ propertySlug p) | s <- ss, p <- ps ]
 
 isReadme :: TreeFilePath -> Bool
 isReadme path = "README.md" `BS.isSuffixOf` path
@@ -143,3 +172,5 @@ hydrateTrait sx px t@Trait{..} = case (M.lookup traitSpace sx, M.lookup traitPro
 mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
 mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
 
+identifyTrait :: Trait Space Property -> Trait SpaceId PropertyId
+identifyTrait t@Trait{..} = t { traitSpace = spaceId traitSpace, traitProperty = propertyId traitProperty }

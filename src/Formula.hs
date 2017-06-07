@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Formula
   ( Formula(..)
   , (.=)
