@@ -105,5 +105,5 @@ data Store = Store
 class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where
   getStore :: m Store
 
-instance (MonadStore m) => MonadStore (ReaderT LgRepo m) where
+instance MonadStore m => MonadStore (ReaderT LgRepo m) where
   getStore = lift getStore

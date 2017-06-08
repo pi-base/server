@@ -8,6 +8,7 @@ module Data.Parse
   , theorems
   ) where
 
+import           Control.Monad.State.Strict (modify)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map              as M
 import qualified Data.Set              as S
@@ -27,6 +28,35 @@ import qualified Page.Trait
 
 type Slug = Text
 
+type ET m = ExceptT Error (StateT [Error] m)
+
+fatal :: Monad m => Error -> ET m a
+fatal = throwE
+
+warn :: Monad m => Error -> ET m ()
+warn err = modify (err :)
+
+withErrors :: Monad m => ET m a -> m (Either [Error] a)
+withErrors action = runStateT (runExceptT action) [] >>= \case
+  (Right val, errs) -> if length errs == 0
+    then return $ Right val
+    else return $ Left errs
+  (Left err, errs) -> return . Left $ err : errs
+
+noteErrors :: Monad m => m [Either Error a] -> ET m [a]
+noteErrors m = do
+  (errs, vals) <- partitionEithers <$> (lift $ lift m)
+  mapM_ warn errs
+  return vals
+
+required :: Monad m => Either Error a -> ET m a
+required (Right val) = return val
+required (Left  err) = fatal err
+
+unique :: (a -> b) -> [a] -> Either Error ()
+unique f as = return () -- FIXME
+
+
 buildView :: [Space]
           -> [Property]
           -> [Trait Space Property]
@@ -42,34 +72,43 @@ buildView ss ps ts is version = View
   , _viewVersion    = Just version
   }
 
-viewer :: MonadStore m => Committish -> m (Either [Error] View)
-viewer commish = at commish $ \commit -> do
-  (es, ss) <- runConduit $ spaces commit     .| sinkPair
-  (ep, ps) <- runConduit $ properties commit .| sinkPair
-
-  (ei, is) <- runConduit $ theorems commit     .| hydrateTheorems ps  .| sinkPair
-  (et, ts) <- runConduit $ traits commit ss ps .| hydrateTraits ss ps .| sinkPair
-
-  let errors = es ++ ep ++ ei ++ et
-  if length errors > 1
-    then return $ Left errors
-    else return $ Right $ buildView ss ps ts is (commitVersion commit)
-
--- TODO: deduplicate this logic
 viewSpace :: MonadStore m => SpaceId -> Committish -> m (Either [Error] View)
-viewSpace sid commish = at commish $ \commit -> do
-  (es, ss) <- runConduit $ spaces     commit .| sinkPair
-  (ep, ps) <- runConduit $ properties commit .| sinkPair
-  (ei, is) <- runConduit $ theorems   commit .| hydrateTheorems ps .| sinkPair
+viewSpace sid commish = at commish $ \commit -> withErrors $ do
+  ss <- noteErrors $ runConduit $ spaces commit .| sinkList
+  s  <- required $ findSpace ss
 
-  case find (\s -> spaceId s == sid) ss of
-    Nothing -> return $ Left [NotFound $ "Space " <> tshow sid]
-    Just space -> do
-      (et, ts) <- runConduit $ traits commit [space] ps .| hydrateTraits [space] ps .| sinkPair
-      let errors = es ++ ep ++ ei ++ et
-      if length errors > 1
-        then return $ Left errors
-        else return . Right $ buildView ss ps ts is (commitVersion commit)
+  ps <- noteErrors $ runConduit $ properties commit .| sinkList
+  required $ unique propertyId ps
+
+  is <- noteErrors $ runConduit $ theorems commit ps .| sinkList
+  required $ unique theoremId is
+
+  ts <- noteErrors $ runConduit $ traits commit [s] ps .| sinkList
+  required $ unique traitId ts
+
+  return $ buildView [s] ps ts is (commitVersion commit)
+
+  where
+    findSpace :: [Space] -> Either Error Space
+    findSpace ss = case find (\s -> spaceId s == sid) ss of
+      Nothing -> Left . NotFound $ "Space " <> tshow sid
+      Just s  -> Right s
+
+viewer :: MonadStore m => Committish -> m (Either [Error] View)
+viewer commish = at commish $ \commit -> withErrors $ do
+  ss <- noteErrors $ runConduit $ spaces commit .| sinkList
+  required $ unique spaceId ss
+
+  ps <- noteErrors $ runConduit $ properties commit .| sinkList
+  required $ unique propertyId ps
+
+  is <- noteErrors $ runConduit $ theorems commit ps .| sinkList
+  required $ unique theoremId is
+
+  ts <- noteErrors $ runConduit $ traits commit ss ps .| sinkList
+  required $ unique traitId ts
+
+  return $ buildView ss ps ts is (commitVersion commit)
 
 at :: MonadStore m
    => Committish
@@ -95,20 +134,32 @@ properties commit = sourceCommitEntries commit "properties"
 
 theorems :: MonadStore m
          => Commit LgRepo
-         -> ConduitM i (Either Error (Theorem Slug)) (ReaderT LgRepo m) ()
-theorems commit = sourceCommitEntries commit "theorems"
-               .| parseEntry Page.Theorem.parser
+         -> [Property]
+         -> ConduitM i (Either Error (Theorem Property)) (ReaderT LgRepo m) ()
+theorems commit ps = sourceCommitEntries commit "theorems"
+                  .| parseEntry Page.Theorem.parser
+                  .| mapRightC hydrate
+  where
+    px      = indexBy propertySlug ps
+    hydrate = mapLeft (ReferenceError "hydrateTheorem") . hydrateTheorem px
 
 traits :: MonadStore m
        => Commit LgRepo
        -> [Space]
        -> [Property]
-       -> ConduitM i (Either Error (Trait Slug Slug)) (ReaderT LgRepo m) ()
+       -> ConduitM i (Either Error (Trait Space Property)) (ReaderT LgRepo m) ()
 traits commit ss ps = sourceCommitEntries commit "spaces"
                    .| filterC (\(path, _) -> relevant path)
                    .| parseEntry Page.Trait.parser
                    .| mapC (fmap fst)
+                   .| mapRightC (hydrateTrait sx px)
   where
+    sx :: M.Map Text Space
+    sx = indexBy spaceSlug ss
+
+    px :: M.Map Text Property
+    px = indexBy propertySlug ps
+
     relevant :: TreeFilePath -> Bool
     relevant path = S.member path paths
 
@@ -119,54 +170,27 @@ traits commit ss ps = sourceCommitEntries commit "spaces"
 isReadme :: TreeFilePath -> Bool
 isReadme path = "README.md" `BS.isSuffixOf` path
 
-hydrateTheorems :: Monad m
-                => [Property]
-                -> ConduitM
-                   (Either Error (Theorem Slug))
-                   (Either Error (Theorem Property))
-                   m ()
-hydrateTheorems ps = do
-  let px = indexBy propertySlug ps
-  mapRightC $ mapLeft (ReferenceError "hydrateTheorem") . hydrateTheorem px
-
-hydrateTraits :: Monad m
-              => [Space]
-              -> [Property]
-              -> ConduitM
-                   (Either Error (Trait Slug Slug))
-                   (Either Error (Trait Space Property))
-                   m ()
-hydrateTraits ss ps = do
-  let sx = indexBy spaceSlug ss
-      px = indexBy propertySlug ps
-  mapRightC $ hydrateTrait sx px
-
-sourceCommitEntries :: MonadGit LgRepo m
-                    => Commit LgRepo
+sourceCommitEntries :: MonadGit r m
+                    => Commit r
                     -> TreeFilePath
-                    -> ConduitM i (TreeFilePath, TreeEntry LgRepo) m ()
+                    -> ConduitM i (TreeFilePath, TreeEntry r) m ()
 sourceCommitEntries commit path = do
   edir <- lift $ do
     tree <- lookupTree $ commitTree commit
     getDir tree path
   either (const $ return ()) sourceTreeEntries edir
 
-parseEntry :: (FromJSON f, MonadStore m)
+parseEntry :: (FromJSON f, MonadStore m, MonadGit r m)
            => Page.Parser f a
            -> ConduitM
-             (TreeFilePath, TreeEntry LgRepo)
+             (TreeFilePath, TreeEntry r)
              (Either Error a)
-             (ReaderT LgRepo m) ()
+             m ()
 parseEntry parser = awaitForever $ \(path, entry) -> case entry of
   (BlobEntry _id _) -> do
     blob <- lift $ catBlobUtf8 _id
     yield $ Page.parse parser path blob
   _ -> return ()
-
-sinkPair :: Monad m => ConduitM (Either a b) Void m ([a], [b])
-sinkPair = foldMapC f
-  where f (Left a ) = ([a], [])
-        f (Right b) = ([], [b])
 
 hydrateTrait :: Map Text s -> Map Text p -> Trait Text Text -> Either Error (Trait s p)
 hydrateTrait sx px t@Trait{..} = case (M.lookup traitSpace sx, M.lookup traitProperty px) of
