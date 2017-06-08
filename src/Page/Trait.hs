@@ -7,9 +7,7 @@ module Page.Trait
   ) where
 
 import           Data.Aeson
-import           Data.Attoparsec.Text hiding (space)
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.Set             as S
+import qualified Data.Set   as S
 
 import Core
 import Page.Parser (Page(..))
@@ -28,13 +26,12 @@ instance ToJSON Frontmatter where
     , "value"    .= value
     ]
     -- Don't embed a `proof` field if there is no proof to show
-    <> maybe [] (\p -> ["proof" .= p]) proof
-
-instance ToJSON Proof where
-  toJSON Proof{..} = object
-    [ "properties" .= (map unPropertyId $ S.toList proofProperties)
-    , "theorems"   .= (map unTheoremId  $ S.toList proofTheorems)
-    ]
+    <> maybe [] (\p -> ["proof" .= formatProof p]) proof
+    where
+      formatProof Proof{..} = object
+        [ "properties" .= (map unPropertyId $ S.toList proofProperties)
+        , "theorems"   .= (map unTheoremId  $ S.toList proofTheorems)
+        ]
 
 instance FromJSON Frontmatter where
   parseJSON = withObject "Frontmatter" $ \o -> do
@@ -52,6 +49,7 @@ parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Proof)
 parse (Page _ Frontmatter{..} main _) =
   return (Trait space property value main, proof)
 
+parser :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Proof)
 parser = Page.Trait.parse
 
 write :: (Trait Space Property, Maybe Proof) -> Page Frontmatter

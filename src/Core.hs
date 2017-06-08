@@ -123,8 +123,9 @@ instance Show p => Show (Implication p) where
 instance Show p => Show (Theorem p) where
   show Theorem{..} = "[" ++ show theoremId ++ "|" ++ show theoremImplication ++ "]"
 
-instance Show Proof
-instance Show View
+deriving instance Show Proof
+deriving instance Show Version
+deriving instance Show View
 
 instance Exception Error
 
@@ -140,3 +141,5 @@ instance Monoid View where
 
   mempty = View mempty mempty mempty mempty mempty Nothing
 
+fixme :: String -> a
+fixme = error

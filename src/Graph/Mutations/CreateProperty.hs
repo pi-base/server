@@ -6,7 +6,6 @@ module Graph.Mutations.CreateProperty
 
 import Graph.Import
 
-import           Core        (PropertyId(..))
 import qualified Data        as D
 import qualified Graph.Types as G
 import qualified Graph.Query as G

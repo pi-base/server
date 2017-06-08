@@ -15,7 +15,6 @@ import           Formula (Formula)
 import qualified Graph.Types as G
 import           Handler.Helpers (requireToken)
 import           Model (User(..))
-import qualified Util
 
 spaceR :: MonadStore m
        => Space
@@ -75,13 +74,13 @@ user = do
   (Entity _id User{..}) <- requireToken
   return $ pure "User" :<> pure userName
 
-viewer :: MonadStore m => Maybe Text -> Handler m G.Viewer
+viewer :: (MonadStore m, MonadHandler m) => Maybe Text -> Handler m G.Viewer
 viewer mver = do
   eviewer <- case mver of
     (Just ver) -> parseViewer $ Sha ver
     _ -> storeMaster
   case eviewer of
-    Left errs -> error $ show errs
+    Left errs -> halt $ show errs
     Right v   -> viewR v
 
 viewR :: MonadStore m => View -> Handler m G.Viewer

@@ -35,6 +35,7 @@ data Error = NotATree TreeFilePath
            | NotFound Text
            | LogicError LogicError
            | PersistError String
+           | NoMaster
            deriving (Show, Eq)
 
 data Space = Space

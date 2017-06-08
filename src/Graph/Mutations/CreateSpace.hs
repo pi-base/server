@@ -6,7 +6,6 @@ module Graph.Mutations.CreateSpace
 
 import Graph.Import
 
-import           Core        (SpaceId(..))
 import qualified Data        as D
 import qualified Graph.Types as G
 import qualified Graph.Query as G

@@ -4,6 +4,7 @@ module Data
   , parseViewer
   , viewerAtRef
   , fetchPullRequest
+  , updatedPages
   --
   , findProperty
   , findSpace
@@ -22,13 +23,13 @@ module Data
 
 import           Control.Lens
 import qualified Data.Map.Strict as M
-import qualified Data.Text       as T
 import qualified Data.UUID       as UUID
 import qualified Data.UUID.V4    as UUID
 import           System.Process  (callCommand)
 
 import qualified Data.Parse as P
 import qualified Logic      as L
+import qualified View       as V
 
 import qualified Page.Parser
 import qualified Page.Property
@@ -36,9 +37,9 @@ import qualified Page.Space
 import qualified Page.Theorem
 import qualified Page.Trait
 
-import Core
+import Core     hiding (assert)
 import Data.Git (openRepo, useRepo, writeContents)
-import Util     (fetch, indexBy)
+import Util     (fetch)
 
 storeMaster :: MonadStore m
             => m (Either [Error] View)
@@ -72,17 +73,6 @@ getTheoremDescription :: MonadStore m
                       => Theorem p -> m Text
 getTheoremDescription Theorem{..} = return theoremDescription
 
-validate :: View -> Either [Error] View
-validate = error "validate"
-  -- TODO: add other validators
-  -- verifyUnique "Space ID" spaceId viewerSpaces
-  -- verifyUnique "Property ID" propertyId viewerProperties
-  -- verifyUnique "Space slug" spaceSlug viewerSpaces
-  -- verifyUnique "Property slug" propertySlug viewerProperties
-
-  -- where
-  --   verifyUnique label f coll = mapM_ (addError . NotUnique label) . dupes $ map f coll
-
 updateSpace :: MonadStore m
             => User -> Space -> Text -> m (Maybe Space)
 updateSpace user space description = useRepo $ do
@@ -91,10 +81,10 @@ updateSpace user space description = useRepo $ do
       [Page.Parser.write $ Page.Space.write space]
     return $ Just updated
 
--- makeId :: MonadStore m => m Text
-makeId cons prefix = do
+makeId :: MonadIO m => (Text -> a) -> Text -> m a
+makeId constructor prefix = do
   uuid <- liftIO UUID.nextRandom
-  return . cons $ prefix <> UUID.toText uuid
+  return . constructor $ prefix <> UUID.toText uuid
 
 slugify :: Text -> Text
 slugify t = t
@@ -122,29 +112,33 @@ userBranchRef User{..} = Ref $ "users/" <> userName
 
 assertTrait :: MonadStore m
             => User -> SpaceId -> PropertyId -> Bool -> Text -> m (Either [Error] View)
-assertTrait user sid pid value description = do
-  let branch = userBranchRef user
-  P.viewSpace sid branch >>= \case
-    Left errs -> return $ Left errs
-    Right v -> do
-      trait <- buildTrait v sid pid value description
-      case L.updates v $ L.assertTrait trait of
-        Left err -> return $ Left [LogicError err]
-        Right updates -> persistUpdates updates user $ "Add " <> traitName trait
+assertTrait user sid pid value description = assert user
+  (P.viewSpace sid)
+  (\v -> buildTrait v sid pid value description)
+  L.assertTrait
+  (\trait -> "Add " <> traitName trait)
 
--- TODO: dedup this w/ assertTrait
 assertTheorem :: MonadStore  m
               => User -> Formula PropertyId -> Formula PropertyId -> Text -> m (Either [Error] View)
-assertTheorem user ant con desc = do
-  let branch = userBranchRef user
-  P.viewer branch >>= \case
-    Left errs -> return $ Left errs
-    Right v -> do
-      theorem <- buildTheorem v ant con desc
-      traceM $ show theorem
-      case L.updates v $ L.assertTheorem theorem of
-        Left err      -> return $ Left [LogicError err]
-        Right updates -> persistUpdates updates user $ "Add " <> theoremName theorem
+assertTheorem user ant con desc = assert user P.viewer
+  (\v -> buildTheorem v ant con desc)
+  L.assertTheorem
+  (\theorem -> "Add " <> theoremName theorem)
+
+assert :: MonadStore m
+       => User
+       -> (Committish -> m (Either [Error] View))
+       -> (View -> m a)
+       -> (a -> L.Logic ())
+       -> (a -> Text)
+       -> m (Either [Error] View)
+assert user getView build logic message = getView (userBranchRef user) >>= \case
+  Left errs -> return $ Left errs
+  Right v -> do
+    obj <- build v
+    case L.updates v $ logic obj of
+      Left errs -> return $ Left [LogicError errs]
+      Right updates -> persistUpdates updates user (message obj)
 
 buildTheorem :: MonadStore m
              => View -> Formula PropertyId -> Formula PropertyId -> Text -> m (Theorem Property)
@@ -162,16 +156,20 @@ buildTrait View{..} sid pid value description = do
   property <- fetch pid _viewProperties
   return $ Trait space property value description
 
+updatedPages :: View -> [(TreeFilePath, Text)]
+updatedPages v = map (Page.Parser.write . Page.Theorem.write) (V.theorems v)
+              <> map (Page.Parser.write . Page.Trait.write)   (V.traits   v)
+
 persistUpdates :: MonadStore m => View -> User -> Text -> m (Either [Error] View)
 persistUpdates v user message = useRepo $ do
-  let
-    pages =  map (Page.Parser.write . Page.Theorem.write) (fullTheorems v)
-          <> map (Page.Parser.write . Page.Trait.write)   (fullTraits   v)
-
-  writeContents user message pages >>= \case
+  writeContents user message (updatedPages v) >>= \case
     Left      msg -> return . Left  $ [PersistError msg]
     Right version -> return . Right $ v { _viewVersion = Just version }
 
+findMaster :: (Ord k, MonadStore m)
+           => (View -> Map k a)
+           -> k
+           -> m (Maybe a)
 findMaster f _id = storeMaster >>= \case
   Left  _ -> return Nothing
   Right v -> return . M.lookup _id $ f v
@@ -217,34 +215,3 @@ storeCached f = do
       Left err     -> return $ (Nothing, Left err)
       Right viewer -> return $ (Just viewer, Right viewer)
 
-fullTheorems :: View -> [Theorem Property]
-fullTheorems v = M.foldr' acc [] $ v ^. viewTheorems
-  where
-    props :: Map PropertyId Property
-    props = v ^. viewProperties
-
-    acc :: Theorem PropertyId -> [Theorem Property] -> [Theorem Property]
-    acc t ts = case hydrateTheorem props t of
-      Left  _  -> ts
-      Right t' -> t' : ts
-
-fullTraits :: View -> [(Trait Space Property, Maybe Proof)]
-fullTraits v = foldr acc [] $ flattened
-  where
-    flattened :: [Trait SpaceId PropertyId]
-    flattened = join . M.elems . M.map M.elems $ v ^. viewTraits
-
-    acc :: Trait SpaceId PropertyId
-        -> [(Trait Space Property, Maybe Proof)]
-        -> [(Trait Space Property, Maybe Proof)]
-    acc t ts =
-      let
-        sid   = traitSpace t
-        pid   = traitProperty t
-        ms    = M.lookup sid $ v ^. viewSpaces
-        mp    = M.lookup pid $ v ^. viewProperties
-        proof = M.lookup (sid, pid) $ v ^. viewProofs
-      in
-        case (ms, mp) of
-          (Just s, Just p) -> (t { traitSpace = s, traitProperty = p }, proof) : ts
-          _ -> ts

@@ -6,7 +6,7 @@ module Graph.Mutations.UpdateTheorem
 
 import Graph.Import
 
-import           Core        (TheoremId(..))
+import           Core        (TheoremId(..), fixme)
 import qualified Data        as D
 import qualified Graph.Types as G
 import qualified Graph.Query as G
@@ -26,6 +26,6 @@ updateTheorem UpdateTheoremInput{..} = do
   case ms of
     Nothing -> halt "Could not find theorem"
     Just t ->
-      D.updateTheorem user (error "updateTheorem") description >>= \case
-        Just up -> G.theoremR (error "updateTheorem") up
+      D.updateTheorem user (fixme "updateTheorem") description >>= \case
+        Just up -> G.theoremR (fixme "updateTheorem") up
         Nothing -> halt "Update failed"

@@ -27,6 +27,12 @@ import qualified Page.Trait
 
 type Slug = Text
 
+buildView :: [Space]
+          -> [Property]
+          -> [Trait Space Property]
+          -> [Theorem Property]
+          -> Version
+          -> View
 buildView ss ps ts is version = View
   { _viewSpaces     = indexBy spaceId ss
   , _viewProperties = indexBy propertyId ps

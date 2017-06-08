@@ -48,7 +48,7 @@ ensureUserBranch User{..} = useRepo $ do
   existing <- resolveReference branchRef
   unless (isJust existing) $ do
     lookupReference "refs/heads/master" >>= \case
-      Nothing -> error "Could not resolve master; is the repo configured?"
+      Nothing     -> throwM NoMaster
       Just master -> createReference branchRef master
   return branch
 

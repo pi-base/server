@@ -1,15 +1,16 @@
 module Logic
-  ( assertTrait
+  ( Logic
+  , assertTrait
   , assertTheorem
   , check
-  , deduceTraits
+  , checkAllTraits
   , result
   , search
   , updates
   ) where
 
 import Control.Lens hiding (contains)
-import Control.Monad.State.Strict (MonadState, State, get, gets, mapState, runState, state)
+import Control.Monad.State.Strict (MonadState, State, get, runState, state)
 import Control.Monad.Trans.Except (throwE)
 import qualified Data.Map.Strict as M
 import qualified Data.Set        as S
@@ -58,7 +59,6 @@ assertTheorem t = do
     then insertTheorem t'
     else fatal AssertionError
 
-
 -- TODO: should be able to clean this up
 check :: Properties -> Formula PropertyId -> (Match, Set PropertyId)
 check ts (Atom p e) = case M.lookup p ts of
@@ -89,8 +89,8 @@ check ts (Or sf) =
         Just _ -> (Unknown, S.empty)
         Nothing -> (No, unionN . map snd $ subs)
 
-deduceTraits :: Logic ()
-deduceTraits = do
+checkAllTraits :: Logic ()
+checkAllTraits = do
   traits <- use $ proverView . viewTraits
   proverQueue <>= S.fromList [(sid, pid) | (sid, attrs) <- M.toList traits, pid <- M.keys attrs]
 
@@ -113,27 +113,13 @@ runLogic v handler =
     (Left err, _)      -> Left err
     (Right (), prover) -> Right prover
   where
-    stateHandler = runExceptT . unLogic $ handler >> runQueue checkImplications
+    stateHandler = runExceptT . unLogic $ handler >> runQueue
     initialState = initializeProver v
 
 counterexamples :: Theorem PropertyId -> View -> [SpaceId]
 counterexamples t =
   let (Implication ant con) = theoremImplication t
   in  search (And [ant, negate con]) Yes
-
-checkImplications :: SpaceId -> PropertyId -> Logic ()
-checkImplications sid pid = do
-  -- TODO: batch up queue by property to avoid recomputing related theorem data
-  relatedTheoremIds <- uses proverRelatedTheorems $ M.findWithDefault [] pid
-  allTheorems       <- use $ proverView . viewTheorems
-  let relatedTheorems = catMaybes $ map (flip M.lookup allTheorems) relatedTheoremIds
-  mapM_ (applyTheorem sid) relatedTheorems
-
-check' props ant =
-  let r = check props ant
-  -- in  trace ("checked " <> show props <> "\nagainst " <> show ant <> "\ngot " <> show r <> "\n\n") $ r
-  in r
-
 
 applyTheorem :: SpaceId -> Theorem PropertyId -> Logic ()
 applyTheorem sid t = do
@@ -207,7 +193,7 @@ insertTheorem t = do
   where
     -- TODO: can tighten up which items are queued to check
     unknowns :: View -> [SpaceId]
-    unknowns v = M.keys $ v ^. viewSpaces -- search (Or [theoremIf t, theoremThen t]) Unknown v
+    unknowns v = search (And [theoremIf t, theoremThen t]) Unknown v
 
     toCheck :: View -> Set (SpaceId, PropertyId)
     toCheck v = S.fromList [(s,p) | s <- unknowns v, p <- (S.toList $ theoremProperties t)]
@@ -216,18 +202,20 @@ filterMatch :: Match -> [(Match, a)] -> Maybe a
 filterMatch t pairs = listToMaybe [ts | (m, ts) <- pairs, m == t]
 
 queueNext :: Logic (Maybe (SpaceId, PropertyId))
-queueNext = proverQueue %%= update
-  where
-    update q = case S.maxView q of
-      Just ((s,p), rest) -> (Just (s,p), rest)
-      Nothing            -> (Nothing, S.empty)
+queueNext = proverQueue %%= \q -> case S.maxView q of
+  Just ((s,p), rest) -> (Just (s,p), rest)
+  Nothing            -> (Nothing, S.empty)
 
-runQueue :: (SpaceId -> PropertyId -> Logic ()) -> Logic ()
-runQueue handler = queueNext >>= \case
+runQueue :: Logic ()
+runQueue = queueNext >>= \case
+  Nothing -> return ()
   Just (s,p) -> do
-    handler s p
-    runQueue handler
-  _ -> return ()
+    -- TODO: batch up queue by property to avoid recomputing related theorem data
+    relatedTheoremIds <- uses proverRelatedTheorems $ M.findWithDefault [] p
+    allTheorems       <- use $ proverView . viewTheorems
+    let relatedTheorems = catMaybes $ map (flip M.lookup allTheorems) relatedTheoremIds
+    mapM_ (applyTheorem s) relatedTheorems
+    runQueue
 
 initializeProver :: View -> Prover
 initializeProver v = Prover

@@ -20,6 +20,7 @@ data Frontmatter = Frontmatter
 instance ToJSON Frontmatter
 instance FromJSON Frontmatter
 
+parser :: Page Frontmatter -> Either Error Space
 parser = parse
 
 parse :: Page Frontmatter -> Either Error Space

@@ -27,5 +27,5 @@ assertTrait AssertTraitInput{..} = do
   (Entity _ user) <- requireToken
   updates <- D.assertTrait user (SpaceId spaceId) (PropertyId propertyId) value ""
   case updates of
-    Left err -> error $ show err
+    Left err -> halt $ show err
     Right view -> G.viewR view

@@ -53,6 +53,7 @@ library
                      Services.Github
                      Types
                      Util
+                     View
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT

@@ -9,7 +9,7 @@ import           Graph.Import
 import           Data.Aeson     (decode)
 import qualified Data.Text.Lazy as TL
 
-import           Core        (SpaceId(..), PropertyId(..), Formula(..))
+import           Core        (PropertyId(..), Formula(..))
 import qualified Data        as D
 import qualified Graph.Types as G
 import qualified Graph.Query as G
@@ -26,13 +26,13 @@ instance Defaultable AssertTheoremInput where
   defaultFor _ = error "No default for AssertTheoremInput"
 
 assertTheorem :: AssertTheoremInput -> G G.Viewer
-assertTheorem i@AssertTheoremInput{..} = do
+assertTheorem AssertTheoremInput{..} = do
   (Entity _ user) <- requireToken
   a <- parseFormula antecedent
   c <- parseFormula consequent
   updates <- D.assertTheorem user a c description
   case updates of
-    Left err -> error $ show err
+    Left err -> halt $ show err
     Right view -> G.viewR view
 
 parseFormula :: Text -> Import.Handler (Formula PropertyId)

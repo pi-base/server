@@ -13,7 +13,6 @@ import qualified Data.Text             as T
 import qualified Data.Yaml             as Y
 
 import Control.Monad.Writer (execWriter, tell)
-import Data.Aeson
 import Data.Attoparsec.Text
 import Data.Either.Combinators (mapLeft)
 
