@@ -108,7 +108,7 @@ traits commit ss ps = sourceCommitEntries commit "spaces"
 
     -- TODO: split and then check rather than building this whole n*n size set
     paths :: S.Set TreeFilePath
-    paths = S.fromList [ "spaces/" <> (encodeUtf8 $ spaceSlug s) <> "/" <> (encodeUtf8 $ propertySlug p) | s <- ss, p <- ps ]
+    paths = S.fromList [ (encodeUtf8 $ spaceSlug s) <> "/properties/" <> (encodeUtf8 $ propertySlug p) <> ".md" | s <- ss, p <- ps ]
 
 isReadme :: TreeFilePath -> Bool
 isReadme path = "README.md" `BS.isSuffixOf` path

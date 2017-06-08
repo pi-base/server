@@ -34,6 +34,7 @@ library
                      Graph.Import
                      Graph.Mutations
                      Graph.Mutations.AssertTrait
+                     Graph.Mutations.AssertTheorem
                      Graph.Mutations.CreateProperty
                      Graph.Mutations.CreateSpace
                      Graph.Mutations.UpdateProperty

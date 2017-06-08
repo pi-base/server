@@ -15,6 +15,7 @@ import qualified Import (Handler)
 
 type G a = Handler Import.Handler a
 
+-- TODO: this should take a defined error type and use explainError
 halt :: MonadHandler m => String -> m a
 halt msg = sendStatusJSON badRequest400 $ object
   [ "errors" .=

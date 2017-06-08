@@ -39,6 +39,7 @@ type QueryRoot = Graph.Import.Object "QueryRoot" '[]
    , Argument "input" UpdatePropertyInput :> Field "updateProperty" Property
    , Argument "input" UpdateTheoremInput  :> Field "updateTheorem"  Theorem
    , Argument "input" AssertTraitInput    :> Field "assertTrait"    Viewer
+   , Argument "input" AssertTheoremInput  :> Field "assertTheorem"  Viewer
    ]
 
 data QueryData = QueryData
@@ -51,12 +52,14 @@ queryRoot :: G QueryRoot
 queryRoot = pure $ pure "Query"
   :<> G.viewer
   :<> G.user
+  -- Mutations
   :<> createSpace
   :<> createProperty
   :<> updateSpace
   :<> updateProperty
   :<> updateTheorem
   :<> assertTrait
+  :<> assertTheorem
 
 query :: QueryData -> Import.Handler Aeson.Value
 query q = do

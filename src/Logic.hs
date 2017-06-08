@@ -19,7 +19,7 @@ import Formula     (negate)
 import Util        (fetch, unionN)
 
 type Properties = M.Map PropertyId Bool
-type Evidence   = (TheoremId, S.Set PropertyId)
+type Evidence   = (TheoremId, Set PropertyId)
 
 newtype Logic a = Logic { unLogic :: ExceptT LogicError (State Prover) a }
   deriving (Functor, Applicative, Monad, MonadState Prover)
@@ -31,9 +31,9 @@ instance MonadReader Prover Logic where
 data Prover = Prover
   { _proverView            :: View
   , _proverRelatedTheorems :: M.Map PropertyId [TheoremId]
-  , _proverQueue           :: S.Set TraitId
-  , _proverUpdates         :: S.Set TraitId
-  , _proverId              :: Int
+  , _proverQueue           :: Set TraitId
+  , _proverUpdatedTraits   :: Set TraitId
+  , _proverUpdatedTheorems :: Set TheoremId
   }
 
 makeLenses ''Prover
@@ -49,19 +49,23 @@ assertTrait Trait{..} = do
     Just val -> unless (val == traitValue) $ fatal AssertionError
     Nothing  -> insertTrait space property traitValue Nothing
 
-assertTheorem :: Theorem PropertyId -> Logic ()
+assertTheorem :: Theorem Property -> Logic ()
 assertTheorem t = do
-  cxs <- uses proverView $ counterexamples t
+  let t' = map propertyId t
+  cxs <- uses proverView $ counterexamples t'
   if null cxs
     -- TODO: error if theorem is already known (/ deducable?)
-    then insertTheorem Nothing t
+    then insertTheorem t'
     else fatal AssertionError
+
 
 -- TODO: should be able to clean this up
 check :: Properties -> Formula PropertyId -> (Match, Set PropertyId)
 check ts (Atom p e) = case M.lookup p ts of
-  Just value -> (if e == value then Yes else No, S.singleton p)
-  Nothing    -> (Unknown, S.empty)
+  Just value -> if e == value
+    then (Yes, S.singleton p)
+    else (No,  S.singleton p)
+  Nothing -> (Unknown, S.empty)
 check ts (And  sf) =
   let
     subs    = map (check ts) sf
@@ -119,14 +123,21 @@ counterexamples t =
 
 checkImplications :: SpaceId -> PropertyId -> Logic ()
 checkImplications sid pid = do
+  -- TODO: batch up queue by property to avoid recomputing related theorem data
   relatedTheoremIds <- uses proverRelatedTheorems $ M.findWithDefault [] pid
   allTheorems       <- use $ proverView . viewTheorems
   let relatedTheorems = catMaybes $ map (flip M.lookup allTheorems) relatedTheoremIds
   mapM_ (applyTheorem sid) relatedTheorems
 
+check' props ant =
+  let r = check props ant
+  -- in  trace ("checked " <> show props <> "\nagainst " <> show ant <> "\ngot " <> show r <> "\n\n") $ r
+  in r
+
+
 applyTheorem :: SpaceId -> Theorem PropertyId -> Logic ()
 applyTheorem sid t = do
-  props <- uses proverView $ attributes sid
+  props  <- uses proverView $ attributes sid
   case check props ant of
     (No, _)         -> return ()
     (Yes, evidence) -> force con evidence
@@ -165,11 +176,6 @@ attributes sid View{..} = case M.lookup sid _viewTraits of
   Nothing    -> M.empty
   Just props -> M.map traitValue props
 
-nextId :: Logic Text
-nextId = do
-  _id <- proverId <+= 1
-  return $ "x" <> tshow _id
-
 insertTrait :: SpaceId
             -> PropertyId
             -> Bool
@@ -178,8 +184,8 @@ insertTrait :: SpaceId
 insertTrait sid pid value mev = do
   proverView . viewTraits %= addNested sid pid trait
   proverView . viewProofs %= addProof mev
-  proverUpdates <>= S.singleton (sid, pid)
-  proverQueue   <>= S.singleton (sid, pid)
+  proverUpdatedTraits <>= S.singleton (sid, pid)
+  proverQueue         <>= S.singleton (sid, pid)
   where
     trait = Trait sid pid value "" -- FIXME: description
 
@@ -191,27 +197,23 @@ addNested :: (Ord k1, Ord k2)
           => k1 -> k2 -> val -> M.Map k1 (M.Map k2 val) -> M.Map k1 (M.Map k2 val)
 addNested k1 k2 val m = M.insertWith M.union k1 (M.singleton k2 val) m
 
-insertTheorem :: Maybe TheoremId -> Theorem PropertyId -> Logic ()
-insertTheorem mtid i = do
-  tid <- maybe (TheoremId <$> nextId) return mtid
-  proverView . viewTheorems %= M.insert tid i
-  proverRelatedTheorems     %= flip addRelatedTheorem i
-  queueTheoremCheck i
-
-filterMatch :: Match -> [(Match, a)] -> Maybe a
-filterMatch t pairs = listToMaybe [ts | (m, ts) <- pairs, m == t]
-
-queueTheoremCheck :: Theorem  PropertyId -> Logic ()
-queueTheoremCheck t = do
+insertTheorem :: Theorem PropertyId -> Logic ()
+insertTheorem t = do
   v <- use proverView
-  proverQueue <>= toCheck v
+  proverView . viewTheorems %= M.insert (theoremId t) t
+  proverRelatedTheorems     %= flip addRelatedTheorem t
+  proverUpdatedTheorems    <>= S.singleton (theoremId t)
+  proverQueue              <>= toCheck v
   where
     -- TODO: can tighten up which items are queued to check
     unknowns :: View -> [SpaceId]
-    unknowns v = search (Or [theoremIf t, theoremThen t]) Unknown v
+    unknowns v = M.keys $ v ^. viewSpaces -- search (Or [theoremIf t, theoremThen t]) Unknown v
 
-    toCheck :: View -> S.Set (SpaceId, PropertyId)
+    toCheck :: View -> Set (SpaceId, PropertyId)
     toCheck v = S.fromList [(s,p) | s <- unknowns v, p <- (S.toList $ theoremProperties t)]
+
+filterMatch :: Match -> [(Match, a)] -> Maybe a
+filterMatch t pairs = listToMaybe [ts | (m, ts) <- pairs, m == t]
 
 queueNext :: Logic (Maybe (SpaceId, PropertyId))
 queueNext = proverQueue %%= update
@@ -231,9 +233,9 @@ initializeProver :: View -> Prover
 initializeProver v = Prover
   { _proverView            = v
   , _proverQueue           = mempty
-  , _proverUpdates         = mempty
+  , _proverUpdatedTraits   = mempty
+  , _proverUpdatedTheorems = mempty
   , _proverRelatedTheorems = foldl' addRelatedTheorem mempty . M.elems $ _viewTheorems v
-  , _proverId              = 1
   }
 
 addRelatedTheorem :: M.Map PropertyId [TheoremId] -> Theorem PropertyId -> Map PropertyId [TheoremId]
@@ -243,19 +245,26 @@ buildProof :: Trait SpaceId PropertyId -> Evidence -> Proof
 buildProof trait (thrmId, props) = Proof (traitSpace trait) props (S.singleton thrmId)
 
 updatedView :: Prover -> View
-updatedView prover = filterView (prover ^. proverView) (prover ^. proverUpdates)
+updatedView prover = filterView
+  (prover ^. proverView)
+  (prover ^. proverUpdatedTraits)
+  (prover ^. proverUpdatedTheorems)
 
-filterView :: View -> Set TraitId -> View
-filterView View{..} traitIds =
+filterView :: View -> Set TraitId -> Set TheoremId -> View
+filterView View{..} traitIds theoremIds =
   let
     acc (s, p) (ss, ps) = (S.insert s ss, S.insert p ps)
-    (spaceIds, propertyIds) = S.foldr' acc (S.empty, S.empty) traitIds
+    (spaceIds, traitPropertyIds) = S.foldr' acc (S.empty, S.empty) traitIds
+    theorems = slice theoremIds _viewTheorems
+    theoremPropertyIds = unionN . map theoremProperties $ M.elems theorems
+    propertyIds = traitPropertyIds <> theoremPropertyIds
   in View
        { _viewProperties = slice propertyIds _viewProperties
        , _viewSpaces     = slice spaceIds    _viewSpaces
-       , _viewTraits     = M.map (slice propertyIds) $ slice spaceIds _viewTraits
-       , _viewTheorems   = mempty -- FIXME
-       , _viewProofs     = slice traitIds _viewProofs
+       , _viewTheorems   = slice theoremIds _viewTheorems
+       , _viewProofs     = slice traitIds   _viewProofs
+       -- FIXME: this is too broad. Should map over (s,p) pairs only
+       , _viewTraits     = M.map (slice traitPropertyIds) $ slice spaceIds _viewTraits
        , _viewVersion    = Nothing
        }
 

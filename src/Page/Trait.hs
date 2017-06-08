@@ -41,11 +41,12 @@ instance FromJSON Frontmatter where
     space    <- o .: "space"
     property <- o .: "property"
     value    <- o .: "value"
-    let proof = error "parse proof from frontmatter"
+    let proof = Nothing -- FIXME
     return Frontmatter{..}
 
+-- TODO: prevent this from getting out of sync w/ parser?
 path :: Trait Space Property -> TreeFilePath
-path Trait{..} = encodeUtf8 $ "spaces/" <> (unSpaceId $ spaceId traitSpace) <> "/properties/" <> (unPropertyId $ propertyId traitProperty) <> ".md"
+path Trait{..} = encodeUtf8 $ "spaces/" <> (spaceSlug traitSpace) <> "/properties/" <> (propertySlug traitProperty) <> ".md"
 
 parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Proof)
 parse (Page _ Frontmatter{..} main _) =

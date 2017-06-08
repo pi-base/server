@@ -25,6 +25,8 @@ type TraitId = (SpaceId, PropertyId)
 
 data LogicError = AssertionError deriving (Show, Eq)
 
+-- TODO: make sure error handling is consistent throughout the application
+--       and never stringly-typed
 data Error = NotATree TreeFilePath
            | ParseError TreeFilePath String
            | ReferenceError TreeFilePath [Uid]

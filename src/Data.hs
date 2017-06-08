@@ -17,6 +17,7 @@ module Data
   , getPropertyDescription
   , getTheoremDescription
   , assertTrait
+  , assertTheorem
   ) where
 
 import           Control.Lens
@@ -90,10 +91,10 @@ updateSpace user space description = useRepo $ do
       [Page.Parser.write $ Page.Space.write space]
     return $ Just updated
 
-makeId :: MonadStore m => m Text
-makeId = do
+-- makeId :: MonadStore m => m Text
+makeId cons prefix = do
   uuid <- liftIO UUID.nextRandom
-  return $ UUID.toText uuid
+  return . cons $ prefix <> UUID.toText uuid
 
 slugify :: Text -> Text
 slugify t = t
@@ -101,8 +102,8 @@ slugify t = t
 createSpace :: MonadStore m
             => User -> Text -> Text -> m Space
 createSpace user name description = useRepo $ do
-  _id <- makeId
-  let space = Space (SpaceId $ "s" <> _id) (slugify name) name description Nothing
+  _id <- makeId SpaceId "s"
+  let space = Space _id (slugify name) name description Nothing
   writeContents user ("Add " <> name)
     [Page.Parser.write $ Page.Space.write space]
   return space
@@ -110,8 +111,8 @@ createSpace user name description = useRepo $ do
 createProperty :: MonadStore m
                => User -> Text -> Text -> m Property
 createProperty user name description = useRepo $ do
-  _id <- makeId
-  let property = Property (PropertyId $ "p" <> _id) (slugify name) name Nothing description
+  _id <- makeId PropertyId "p"
+  let property = Property _id (slugify name) name Nothing description
   writeContents user ("Add " <> name)
     [Page.Parser.write $ Page.Property.write property]
   return property
@@ -130,6 +131,29 @@ assertTrait user sid pid value description = do
       case L.updates v $ L.assertTrait trait of
         Left err -> return $ Left [LogicError err]
         Right updates -> persistUpdates updates user $ "Add " <> traitName trait
+
+-- TODO: dedup this w/ assertTrait
+assertTheorem :: MonadStore  m
+              => User -> Formula PropertyId -> Formula PropertyId -> Text -> m (Either [Error] View)
+assertTheorem user ant con desc = do
+  let branch = userBranchRef user
+  P.viewer branch >>= \case
+    Left errs -> return $ Left errs
+    Right v -> do
+      theorem <- buildTheorem v ant con desc
+      traceM $ show theorem
+      case L.updates v $ L.assertTheorem theorem of
+        Left err      -> return $ Left [LogicError err]
+        Right updates -> persistUpdates updates user $ "Add " <> theoremName theorem
+
+buildTheorem :: MonadStore m
+             => View -> Formula PropertyId -> Formula PropertyId -> Text -> m (Theorem Property)
+buildTheorem v ant con desc = do
+  _id <- makeId TheoremId "t"
+  let dehyrdated = Theorem _id (Implication ant con) Nothing desc
+  case hydrateTheorem (v ^. viewProperties) dehyrdated of
+    Left errs -> throwM . NotFound $ tshow errs
+    Right t   -> return t
 
 buildTrait :: MonadThrow m
            => View -> SpaceId -> PropertyId -> Bool -> Text -> m (Trait Space Property)
