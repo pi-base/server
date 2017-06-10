@@ -7,6 +7,7 @@ module Data.Parse
   , traits
   , theorems
   , findProperty
+  , findSpace
   ) where
 
 import           Control.Monad.State.Strict (modify)
@@ -16,10 +17,10 @@ import qualified Data.Set              as S
 import           Data.Tagged           (Tagged(..))
 import           Git
 
-import Core     hiding (groupBy)
+import Core
 import Conduit
 import Data.Git (commitVersion, getDir, lookupCommitish, useRepo)
-import Util     (groupBy, indexBy)
+import Util     (indexBy)
 
 import qualified Page
 import qualified Page.Property
@@ -27,8 +28,6 @@ import qualified Page.Space
 import qualified Page.Theorem
 import qualified Page.Trait
 import qualified View as V
-
-type Slug = Text
 
 type ET m = ExceptT Error (StateT [Error] m)
 
@@ -58,8 +57,13 @@ required (Left  err) = fatal err
 unique :: (a -> b) -> [a] -> Either Error ()
 unique f as = return () -- FIXME
 
-findProperty :: Committish -> PropertyId -> m (Maybe Property)
-findProperty = undefined
+findProperty :: MonadStore m => Committish -> PropertyId -> m (Maybe Property)
+findProperty commish pid = at commish $ \commit ->
+  runConduit $ properties commit .| sinkFind (\p -> propertyId p == pid)
+
+findSpace :: MonadStore m => Committish -> SpaceId -> m (Maybe Space)
+findSpace commish sid = at commish $ \commit ->
+  runConduit $ spaces commit .| sinkFind (\s -> spaceId s == sid)
 
 viewSpace :: MonadStore m => SpaceId -> Committish -> m (Either [Error] View)
 viewSpace sid commish = at commish $ \commit -> withErrors $ do
@@ -99,14 +103,14 @@ viewer commish = at commish $ \commit -> withErrors $ do
 
   return $ V.build ss ps ts is (commitVersion commit)
 
-at :: MonadStore m
+at :: (MonadStore m, MonadThrow m)
    => Committish
-   -> (Commit LgRepo -> ReaderT LgRepo m (Either [Error] a))
-   -> m (Either [Error] a)
+   -> (Commit LgRepo -> ReaderT LgRepo m a)
+   -> m a
 at commish handler = useRepo $
   lookupCommitish commish >>= \case
-    Nothing  -> return $ Left [CommitNotFound commish]
-    Just ref -> (lookupCommit $ Tagged ref) >>= handler
+    Nothing  -> Core.throwM [CommitNotFound commish]
+    Just ref -> lookupCommit (Tagged ref) >>= handler
 
 spaces :: MonadStore m
        => Commit LgRepo
@@ -190,3 +194,11 @@ hydrateTrait sx px t@Trait{..} = case (M.lookup traitSpace sx, M.lookup traitPro
 
 mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
 mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
+
+sinkFind :: Monad m => (a -> Bool) -> ConduitM (Either e a) Void m (Maybe a)
+sinkFind predicate = next
+  where
+    next = await >>= \case
+      Nothing        -> return Nothing
+      Just (Left  _) -> next
+      Just (Right a) -> if predicate a then return (Just a) else next

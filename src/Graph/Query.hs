@@ -17,6 +17,7 @@ import           Handler.Helpers (requireToken)
 import           Model (User(..))
 
 import qualified Data.Property as Property
+import qualified Data.Space    as Space
 import qualified Data.Theorem  as Theorem
 
 spaceR :: MonadStore m
@@ -29,7 +30,7 @@ spaceR mc s@Space{..} traitMap propMap = pure $ pure "Space"
   :<> pure (unSpaceId spaceId)
   :<> pure spaceSlug
   :<> pure spaceName
-  :<> undefined
+  :<> Space.describe mc s
   :<> pure spaceTopology
   :<> traitsR mc (M.elems traitMap) propMap
 

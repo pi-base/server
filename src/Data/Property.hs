@@ -13,9 +13,9 @@ import qualified Data.Parse
 import qualified Page.Property
 
 describe :: (MonadStore m, MonadThrow m) => Maybe Committish -> Property -> m Text
-describe mc p = case mc of
-  Nothing -> return $ propertyDescription p
-  Just c  -> propertyDescription <$> (fetch c $ propertyId p)
+describe mc p = propertyDescription <$> case mc of
+  Nothing -> return p
+  Just c  -> fetch c $ propertyId p
 
 find :: MonadStore m => Committish -> PropertyId -> m (Maybe Property)
 find = Data.Parse.findProperty

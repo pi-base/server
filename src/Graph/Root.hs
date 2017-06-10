@@ -19,7 +19,7 @@ import GraphQL.Value               (makeName, objectFromList)
 import GraphQL.Value.ToValue       (ToValue(..), toValue)
 import GraphQL.Internal.Syntax.AST (Name(..), Variable(..))
 
-import Core (Maybe, fixme)
+import Core (Maybe)
 
 import Graph.Query    as G
 import Graph.Types    as G
@@ -95,14 +95,14 @@ instance ToValue Aeson.Value where
   toValue (Aeson.String t)  = toValue t
   toValue (Aeson.Bool   b)  = toValue b
   toValue (Aeson.Object o)  = case objectFromList . map convert $ HashMap.toList o of
-    Nothing -> fixme "Could not convert object"
+    Nothing -> error "Could not convert object"
     Just o' -> toValue o'
     where
       convert (key, val) =
         let Right name = makeName key
         in (name, toValue val)
-  toValue (Aeson.Array  _a) = fixme "array"
-  toValue Aeson.Null        = fixme "null"
+  toValue (Aeson.Array  _a) = error "Input is an array"
+  toValue Aeson.Null        = toValue (Nothing :: Maybe Text)
 
 buildVariables :: Maybe Aeson.Object -> VariableValues
 buildVariables (Just hm) = Map.fromList . map convert $ HashMap.toList hm

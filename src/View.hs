@@ -44,7 +44,7 @@ traits v = foldr acc [] $ flattened
           _ -> ts
 
 validate :: View -> [Error]
-validate = fixme "validate" -- validate that space and property ids and slugs are unique
+validate v = [] -- TODO
 
 build :: [Space]
       -> [Property]

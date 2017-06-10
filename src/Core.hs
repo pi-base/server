@@ -132,6 +132,7 @@ deriving instance Show Version
 deriving instance Show View
 
 instance Exception Error
+instance Exception [Error]
 
 instance Monoid View where
   mappend a b = View
@@ -144,6 +145,3 @@ instance Monoid View where
     }
 
   mempty = View mempty mempty mempty mempty mempty Nothing
-
-fixme :: String -> a
-fixme = error
