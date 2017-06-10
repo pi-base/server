@@ -21,7 +21,7 @@ import Data.Map                         as Core (Map)
 import Data.Monoid                      as Core (Monoid)
 import Data.Text                        as Core (Text)
 import Data.Void                        as Core (Void)
-import Git                              as Core (TreeFilePath, MonadGit, Commit)
+import Git                              as Core (TreeFilePath, MonadGit, Commit, CommitMessage)
 import Git.Libgit2                      as Core (LgRepo)
 
 import Model as Core
@@ -78,6 +78,9 @@ traitName :: Trait Space Property -> Text
 traitName Trait{..} = spaceName traitSpace <> ": " <> label <> propertyName traitProperty
   where
     label = if traitValue then "" else "~"
+
+identifyTrait :: Trait Space Property -> Trait SpaceId PropertyId
+identifyTrait t@Trait{..} = t { traitSpace = spaceId traitSpace, traitProperty = propertyId traitProperty }
 
 (~>) :: F.Formula p -> F.Formula p -> Implication p
 (~>) = Implication

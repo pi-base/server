@@ -1,12 +1,15 @@
 module View
-  ( theorems
+  ( build
+  , theorems
   , traits
   ) where
 
-import Core
+import Core hiding (groupBy)
 import Control.Lens
 
 import qualified Data.Map as M
+
+import Util (groupBy, indexBy)
 
 theorems :: View -> [Theorem Property]
 theorems v = M.foldr' acc [] $ v ^. viewTheorems
@@ -41,7 +44,19 @@ traits v = foldr acc [] $ flattened
           _ -> ts
 
 validate :: View -> [Error]
-validate = fixme "validate"
-  -- validate that space and property ids and slugs are unique
-  -- note: if _ids_ aren't unique, we presumably already lost them while building the view
-  -- so we probably need to add validations for id uniqueness during parsing
+validate = fixme "validate" -- validate that space and property ids and slugs are unique
+
+build :: [Space]
+      -> [Property]
+      -> [Trait Space Property]
+      -> [Theorem Property]
+      -> Version
+      -> View
+build ss ps ts is version = View
+  { _viewSpaces     = indexBy spaceId ss
+  , _viewProperties = indexBy propertyId ps
+  , _viewTraits     = M.map (indexBy traitProperty) $ groupBy traitSpace $ map identifyTrait ts
+  , _viewTheorems   = indexBy theoremId $ map (fmap propertyId) is
+  , _viewProofs     = mempty
+  , _viewVersion    = Just version
+  }

@@ -16,13 +16,6 @@ import Control.Monad.Writer (execWriter, tell)
 import Data.Attoparsec.Text
 import Data.Either.Combinators (mapLeft)
 
-data Page a = Page
-  { pagePath :: ByteString
-  , pageFrontmatter :: a
-  , pageMain :: Text
-  , pageSections :: [(Text, Text)]
-  }
-
 parse :: FromJSON f => Record -> Either Error (Page f)
 parse (path, content) = mapLeft (ParseError path) $ do
   (header, body) <- pullFrontmatter content

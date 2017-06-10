@@ -5,18 +5,9 @@ module Data
   , viewerAtRef
   , fetchPullRequest
   , updatedPages
+  , makeId
+  , slugify
   --
-  , findProperty
-  , findSpace
-  , findTheorem
-  , createProperty
-  , createSpace
-  , updateProperty
-  , updateSpace
-  , updateTheorem
-  , getSpaceDescription
-  , getPropertyDescription
-  , getTheoremDescription
   , assertTrait
   , assertTheorem
   ) where
@@ -32,8 +23,6 @@ import qualified Logic      as L
 import qualified View       as V
 
 import qualified Page.Parser
-import qualified Page.Property
-import qualified Page.Space
 import qualified Page.Theorem
 import qualified Page.Trait
 
@@ -43,7 +32,7 @@ import Util     (fetch)
 
 storeMaster :: MonadStore m
             => m (Either [Error] View)
-storeMaster = storeCached $ parseViewer (Ref "master")
+storeMaster = storeCached $ parseViewer (CommitRef $ Ref "master")
 
 fetchPullRequest :: MonadIO m => FilePath -> m ()
 fetchPullRequest path = liftIO $ do
@@ -51,7 +40,7 @@ fetchPullRequest path = liftIO $ do
   callCommand $ "cd " ++ path ++ " && git fetch origin"
 
 viewerAtRef :: MonadStore m => Text -> m (Either [Error] View)
-viewerAtRef = parseViewer . Ref
+viewerAtRef = parseViewer . CommitRef . Ref
 
 parseViewer :: MonadStore m
             => Committish
@@ -61,84 +50,39 @@ parseViewer commish = do
   -- validate
   return eviewer
 
-getSpaceDescription :: MonadStore m
-                    => Space -> m Text
-getSpaceDescription Space{..} = return spaceDescription
-
-getPropertyDescription :: MonadStore m
-                       => Property -> m Text
-getPropertyDescription Property{..} = return propertyDescription
-
-getTheoremDescription :: MonadStore m
-                      => Theorem p -> m Text
-getTheoremDescription Theorem{..} = return theoremDescription
-
-updateSpace :: MonadStore m
-            => User -> Space -> Text -> m (Maybe Space)
-updateSpace user space description = useRepo $ do
-    let updated = space { spaceDescription = description }
-    writeContents user ("Updated " <> spaceName space)
-      [Page.Parser.write $ Page.Space.write space]
-    return $ Just updated
-
 makeId :: MonadIO m => (Text -> a) -> Text -> m a
 makeId constructor prefix = do
   uuid <- liftIO UUID.nextRandom
   return . constructor $ prefix <> UUID.toText uuid
 
 slugify :: Text -> Text
-slugify t = t
-
-createSpace :: MonadStore m
-            => User -> Text -> Text -> m Space
-createSpace user name description = useRepo $ do
-  _id <- makeId SpaceId "s"
-  let space = Space _id (slugify name) name description Nothing
-  writeContents user ("Add " <> name)
-    [Page.Parser.write $ Page.Space.write space]
-  return space
-
-createProperty :: MonadStore m
-               => User -> Text -> Text -> m Property
-createProperty user name description = useRepo $ do
-  _id <- makeId PropertyId "p"
-  let property = Property _id (slugify name) name Nothing description
-  writeContents user ("Add " <> name)
-    [Page.Parser.write $ Page.Property.write property]
-  return property
+slugify t = t -- TODO
 
 userBranchRef :: User -> Committish
-userBranchRef User{..} = Ref $ "users/" <> userName
+userBranchRef User{..} = CommitRef . Ref $ "users/" <> userName
 
-assertTrait :: MonadStore m
-            => User -> SpaceId -> PropertyId -> Bool -> Text -> m (Either [Error] View)
-assertTrait user sid pid value description = assert user
-  (P.viewSpace sid)
-  (\v -> buildTrait v sid pid value description)
-  L.assertTrait
-  (\trait -> "Add " <> traitName trait)
+assertTrait :: MonadStore m => User -> Trait SpaceId PropertyId -> m (Either [Error] View)
+assertTrait user trait = assert L.assertTrait trait user (P.viewSpace $ traitSpace trait) $ \_v ->
+  -- TODO: better commit message
+  "Add trait " <> tshow (traitSpace trait, traitProperty trait)
 
-assertTheorem :: MonadStore  m
-              => User -> Formula PropertyId -> Formula PropertyId -> Text -> m (Either [Error] View)
-assertTheorem user ant con desc = assert user P.viewer
-  (\v -> buildTheorem v ant con desc)
-  L.assertTheorem
-  (\theorem -> "Add " <> theoremName theorem)
+assertTheorem :: MonadStore  m => User -> Theorem PropertyId -> m (Either [Error] View)
+assertTheorem user theorem = assert L.assertTheorem theorem user P.viewer $ \_v ->
+ -- TODO: better commit message
+ "Add theorem " <> (unTheoremId $ theoremId theorem)
 
 assert :: MonadStore m
-       => User
+       => (a -> L.Logic ())
+       -> a
+       -> User
        -> (Committish -> m (Either [Error] View))
-       -> (View -> m a)
-       -> (a -> L.Logic ())
-       -> (a -> Text)
+       -> (View -> Text)
        -> m (Either [Error] View)
-assert user getView build logic message = getView (userBranchRef user) >>= \case
+assert logic obj user getView message = getView (userBranchRef user) >>= \case
   Left errs -> return $ Left errs
-  Right v -> do
-    obj <- build v
-    case L.updates v $ logic obj of
-      Left errs -> return $ Left [LogicError errs]
-      Right updates -> persistUpdates updates user (message obj)
+  Right v -> case L.updates v $ logic obj of
+    Left errs -> return $ Left [LogicError errs]
+    Right updates -> persistUpdates updates user (message v)
 
 buildTheorem :: MonadStore m
              => View -> Formula PropertyId -> Formula PropertyId -> Text -> m (Theorem Property)
@@ -161,43 +105,9 @@ updatedPages v = map (Page.Parser.write . Page.Theorem.write) (V.theorems v)
               <> map (Page.Parser.write . Page.Trait.write)   (V.traits   v)
 
 persistUpdates :: MonadStore m => View -> User -> Text -> m (Either [Error] View)
-persistUpdates v user message = useRepo $ do
-  writeContents user message (updatedPages v) >>= \case
-    Left      msg -> return . Left  $ [PersistError msg]
-    Right version -> return . Right $ v { _viewVersion = Just version }
-
-findMaster :: (Ord k, MonadStore m)
-           => (View -> Map k a)
-           -> k
-           -> m (Maybe a)
-findMaster f _id = storeMaster >>= \case
-  Left  _ -> return Nothing
-  Right v -> return . M.lookup _id $ f v
-
-findSpace :: MonadStore m => SpaceId -> m (Maybe Space)
-findSpace = findMaster _viewSpaces
-
-updateProperty :: MonadStore m
-            => User -> Property -> Text -> m (Maybe Property)
-updateProperty user property description = useRepo $ do
-  let updated = property { propertyDescription = description }
-  writeContents user ("Updated " <> propertyName property)
-    [Page.Parser.write $ Page.Property.write updated]
-  return $ Just updated
-
-findProperty :: MonadStore m => PropertyId -> m (Maybe Property)
-findProperty = findMaster _viewProperties
-
-updateTheorem :: MonadStore m
-              => User -> Theorem Property -> Text -> m (Maybe (Theorem Property))
-updateTheorem user theorem description = useRepo $ do
-  let updated = theorem { theoremDescription = description }
-  writeContents user ("Updated " <> theoremName theorem)
-    [Page.Parser.write $ Page.Theorem.write updated]
-  return $ Just updated
-
-findTheorem :: MonadStore m => TheoremId -> m (Maybe (Theorem PropertyId))
-findTheorem = findMaster _viewTheorems
+persistUpdates v user message = useRepo $
+  writeContents user message (updatedPages v) >>=
+    return . fmap (\version -> v { _viewVersion = Just version })
 
 mkStore :: FilePath -> IO Store
 mkStore path = Store

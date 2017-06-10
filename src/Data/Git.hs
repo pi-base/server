@@ -7,7 +7,11 @@ module Data.Git
   , ensureUserBranch
   , commitVersion
   , lookupCommitish
+  , writePages
+  , updateRef
   ) where
+
+-- TODO: clean up duplicates, unused exports
 
 import Core
 import Model (User(..))
@@ -16,6 +20,7 @@ import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
 import Git.Libgit2 (LgRepo, openLgRepository, runLgRepository)
+import qualified Page (write)
 
 openRepo :: FilePath -> IO LgRepo
 openRepo path = openLgRepository $ RepositoryOptions
@@ -41,33 +46,35 @@ getDir tree path = treeEntry tree path >>= \case
   Just (TreeEntry _id) -> lookupTree _id >>= return . Right
   _ -> return . Left $ NotATree path
 
-ensureUserBranch :: MonadStore m => User -> m Text
-ensureUserBranch User{..} = useRepo $ do
-  let branch = "users/" <> userName
-      branchRef = "refs/heads/" <> branch
-  existing <- resolveReference branchRef
+userBranch :: User -> Ref
+userBranch u = Ref $ "users/" <> userName u
+
+ensureUserBranch :: MonadStore m => User -> m Ref
+ensureUserBranch user = useRepo $ do
+  let branch = userBranch user
+  existing <- resolveReference $ refHead branch
   unless (isJust existing) $ do
-    lookupReference "refs/heads/master" >>= \case
-      Nothing     -> throwM NoMaster
-      Just master -> createReference branchRef master
+    let masterRef = Ref "master"
+    lookupReference (refHead masterRef) >>= \case
+      Nothing     -> throwM $ UnknownGitRef masterRef
+      Just master -> createReference (refHead branch) master
   return branch
 
 modifyGitRef :: MonadStore m
              => User
-             -> Text
+             -> Ref
              -> CommitMessage
              -> TreeT LgRepo (ReaderT LgRepo m) a
-             -> m (Either String (Commit LgRepo))
-modifyGitRef user name message updates = useRepo $ do
-  let refname = "refs/heads/" <> name
-  resolveReference refname >>= \case
-    Nothing  -> return . Left $ "Could not resolve ref: " ++ show refname
-    Just ref -> do
-      parent <- lookupCommit $ Tagged ref
+             -> m (Either [Error] (Commit LgRepo))
+modifyGitRef user ref message updates = useRepo $ do
+  resolveReference (refHead ref) >>= \case
+    Nothing -> return $ Left [ UnknownGitRef ref ]
+    Just found -> do
+      parent <- lookupCommit $ Tagged found
       tree <- lookupTree $ commitTree parent
       (_, newTree) <- withTree tree updates
       (author, committer) <- getSignatures user
-      Right <$> createCommit [commitOid parent] newTree author committer message (Just refname)
+      Right <$> createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
 
 getSignatures :: MonadIO m => User -> m (Signature, Signature)
 getSignatures User{..} = do
@@ -85,11 +92,48 @@ getSignatures User{..} = do
       }
   return (author, committer)
 
+commitSignatures :: MonadIO m => CommitMeta -> m (Signature, Signature, Text)
+commitSignatures CommitMeta{..} = do
+  time <- liftIO getZonedTime
+  let
+    User{..} = commitUser
+    author = defaultSignature
+      { signatureEmail = userEmail
+      , signatureName  = userName
+      , signatureWhen  = time
+      }
+    committer = defaultSignature
+      { signatureEmail = "system@pi-base.org"
+      , signatureName  = "Pi-Base"
+      , signatureWhen  = time
+      }
+  return (author, committer, commitMessage)
+
+writePages :: (ToJSON f, MonadGit r m) => [Page f] -> TreeT r m ()
+writePages pages = forM_ pages $ \p ->
+  let (path, contents) = Page.write p
+  in  (lift $ createBlobUtf8 contents) >>= putBlob path
+
+refHead :: Ref -> Text
+refHead (Ref name) = "refs/heads/" <> name
+
+updateRef :: (MonadIO m, MonadGit LgRepo m)
+          => Ref -> CommitMeta -> TreeT LgRepo m a -> m Version
+updateRef ref meta updates = do
+  resolveReference (refHead ref) >>= \case
+    Nothing -> throwM $ UnknownGitRef ref
+    Just found -> do
+      parent <- lookupCommit $ Tagged found
+      tree   <- lookupTree $ commitTree parent
+      (_, newTree) <- withTree tree updates
+      (author, committer, message) <- commitSignatures meta
+      commitVersion <$> createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
+
 writeContents :: MonadStore m
               => User
               -> CommitMessage
               -> [(TreeFilePath, Text)]
-              -> m (Either String Version)
+              -> m (Either [Error] Version)
 writeContents user message files = do
   branch <- ensureUserBranch user
 
@@ -99,5 +143,5 @@ writeContents user message files = do
   return $ commitVersion <$> ec
 
 lookupCommitish :: MonadGit r m => Committish -> m (Maybe (Oid r))
-lookupCommitish (Ref ref) = resolveReference $ "refs/heads/" <> ref
-lookupCommitish (Sha sha) = Just <$> parseOid sha
+lookupCommitish (CommitRef ref) = resolveReference $ refHead ref
+lookupCommitish (CommitSha sha) = Just <$> parseOid sha

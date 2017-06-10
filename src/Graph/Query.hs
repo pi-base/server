@@ -16,58 +16,64 @@ import qualified Graph.Types as G
 import           Handler.Helpers (requireToken)
 import           Model (User(..))
 
+import qualified Data.Property as Property
+import qualified Data.Theorem  as Theorem
+
 spaceR :: MonadStore m
-       => Space
+       => Maybe Committish
+       -> Space
        -> M.Map PropertyId (Trait SpaceId PropertyId)
        -> M.Map PropertyId Property
        -> Handler m G.Space
-spaceR s@Space{..} traitMap propMap = pure $ pure "Space"
+spaceR mc s@Space{..} traitMap propMap = pure $ pure "Space"
   :<> pure (unSpaceId spaceId)
   :<> pure spaceSlug
   :<> pure spaceName
-  :<> getSpaceDescription s
+  :<> undefined
   :<> pure spaceTopology
-  :<> traitsR (M.elems traitMap) propMap
+  :<> traitsR mc (M.elems traitMap) propMap
 
 
 traitsR :: MonadStore m
-        => [Trait s PropertyId]
+        => Maybe Committish
+        -> [Trait s PropertyId]
         -> M.Map PropertyId Property
         -> Handler m (List G.Trait)
-traitsR traits props = pure $ map render traits
+traitsR mc traits props = pure $ map render traits
   where
     render Trait{..} = pure $ pure "Trait"
-      :<> (findKey props traitProperty >>= propertyR)
+      :<> (findKey props traitProperty >>= propertyR mc)
       :<> pure traitValue
 
 theoremsR ::  MonadStore m
-          => [Theorem p] -> (p -> m Property) -> Handler m (List G.Theorem)
-theoremsR ts f = pure $ map (theoremR f) ts
+          => Maybe Committish -> [Theorem p] -> (p -> m Property) -> Handler m (List G.Theorem)
+theoremsR mc ts f = pure $ map (theoremR mc f) ts
 
-theoremR :: MonadStore m => (p -> m Property) -> Theorem p -> Handler m G.Theorem
-theoremR f t@Theorem{..} = pure $ pure "Theorem"
+theoremR :: MonadStore m => Maybe Committish -> (p -> m Property) -> Theorem p -> Handler m G.Theorem
+theoremR mc f t@Theorem{..} = pure $ pure "Theorem"
   :<> pure (unTheoremId theoremId)
   :<> (encodeFormula f $ theoremIf t)
   :<> (encodeFormula f $ theoremThen t)
-  :<> getTheoremDescription t
+  :<> Theorem.describe mc t
 
 spacesR :: MonadStore m
-        => [Space]
+        => Maybe Committish
+        -> [Space]
         -> M.Map SpaceId (M.Map PropertyId (Trait SpaceId PropertyId))
         -> M.Map PropertyId Property
         -> Handler m (List G.Space)
-spacesR ss traitMap propMap = pure $ map space ss
-  where space s = spaceR s (M.findWithDefault mempty (spaceId s) traitMap) propMap
+spacesR mc ss traitMap propMap = pure $ map space ss
+  where space s = spaceR mc s (M.findWithDefault mempty (spaceId s) traitMap) propMap
 
-propertyR :: MonadStore m => Property -> Handler m G.Property
-propertyR p@Property{..} = pure $ pure "Property"
+propertyR :: MonadStore m => Maybe Committish -> Property -> Handler m G.Property
+propertyR mc p@Property{..} = pure $ pure "Property"
   :<> pure (unPropertyId propertyId)
   :<> pure propertySlug
   :<> pure propertyName
-  :<> getPropertyDescription p
+  :<> Property.describe mc p
 
-propertiesR :: MonadStore m => [Property] -> Handler m (List G.Property)
-propertiesR ps = pure $ map propertyR ps
+propertiesR :: MonadStore m => Maybe Committish -> [Property] -> Handler m (List G.Property)
+propertiesR mc ps = pure $ map (propertyR mc) ps
 
 user :: G G.User
 user = do
@@ -77,18 +83,20 @@ user = do
 viewer :: (MonadStore m, MonadHandler m) => Maybe Text -> Handler m G.Viewer
 viewer mver = do
   eviewer <- case mver of
-    (Just ver) -> parseViewer $ Sha ver
+    (Just ver) -> parseViewer $ CommitSha ver
     _ -> storeMaster
   case eviewer of
-    Left errs -> halt $ show errs
+    Left errs -> halt errs
     Right v   -> viewR v
 
 viewR :: MonadStore m => View -> Handler m G.Viewer
 viewR View{..} = pure $ pure "Viewer"
   :<> pure (maybe "" unVersion _viewVersion)
-  :<> spacesR     (M.elems _viewSpaces    ) _viewTraits _viewProperties
-  :<> propertiesR (M.elems _viewProperties)
-  :<> theoremsR   (M.elems _viewTheorems  ) (findKey _viewProperties)
+  :<> spacesR     sha (M.elems _viewSpaces    ) _viewTraits _viewProperties
+  :<> propertiesR sha (M.elems _viewProperties)
+  :<> theoremsR   sha (M.elems _viewTheorems  ) (findKey _viewProperties)
+  where
+    sha = CommitSha . unVersion <$> _viewVersion
 
 encodeFormula :: MonadThrow m => (p -> m Property) -> Formula p -> m Text
 encodeFormula f formula =

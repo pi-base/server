@@ -6,10 +6,11 @@ module Graph.Mutations.UpdateProperty
 
 import Graph.Import
 
-import           Core        (PropertyId(..))
-import qualified Data        as D
-import qualified Graph.Types as G
-import qualified Graph.Query as G
+import           Core
+import qualified Data.Property as P
+import qualified Graph.Types   as G
+import qualified Graph.Query   as G
+import qualified View          as V
 
 data UpdatePropertyInput = UpdatePropertyInput { uid :: Text, description :: Text }
   deriving (Show, Generic)
@@ -19,13 +20,12 @@ instance HasAnnotatedInputType UpdatePropertyInput
 instance Defaultable UpdatePropertyInput where
   defaultFor _ = error "No default for UpdatePropertyInput"
 
-updateProperty :: UpdatePropertyInput -> G G.Property
+updateProperty :: UpdatePropertyInput -> G G.Viewer
 updateProperty UpdatePropertyInput{..} = do
   (Entity _id user) <- requireToken
-  ms <- D.findProperty $ PropertyId uid
-  case ms of
-    Nothing -> halt "Could not find property"
-    Just p ->
-      D.updateProperty user p description >>= \case
-        Just up -> G.propertyR up
-        Nothing -> halt "Update failed"
+  let ref = userBranch user
+  old <- P.fetch (CommitRef ref) $ PropertyId uid
+  let updated = old { propertyDescription = description }
+      commit  = CommitMeta user $ "Update " <> propertyName updated
+  (version, p) <- P.put ref commit updated
+  G.viewR $ V.build [] [p] [] [] version

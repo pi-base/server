@@ -6,10 +6,11 @@ module Graph.Mutations.UpdateSpace
 
 import Graph.Import
 
-import           Core        (SpaceId(..))
-import qualified Data        as D
+import           Core
+import qualified Data.Space  as S
 import qualified Graph.Types as G
 import qualified Graph.Query as G
+import qualified View        as V
 
 data UpdateSpaceInput = UpdateSpaceInput { uid :: Text, description :: Text }
   deriving (Show, Generic)
@@ -19,14 +20,12 @@ instance HasAnnotatedInputType UpdateSpaceInput
 instance Defaultable UpdateSpaceInput where
   defaultFor _ = error "No default for UpdateSpaceInput"
 
-updateSpace :: UpdateSpaceInput -> G G.Space
+updateSpace :: UpdateSpaceInput -> G G.Viewer
 updateSpace UpdateSpaceInput{..} = do
   (Entity _id user) <- requireToken
-  ms <- D.findSpace $ SpaceId uid
-  case ms of
-    Nothing -> halt "Could not find space"
-    Just s ->
-      D.updateSpace user s description >>= \case
-        -- TODO: don't allow querying for traits here
-        Just us -> G.spaceR us mempty mempty
-        Nothing -> halt "Update failed"
+  let ref = userBranch user
+  old <- S.fetch (CommitRef ref) $ SpaceId uid
+  let updated = old { spaceDescription = description }
+      commit  = CommitMeta user $ "Update " <> spaceName updated
+  (version, s) <- S.put ref commit updated
+  G.viewR $ V.build [s] [] [] [] version

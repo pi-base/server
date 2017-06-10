@@ -6,6 +6,7 @@ module Data.Parse
   , properties
   , traits
   , theorems
+  , findProperty
   ) where
 
 import           Control.Monad.State.Strict (modify)
@@ -25,6 +26,7 @@ import qualified Page.Property
 import qualified Page.Space
 import qualified Page.Theorem
 import qualified Page.Trait
+import qualified View as V
 
 type Slug = Text
 
@@ -56,21 +58,8 @@ required (Left  err) = fatal err
 unique :: (a -> b) -> [a] -> Either Error ()
 unique f as = return () -- FIXME
 
-
-buildView :: [Space]
-          -> [Property]
-          -> [Trait Space Property]
-          -> [Theorem Property]
-          -> Version
-          -> View
-buildView ss ps ts is version = View
-  { _viewSpaces     = indexBy spaceId ss
-  , _viewProperties = indexBy propertyId ps
-  , _viewTraits     = M.map (indexBy traitProperty) $ groupBy traitSpace $ map identifyTrait ts
-  , _viewTheorems   = indexBy theoremId $ map (fmap propertyId) is
-  , _viewProofs     = mempty
-  , _viewVersion    = Just version
-  }
+findProperty :: Committish -> PropertyId -> m (Maybe Property)
+findProperty = undefined
 
 viewSpace :: MonadStore m => SpaceId -> Committish -> m (Either [Error] View)
 viewSpace sid commish = at commish $ \commit -> withErrors $ do
@@ -86,7 +75,7 @@ viewSpace sid commish = at commish $ \commit -> withErrors $ do
   ts <- noteErrors $ runConduit $ traits commit [s] ps .| sinkList
   required $ unique traitId ts
 
-  return $ buildView [s] ps ts is (commitVersion commit)
+  return $ V.build [s] ps ts is (commitVersion commit)
 
   where
     findSpace :: [Space] -> Either Error Space
@@ -108,7 +97,7 @@ viewer commish = at commish $ \commit -> withErrors $ do
   ts <- noteErrors $ runConduit $ traits commit ss ps .| sinkList
   required $ unique traitId ts
 
-  return $ buildView ss ps ts is (commitVersion commit)
+  return $ V.build ss ps ts is (commitVersion commit)
 
 at :: MonadStore m
    => Committish
@@ -201,6 +190,3 @@ hydrateTrait sx px t@Trait{..} = case (M.lookup traitSpace sx, M.lookup traitPro
 
 mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
 mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
-
-identifyTrait :: Trait Space Property -> Trait SpaceId PropertyId
-identifyTrait t@Trait{..} = t { traitSpace = spaceId traitSpace, traitProperty = propertyId traitProperty }

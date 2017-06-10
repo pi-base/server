@@ -6,10 +6,10 @@ module Graph.Mutations.AssertTrait
 
 import Graph.Import
 
-import           Core        (SpaceId(..), PropertyId(..))
-import qualified Data        as D
-import qualified Graph.Types as G
-import qualified Graph.Query as G
+import           Core
+import qualified Data          as D
+import qualified Graph.Types   as G
+import qualified Graph.Query   as G
 
 data AssertTraitInput = AssertTraitInput
   { spaceId     :: Text
@@ -25,7 +25,12 @@ instance Defaultable AssertTraitInput where
 assertTrait :: AssertTraitInput -> G G.Viewer
 assertTrait AssertTraitInput{..} = do
   (Entity _ user) <- requireToken
-  updates <- D.assertTrait user (SpaceId spaceId) (PropertyId propertyId) value ""
-  case updates of
-    Left err -> halt $ show err
-    Right view -> G.viewR view
+
+  let trait = Trait
+        { traitSpace       = SpaceId spaceId
+        , traitProperty    = PropertyId propertyId
+        , traitValue       = value
+        , traitDescription = "" -- FIXME
+        }
+  updates <- D.assertTrait user trait
+  either halt G.viewR updates

@@ -33,11 +33,11 @@ type QueryRoot = Graph.Import.Object "QueryRoot" '[]
    , Argument "version" (Maybe Text) :> Field "viewer" Viewer
    , Field "me" G.User
    -- Mutations
-   , Argument "input" CreateSpaceInput    :> Field "createSpace"    Space
-   , Argument "input" CreatePropertyInput :> Field "createProperty" Property
-   , Argument "input" UpdateSpaceInput    :> Field "updateSpace"    Space
-   , Argument "input" UpdatePropertyInput :> Field "updateProperty" Property
-   , Argument "input" UpdateTheoremInput  :> Field "updateTheorem"  Theorem
+   , Argument "input" CreateSpaceInput    :> Field "createSpace"    Viewer
+   , Argument "input" CreatePropertyInput :> Field "createProperty" Viewer
+   , Argument "input" UpdateSpaceInput    :> Field "updateSpace"    Viewer
+   , Argument "input" UpdatePropertyInput :> Field "updateProperty" Viewer
+   , Argument "input" UpdateTheoremInput  :> Field "updateTheorem"  Viewer
    , Argument "input" AssertTraitInput    :> Field "assertTrait"    Viewer
    , Argument "input" AssertTheoremInput  :> Field "assertTheorem"  Viewer
    ]

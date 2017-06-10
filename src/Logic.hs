@@ -42,21 +42,18 @@ makeLenses ''Prover
 fatal :: LogicError -> Logic a
 fatal = Logic . throwE
 
-assertTrait :: Trait Space Property -> Logic ()
+assertTrait :: Trait SpaceId PropertyId -> Logic ()
 assertTrait Trait{..} = do
-  let space    = spaceId traitSpace
-      property = propertyId traitProperty
-  (uses proverView $ Logic.lookup space property) >>= \case
+  (uses proverView $ Logic.lookup traitSpace traitProperty) >>= \case
     Just val -> unless (val == traitValue) $ fatal AssertionError
-    Nothing  -> insertTrait space property traitValue Nothing
+    Nothing  -> insertTrait traitSpace traitProperty traitValue Nothing
 
-assertTheorem :: Theorem Property -> Logic ()
+assertTheorem :: Theorem PropertyId -> Logic ()
 assertTheorem t = do
-  let t' = map propertyId t
-  cxs <- uses proverView $ counterexamples t'
+  cxs <- uses proverView $ counterexamples t
   if null cxs
     -- TODO: error if theorem is already known (/ deducable?)
-    then insertTheorem t'
+    then insertTheorem t
     else fatal AssertionError
 
 -- TODO: should be able to clean this up

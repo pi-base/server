@@ -6,10 +6,11 @@ module Graph.Mutations.UpdateTheorem
 
 import Graph.Import
 
-import           Core        (TheoremId(..), fixme)
-import qualified Data        as D
-import qualified Graph.Types as G
-import qualified Graph.Query as G
+import           Core
+import qualified Data.Theorem as T
+import qualified Graph.Types  as G
+import qualified Graph.Query  as G
+import qualified View         as V
 
 data UpdateTheoremInput = UpdateTheoremInput { uid :: Text, description :: Text }
   deriving (Show, Generic)
@@ -19,13 +20,12 @@ instance HasAnnotatedInputType UpdateTheoremInput
 instance Defaultable UpdateTheoremInput where
   defaultFor _ = error "No default for UpdateTheoremInput"
 
-updateTheorem :: UpdateTheoremInput -> G G.Theorem
+updateTheorem :: UpdateTheoremInput -> G G.Viewer
 updateTheorem UpdateTheoremInput{..} = do
   (Entity _id user) <- requireToken
-  ms <- D.findTheorem $ TheoremId uid
-  case ms of
-    Nothing -> halt "Could not find theorem"
-    Just t ->
-      D.updateTheorem user (fixme "updateTheorem") description >>= \case
-        Just up -> G.theoremR (fixme "updateTheorem") up
-        Nothing -> halt "Update failed"
+  let ref = userBranch user
+  old <- T.fetch (CommitRef ref) $ TheoremId uid
+  let updated = old { theoremDescription = description }
+      commit  = CommitMeta user $ "Update " <> theoremName updated
+  (version, t) <- T.put ref commit updated
+  G.viewR $ V.build [] [] [] [t] version

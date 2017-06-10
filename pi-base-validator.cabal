@@ -30,6 +30,9 @@ library
                      Data
                      Data.Git
                      Data.Parse
+                     Data.Property
+                     Data.Space
+                     Data.Theorem
                      Formula
                      Graph.Import
                      Graph.Mutations

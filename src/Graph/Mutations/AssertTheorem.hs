@@ -9,7 +9,7 @@ import           Graph.Import
 import           Data.Aeson     (decode)
 import qualified Data.Text.Lazy as TL
 
-import           Core        (PropertyId(..), Formula(..))
+import           Core
 import qualified Data        as D
 import qualified Graph.Types as G
 import qualified Graph.Query as G
@@ -28,14 +28,20 @@ instance Defaultable AssertTheoremInput where
 assertTheorem :: AssertTheoremInput -> G G.Viewer
 assertTheorem AssertTheoremInput{..} = do
   (Entity _ user) <- requireToken
+
   a <- parseFormula antecedent
   c <- parseFormula consequent
-  updates <- D.assertTheorem user a c description
-  case updates of
-    Left err -> halt $ show err
-    Right view -> G.viewR view
+
+  let theorem = Theorem
+                  { theoremId          = TheoremId ""
+                  , theoremImplication = Implication a c
+                  , theoremConverse    = Nothing
+                  , theoremDescription = ""
+                  }
+
+  either halt G.viewR =<< D.assertTheorem user theorem
 
 parseFormula :: Text -> Import.Handler (Formula PropertyId)
 parseFormula text = case decode $ encodeUtf8 $ TL.fromStrict text of
-    Nothing -> halt $ "Could not parse formula: " <> show text
-    Just f  -> return $ PropertyId <$> f
+  Nothing -> halt [ ParseError "formula" (show text) ]
+  Just f  -> return $ PropertyId <$> f

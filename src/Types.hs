@@ -15,7 +15,8 @@ type    Uid     = Text
 type    Record  = (TreeFilePath, Text)
 newtype Version = Version { unVersion :: Text } deriving (Eq, ToJSON, FromJSON)
 
-data Committish = Ref Text | Sha Text deriving (Eq, Show)
+newtype Ref     = Ref Text deriving (Eq, Show)
+data Committish = CommitRef Ref | CommitSha Text deriving (Eq, Show)
 
 newtype SpaceId    = SpaceId    { unSpaceId    :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
 newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
@@ -27,15 +28,15 @@ data LogicError = AssertionError deriving (Show, Eq)
 
 -- TODO: make sure error handling is consistent throughout the application
 --       and never stringly-typed
-data Error = NotATree TreeFilePath
-           | ParseError TreeFilePath String
+data Error = CommitNotFound Committish
+           | LogicError     LogicError
+           | NotFound       Text
+           | NotATree       TreeFilePath
+           | NotUnique      Text Text
+           | ParseError     TreeFilePath String
+           | PersistError   String
            | ReferenceError TreeFilePath [Uid]
-           | NotUnique Text Text
-           | CommitNotFound Committish
-           | NotFound Text
-           | LogicError LogicError
-           | PersistError String
-           | NoMaster
+           | UnknownGitRef  Ref
            deriving (Show, Eq)
 
 data Space = Space
@@ -76,6 +77,13 @@ data Trait s p = Trait
   , traitDescription :: !Text
   } deriving Show
 
+data Page a = Page
+  { pagePath :: ByteString
+  , pageFrontmatter :: a
+  , pageMain :: Text
+  , pageSections :: [(Text, Text)]
+  }
+
 data Match = Yes | No | Unknown
   deriving (Show, Eq, Ord)
 
@@ -100,6 +108,11 @@ makeLenses ''View
 data Store = Store
   { storeRepo  :: LgRepo
   , storeCache :: MVar (Maybe View)
+  }
+
+data CommitMeta = CommitMeta
+  { commitUser    :: User
+  , commitMessage :: Text
   }
 
 class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where

@@ -1,6 +1,7 @@
 module Page
   ( Parser
   , parse
+  , P.write
   ) where
 
 import Core
