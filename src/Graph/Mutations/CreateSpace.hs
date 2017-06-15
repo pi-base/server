@@ -22,6 +22,7 @@ instance Defaultable CreateSpaceInput where
 
 createSpace :: CreateSpaceInput -> G G.Viewer
 createSpace CreateSpaceInput{..} = do
+  putStrLn "createSpace"
   (Entity _ user) <- requireToken
   let space = Space
         { spaceId          = S.pending

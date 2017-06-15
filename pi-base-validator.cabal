@@ -226,6 +226,10 @@ test-suite test
                  , classy-prelude
                  , classy-prelude-yesod
                  , aeson
+                 , lens
+                 , lens-aeson
+                 , bytestring
+                 , http-types
                  --
                  , HUnit
                  , text

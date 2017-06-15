@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Page.Property
-  ( parser
+  ( Frontmatter(..)
+  , parser
   , parse
   , write
   ) where

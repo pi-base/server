@@ -57,6 +57,9 @@ data AppSettings = AppSettings
     , appAnalytics              :: Maybe Text
     -- ^ Google Analytics code
 
+    , appAuthDummyLogin         :: Bool
+    -- ^ Indicate if auth dummy login should be enabled
+
     , appRepoPath               :: FilePath
     , appFrontendUrl            :: Text
 
@@ -91,6 +94,8 @@ instance FromJSON AppSettings where
 
         appCopyright              <- o .:  "copyright"
         appAnalytics              <- o .:? "analytics"
+
+        appAuthDummyLogin         <- o .:? "auth-dummy-login" .!= defaultDev
 
         appRepoPath    <- o .:  "repo-path"
         appFrontendUrl <- o .:? "frontend-url" .!= "http://localhost:3000"

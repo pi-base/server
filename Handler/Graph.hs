@@ -5,6 +5,7 @@ import qualified Graph.Root
 
 postGraphR :: Handler Value
 postGraphR = do
-  value <- requireJsonBody >>= Graph.Root.query
+  body <- requireJsonBody
+  -- putStrLn $ "[GraphQL] " <> tshow body
+  Graph.Root.query body
   -- $(logDebug) $ "[GraphQL] " <> (toStrict . decodeUtf8 $ encode value)
-  return value

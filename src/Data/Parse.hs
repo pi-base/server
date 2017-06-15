@@ -2,12 +2,18 @@ module Data.Parse
   ( viewer
   , viewSpace
   , at
+  , spaceEntries
   , spaces
+  , propertyEntries
   , properties
+  , traitEntries
   , traits
   , theorems
   , findProperty
   , findSpace
+  , sinkMap
+  , parseEntry
+  , blobs
   ) where
 
 import           Control.Monad.State.Strict (modify)
@@ -23,6 +29,7 @@ import Data.Git (commitVersion, getDir, lookupCommitish, useRepo)
 import Util     (indexBy)
 
 import qualified Page
+import qualified Page.Parser
 import qualified Page.Property
 import qualified Page.Space
 import qualified Page.Theorem
@@ -112,18 +119,21 @@ at commish handler = useRepo $
     Nothing  -> Core.throwM [CommitNotFound commish]
     Just ref -> lookupCommit (Tagged ref) >>= handler
 
+spaceEntries commit = sourceCommitEntries commit "spaces"
+                   .| filterC (isReadme . fst)
+
 spaces :: MonadStore m
        => Commit LgRepo
        -> ConduitM i (Either Error Space) (ReaderT LgRepo m) ()
-spaces commit = sourceCommitEntries commit "spaces"
-             .| filterC (\(path, _) -> isReadme path)
-             .| parseEntry Page.Space.parser
+spaces commit = spaceEntries commit .| parseEntry Page.Space.parser
+
+
+propertyEntries commit = sourceCommitEntries commit "properties"
 
 properties :: MonadStore m
            => Commit LgRepo
            -> ConduitM i (Either Error Property) (ReaderT LgRepo m) ()
-properties commit = sourceCommitEntries commit "properties"
-                 .| parseEntry Page.Property.parser
+properties commit = propertyEntries commit .| parseEntry Page.Property.parser
 
 theorems :: MonadStore m
          => Commit LgRepo
@@ -136,12 +146,15 @@ theorems commit ps = sourceCommitEntries commit "theorems"
     px      = indexBy propertySlug ps
     hydrate = mapLeft (ReferenceError "hydrateTheorem") . hydrateTheorem px
 
+traitEntries commit = sourceCommitEntries commit "spaces"
+                   .| filterC (not . isReadme . fst)
+
 traits :: MonadStore m
        => Commit LgRepo
        -> [Space]
        -> [Property]
        -> ConduitM i (Either Error (Trait Space Property)) (ReaderT LgRepo m) ()
-traits commit ss ps = sourceCommitEntries commit "spaces"
+traits commit ss ps = traitEntries commit
                    .| filterC (\(path, _) -> relevant path)
                    .| parseEntry Page.Trait.parser
                    .| mapC (fmap fst)
@@ -173,17 +186,20 @@ sourceCommitEntries commit path = do
     getDir tree path
   either (const $ return ()) sourceTreeEntries edir
 
+blobs :: MonadGit r m => ConduitM (TreeFilePath, TreeEntry r) (TreeFilePath, Text) m ()
+blobs = awaitForever $ \(path, entry) -> case entry of
+  (BlobEntry _id _) -> do
+    blob <- lift $ catBlobUtf8 _id
+    yield (path, blob)
+  _ -> return ()
+
 parseEntry :: (FromJSON f, MonadStore m, MonadGit r m)
            => Page.Parser f a
            -> ConduitM
              (TreeFilePath, TreeEntry r)
              (Either Error a)
              m ()
-parseEntry parser = awaitForever $ \(path, entry) -> case entry of
-  (BlobEntry _id _) -> do
-    blob <- lift $ catBlobUtf8 _id
-    yield $ Page.parse parser path blob
-  _ -> return ()
+parseEntry parser = blobs .| mapC (\(path, blob) -> Page.parse parser path blob)
 
 hydrateTrait :: Map Text s -> Map Text p -> Trait Text Text -> Either Error (Trait s p)
 hydrateTrait sx px t@Trait{..} = case (M.lookup traitSpace sx, M.lookup traitProperty px) of
@@ -196,9 +212,10 @@ mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) 
 mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
 
 sinkFind :: Monad m => (a -> Bool) -> ConduitM (Either e a) Void m (Maybe a)
-sinkFind predicate = next
-  where
-    next = await >>= \case
-      Nothing        -> return Nothing
-      Just (Left  _) -> next
-      Just (Right a) -> if predicate a then return (Just a) else next
+sinkFind predicate = await >>= \case
+  Just (Right a) -> if predicate a then return (Just a) else sinkFind predicate
+  Just (Left  _) -> sinkFind predicate
+  Nothing        -> return Nothing
+
+sinkMap :: (Ord a, Monad m) => ConduitM (a,b) Void m (Map a b)
+sinkMap = sinkList >>= return . M.fromList

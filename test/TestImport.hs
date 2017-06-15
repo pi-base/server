@@ -9,6 +9,7 @@ import ClassyPrelude         as X hiding (delete, deleteBy, Handler)
 #else
 import ClassyPrelude         as X hiding (delete, deleteBy)
 #endif
+import Control.Monad.Trans.State as X (StateT)
 import Database.Persist      as X hiding (get)
 import Database.Persist.Sql  (SqlPersistM, SqlBackend, runSqlPersistMPool, rawExecute, rawSql, unSingle, connEscapeName)
 import Foundation            as X
@@ -20,6 +21,7 @@ import Yesod.Test            as X
 
 import Data.Aeson                    (Value(..), decode)
 import qualified Data.Text           as T
+import qualified Data.Text.Lazy      as TL
 import qualified Data.HashMap.Strict as HM
 import qualified Test.HUnit          as H
 import Network.Wai.Test              (SResponse(..))
@@ -29,8 +31,10 @@ import Network.Wai.Test              (SResponse(..))
 import Database.Persist.Sqlite              (sqlDatabase, wrapConnection, createSqlPool)
 import qualified Database.Sqlite as Sqlite
 import Control.Monad.Logger                 (runLoggingT)
-import Settings (appDatabaseConf)
-import Yesod.Core (messageLoggerSource)
+import Settings                             (appDatabaseConf)
+import Yesod.Core                           (messageLoggerSource)
+
+import Handler.Helpers (createToken)
 
 runDB :: SqlPersistM a -> YesodExample App a
 runDB query = do
@@ -97,19 +101,38 @@ authenticateAs (Entity _ u) = do
         setUrl $ AuthR $ PluginR "dummy" []
 
 -- | Create a user.
-createUser :: Text -> YesodExample App (Entity User)
-createUser ident = do
-    runDB $ insertEntity User
-        { userIdent       = ident
-        , userName        = ident
-        , userGithubToken = ident
-        }
+createUser :: Text -> Text -> YesodExample App Text
+createUser ident token = do
+  userId <- runDB $ insert User
+      { userIdent       = ident
+      , userName        = ident
+      , userEmail       = ident
+      , userGithubToken = ident
+      }
+
+  now <- liftIO getCurrentTime
+
+  runDB $ insert Token
+    { tokenUserId = userId
+    , tokenIssuedAt = now
+    , tokenExpiredAt = Nothing
+    , tokenUuid = token
+    }
+
+  return ident
 
 json :: (Value -> YesodExample App ()) -> YesodExample App ()
 json action = withResponse $ \SResponse { simpleBody = body } ->
   case decode body of
     Nothing     -> liftIO $ H.assertBool "Can't parse response as JSON" False
     Just parsed -> action parsed
+
+getResponseBody = withResponse $ \SResponse { simpleBody = body } -> return body
+
+mjson action = withResponse $ \SResponse { simpleBody = body } -> action body
+
+showResponse :: YesodExample a ()
+showResponse = withResponse $ \SResponse { simpleBody = body } -> liftIO . putStrLn . TL.toStrict $ decodeUtf8 body
 
 shouldHaveKey :: Value -> Text -> YesodExample App ()
 shouldHaveKey (Object _map) key = liftIO $ H.assertBool msg (HM.member key _map)

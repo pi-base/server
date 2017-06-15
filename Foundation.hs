@@ -6,6 +6,8 @@ import Database.Persist.Sql (ConnectionPool, runSqlPool)
 import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 
+import Yesod.Auth.Dummy
+
 import Handler.Helpers (createToken, maybeToken)
 
 import Yesod.Auth.OAuth2.Github
@@ -228,7 +230,8 @@ instance YesodAuth App where
 
     authPlugins app =
       let AppSettings{..} = appSettings app
-      in [oauth2GithubScoped appGitHubClientId appGitHubClientSecret ["user:email,public_repo"]]
+          oauth = oauth2GithubScoped appGitHubClientId appGitHubClientSecret ["user:email,public_repo"]
+      in [oauth] ++ [authDummy | appAuthDummyLogin]
 
     authHttpManager = getHttpManager
 

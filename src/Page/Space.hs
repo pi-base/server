@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Page.Space
-  ( parse
+  ( Frontmatter(..)
+  , parse
   , parser
   , write
   ) where

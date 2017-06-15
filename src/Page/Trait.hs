@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Page.Trait
   ( Page.Trait.parse
+  , Frontmatter(..)
   , parser
   , path
   , write

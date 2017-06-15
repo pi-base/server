@@ -26,7 +26,7 @@ import Graph.Types    as G
 
 import Graph.Mutations
 
-data Operation = Named Name | Anonymous
+data Operation = Named Name | Anonymous deriving Show
 
 type QueryRoot = Graph.Import.Object "QueryRoot" '[]
   '[ Field "__typename" Text
@@ -46,7 +46,7 @@ data QueryData = QueryData
   { qOperation :: Operation
   , qQuery     :: Text
   , qVariables :: Maybe Aeson.Object
-  }
+  } deriving Show
 
 queryRoot :: G QueryRoot
 queryRoot = pure $ pure "Query"

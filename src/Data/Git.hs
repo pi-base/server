@@ -9,6 +9,7 @@ module Data.Git
   , lookupCommitish
   , writePages
   , updateRef
+  , move
   ) where
 
 -- TODO: clean up duplicates, unused exports
@@ -145,3 +146,8 @@ writeContents user message files = do
 lookupCommitish :: MonadGit r m => Committish -> m (Maybe (Oid r))
 lookupCommitish (CommitRef ref) = resolveReference $ refHead ref
 lookupCommitish (CommitSha sha) = Just <$> parseOid sha
+
+move :: (MonadThrow m, MonadGit r m) => TreeFilePath -> TreeFilePath -> TreeT r m ()
+move old new = getEntry old >>= \case
+  Nothing  -> lift . throwM . NotFound $ "mv: " ++ tshow old
+  Just ent -> putEntry new ent

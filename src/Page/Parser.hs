@@ -2,6 +2,7 @@ module Page.Parser
   ( Page(..)
   , Page.Parser.parse
   , write
+  , pullFrontmatter
   ) where
 
 -- TODO: add round-trip quickchecks
