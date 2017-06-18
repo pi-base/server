@@ -33,14 +33,14 @@ traits v = foldr acc [] $ flattened
         -> [(Trait Space Property, Maybe Proof)]
     acc t ts =
       let
-        sid   = traitSpace t
-        pid   = traitProperty t
+        sid   = t ^. traitSpace
+        pid   = t ^. traitProperty
         ms    = M.lookup sid $ v ^. viewSpaces
         mp    = M.lookup pid $ v ^. viewProperties
         proof = M.lookup (sid, pid) $ v ^. viewProofs
       in
         case (ms, mp) of
-          (Just s, Just p) -> (t { traitSpace = s, traitProperty = p }, proof) : ts
+          (Just s, Just p) -> ((set traitSpace s . set traitProperty p $ t), proof) : ts
           _ -> ts
 
 validate :: View -> [Error]
@@ -55,7 +55,7 @@ build :: [Space]
 build ss ps ts is version = View
   { _viewSpaces     = indexBy spaceId ss
   , _viewProperties = indexBy propertyId ps
-  , _viewTraits     = M.map (indexBy traitProperty) $ groupBy traitSpace $ map identifyTrait ts
+  , _viewTraits     = M.map (indexBy _traitProperty) $ groupBy _traitSpace $ map identifyTrait ts
   , _viewTheorems   = indexBy theoremId $ map (fmap propertyId) is
   , _viewProofs     = mempty
   , _viewVersion    = Just version

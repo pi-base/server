@@ -44,9 +44,9 @@ fatal = Logic . throwE
 
 assertTrait :: Trait SpaceId PropertyId -> Logic ()
 assertTrait Trait{..} = do
-  (uses proverView $ Logic.lookup traitSpace traitProperty) >>= \case
-    Just val -> unless (val == traitValue) $ fatal AssertionError
-    Nothing  -> insertTrait traitSpace traitProperty traitValue Nothing
+  (uses proverView $ Logic.lookup _traitSpace _traitProperty) >>= \case
+    Just val -> unless (val == _traitValue) $ fatal AssertionError
+    Nothing  -> insertTrait _traitSpace _traitProperty _traitValue Nothing
 
 assertTheorem :: Theorem PropertyId -> Logic ()
 assertTheorem t = do
@@ -157,7 +157,7 @@ contains sid pid = M.member pid . attributes sid
 attributes :: SpaceId -> View -> Properties
 attributes sid View{..} = case M.lookup sid _viewTraits of
   Nothing    -> M.empty
-  Just props -> M.map traitValue props
+  Just props -> M.map _traitValue props
 
 insertTrait :: SpaceId
             -> PropertyId
@@ -227,7 +227,7 @@ addRelatedTheorem :: M.Map PropertyId [TheoremId] -> Theorem PropertyId -> Map P
 addRelatedTheorem m t = S.foldr' (\p -> M.insertWith (++) p [theoremId t]) m $ theoremProperties t
 
 buildProof :: Trait SpaceId PropertyId -> Evidence -> Proof
-buildProof trait (thrmId, props) = Proof (traitSpace trait) props (S.singleton thrmId)
+buildProof trait (thrmId, props) = Proof (_traitSpace trait) props (S.singleton thrmId)
 
 updatedView :: Prover -> View
 updatedView prover = filterView

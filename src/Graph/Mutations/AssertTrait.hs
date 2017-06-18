@@ -27,10 +27,10 @@ assertTrait AssertTraitInput{..} = do
   (Entity _ user) <- requireToken
 
   let trait = Trait
-        { traitSpace       = SpaceId spaceId
-        , traitProperty    = PropertyId propertyId
-        , traitValue       = value
-        , traitDescription = "" -- FIXME
+        { _traitSpace       = SpaceId spaceId
+        , _traitProperty    = PropertyId propertyId
+        , _traitValue       = value
+        , _traitDescription = "" -- FIXME
         }
   updates <- D.assertTrait user trait
   either halt G.viewR updates

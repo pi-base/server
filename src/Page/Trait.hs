@@ -44,7 +44,7 @@ instance FromJSON Frontmatter where
 
 -- TODO: prevent this from getting out of sync w/ parser?
 path :: Trait Space Property -> TreeFilePath
-path Trait{..} = encodeUtf8 $ "spaces/" <> (spaceSlug traitSpace) <> "/properties/" <> (propertySlug traitProperty) <> ".md"
+path Trait{..} = encodeUtf8 $ "spaces/" <> (spaceSlug _traitSpace) <> "/properties/" <> (propertySlug _traitProperty) <> ".md"
 
 parse :: Page Frontmatter -> Either Error (Trait Text Text, Maybe Proof)
 parse (Page _ Frontmatter{..} main _) =
@@ -59,9 +59,9 @@ write (t, proof) = Page
   , pageFrontmatter = Frontmatter
     { space    = unSpaceId $ traitSpaceId t
     , property = unPropertyId $ traitPropertyId t
-    , value    = traitValue t
+    , value    = _traitValue t
     , proof    = proof
     }
-  , pageMain = traitDescription t
+  , pageMain = _traitDescription t
   , pageSections = []
   }

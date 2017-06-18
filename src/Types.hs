@@ -4,7 +4,7 @@
 module Types where
 
 import Import.NoFoundation
-import Control.Lens (camelCaseFields, makeLenses, makeLensesWith)
+import Control.Lens (makeLenses)
 
 import Git         (TreeFilePath)
 import Git.Libgit2 (LgRepo)
@@ -72,13 +72,13 @@ data Theorem p = Theorem
   } deriving (Eq, Functor)
 
 data Trait s p = Trait
-  { traitSpace       :: !s
-  , traitProperty    :: !p
-  , traitValue       :: !Bool
-  , traitDescription :: !Text
+  { _traitSpace       :: !s
+  , _traitProperty    :: !p
+  , _traitValue       :: !Bool
+  , _traitDescription :: !Text
   } deriving Show
 
-makeLensesWith camelCaseFields ''Trait
+makeLenses ''Trait
 
 data Page a = Page
   { pagePath :: ByteString

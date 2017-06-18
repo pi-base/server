@@ -43,8 +43,8 @@ traitsR :: MonadStore m
 traitsR mc traits props = pure $ map render traits
   where
     render Trait{..} = pure $ pure "Trait"
-      :<> (findKey props traitProperty >>= propertyR mc)
-      :<> pure traitValue
+      :<> (findKey props _traitProperty >>= propertyR mc)
+      :<> pure _traitValue
 
 theoremsR ::  MonadStore m
           => Maybe Committish -> [Theorem p] -> (p -> m Property) -> Handler m (List G.Theorem)

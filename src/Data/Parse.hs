@@ -25,8 +25,9 @@ import           Git
 
 import Core
 import Conduit
-import Data.Git (commitVersion, getDir, lookupCommittish, useRepo)
-import Util     (indexBy)
+import Control.Lens (set)
+import Data.Git     (commitVersion, getDir, lookupCommittish, useRepo)
+import Util         (indexBy)
 
 import qualified Page
 import qualified Page.Parser
@@ -202,11 +203,11 @@ parseEntry :: (FromJSON f, MonadStore m, MonadGit r m)
 parseEntry parser = blobs .| mapC (\(path, blob) -> Page.parse parser path blob)
 
 hydrateTrait :: Map Text s -> Map Text p -> Trait Text Text -> Either Error (Trait s p)
-hydrateTrait sx px t@Trait{..} = case (M.lookup traitSpace sx, M.lookup traitProperty px) of
-  (Just s, Just p) -> Right $ t { traitSpace = s, traitProperty = p }
-  (Just _, _) -> Left $ ReferenceError "hydrateTrait" [traitProperty]
-  (_, Just _) -> Left $ ReferenceError "hydrateTrait" [traitSpace]
-  _           -> Left $ ReferenceError "hydrateTrait" [traitProperty, traitSpace]
+hydrateTrait sx px t@Trait{..} = case (M.lookup _traitSpace sx, M.lookup _traitProperty px) of
+  (Just s, Just p) -> Right . set traitSpace s $ set traitProperty p t
+  (Just _, _) -> Left $ ReferenceError "hydrateTrait" [_traitProperty]
+  (_, Just _) -> Left $ ReferenceError "hydrateTrait" [_traitSpace]
+  _           -> Left $ ReferenceError "hydrateTrait" [_traitProperty, _traitSpace]
 
 mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
 mapRightC f = awaitForever $ \ev -> yield $ ev >>= f

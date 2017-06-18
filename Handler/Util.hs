@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types #-}
 module Handler.Util
   ( deleteDerivedTraits
   , migrateReferences
@@ -9,8 +10,10 @@ import Core hiding (Handler)
 
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Map         as M
+import qualified Data.HashMap.Strict as HM
 
-import Control.Lens
+import Control.Lens hiding ((.=))
+import Control.Lens.Traversal
 import Data
 import Data.Git (modifyGitRef, updateRef, useRepo, writePages)
 import qualified Data.Git as Git
@@ -22,6 +25,7 @@ import qualified Logic       as L
 import qualified View        as V
 
 import qualified Page
+import qualified Page.Parser
 import qualified Page.Property
 import qualified Page.Space
 import qualified Page.Trait
@@ -96,8 +100,42 @@ migrateReferences ref = do
                        .| lengthC
       putStrLn $ "Updated " ++ tshow (len :: Int) ++ " traits"
 
-traitPage = undefined
-parsePage = undefined
+type P = Page Aeson.Object
+newtype Pager a = Pager (Prism' P a)
+
+traitPage :: Pager (Trait Text Text)
+traitPage = Pager $ prism toPage fromPage
+  where
+    toPage :: Trait Text Text -> P
+    toPage Trait{..} = Page
+      { pagePath = encodeUtf8 $ "spaces/" <> _traitSpace <> "/properties/" <> _traitProperty <> ".md"
+      , pageFrontmatter = HM.fromList
+        [ "space"    .= _traitSpace
+        , "property" .= _traitProperty
+        , "value"    .= _traitValue
+        ]
+      , pageMain = _traitDescription
+      , pageSections = mempty
+      }
+
+    fromPage :: P -> Either P (Trait Text Text)
+    fromPage p@Page{..} =
+      mapLeft (const p) . flip Aeson.parseEither pageFrontmatter $ \f -> do
+        _traitSpace    <- f .: "space"
+        _traitProperty <- f .: "property"
+        _traitValue    <- f .: "value"
+        let _traitDescription = pageMain
+        return Trait{..}
+
+parsePage :: MonadThrow m => Pager a -> (TreeFilePath, Text) -> m a
+parsePage (Pager p) (path, content) = case Page.Parser.parse (path, content) of
+  Left err -> throwM err
+  Right page -> case page ^? p of
+    Just a  -> return a
+    Nothing -> throwM $ ParseError path "does not define a valid object"
+
+writePage :: Pager a -> a -> (TreeFilePath, Text)
+writePage (Pager p) page = Page.Parser.write $ page ^. re p
 
 updateTrait :: MonadThrow m
             => Map Text Text
@@ -105,14 +143,9 @@ updateTrait :: MonadThrow m
             -> (TreeFilePath, Text)
             -> m (TreeFilePath, Text)
 updateTrait ss ps (path, contents) = do
-  trait    <- parsePage traitPage
-  space    <- fetch ss $ traitSpace trait
-  property <- fetch ps $ traitProperty trait
-  --let updated = trait { traitSpace = space, traitProperty = property }
-  --    newContents = writePage updated
-  --    newPath     = replace (traitSpace trait) space
-  --                $ replace (traitProperty trait) property $ path
-  undefined
+  trait   <- parsePage traitPage (path, contents)
+  updated <- mapMOf traitProperty (flip fetch ps) =<< mapMOf traitSpace (flip fetch ss) trait
+  return $ writePage traitPage (updated :: Trait Text Text)
 
 throwLeft :: (Exception a, MonadThrow m) => ConduitM (Either a b) b m ()
 throwLeft = awaitForever $ either throwM yield

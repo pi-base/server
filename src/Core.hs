@@ -27,6 +27,7 @@ import Git.Libgit2                      as Core (LgRepo)
 import Model as Core
 import Types as Core
 
+import Control.Lens hiding ((.=))
 import Data.Aeson (ToJSON(..), object, (.=))
 import qualified Data.Map.Strict as SM
 import qualified Data.Set        as S
@@ -69,18 +70,19 @@ traitId :: Trait Space Property -> TraitId
 traitId = (,) <$> traitSpaceId <*> traitPropertyId
 
 traitSpaceId :: Trait Space p -> SpaceId
-traitSpaceId = spaceId . traitSpace
+traitSpaceId t = spaceId $ t ^. traitSpace
 
 traitPropertyId :: Trait s Property -> PropertyId
-traitPropertyId = propertyId . traitProperty
+traitPropertyId t = propertyId $ t ^. traitProperty
 
 traitName :: Trait Space Property -> Text
-traitName Trait{..} = spaceName traitSpace <> ": " <> label <> propertyName traitProperty
+traitName Trait{..} = spaceName _traitSpace <> ": " <> label <> propertyName _traitProperty
   where
-    label = if traitValue then "" else "~"
+    label = if _traitValue then "" else "~"
 
 identifyTrait :: Trait Space Property -> Trait SpaceId PropertyId
-identifyTrait t@Trait{..} = t { traitSpace = spaceId traitSpace, traitProperty = propertyId traitProperty }
+identifyTrait = over traitSpace spaceId
+              . over traitProperty propertyId
 
 (~>) :: F.Formula p -> F.Formula p -> Implication p
 (~>) = Implication

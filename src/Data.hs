@@ -62,9 +62,9 @@ userBranchRef :: User -> Committish
 userBranchRef User{..} = CommitRef . Ref $ "users/" <> userName
 
 assertTrait :: MonadStore m => User -> Trait SpaceId PropertyId -> m (Either [Error] View)
-assertTrait user trait = assert L.assertTrait trait user (P.viewSpace $ traitSpace trait) $ \_v ->
+assertTrait user trait = assert L.assertTrait trait user (P.viewSpace $ trait ^. traitSpace) $ \_v ->
   -- TODO: better commit message
-  "Add trait " <> tshow (traitSpace trait, traitProperty trait)
+  "Add trait " <> tshow (trait ^. traitSpace, trait ^. traitProperty)
 
 assertTheorem :: MonadStore  m => User -> Theorem PropertyId -> m (Either [Error] View)
 assertTheorem user theorem = assert L.assertTheorem theorem user P.viewer $ \_v ->
