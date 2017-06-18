@@ -10,10 +10,12 @@ import Core hiding (Handler)
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Map         as M
 
+import Control.Lens
 import Data
 import Data.Git (modifyGitRef, updateRef, useRepo, writePages)
 import qualified Data.Git as Git
 import Git
+import Util (fetch)
 
 import qualified Data.Parse  as P
 import qualified Logic       as L
@@ -75,17 +77,10 @@ migrateReferences ref = do
        .| P.sinkMap
 
     let
-      convertTrait (path, contents) = undefined
-        -- trait <- parse page
-        -- space    <- fetch ss $ traitSpace trait
-        -- property <- fetch ps $ traitSpace trait
-        -- let updated = trait { traitSpace = space, traitProperty = property }
-        --     newContents = writePage updated
-        --     newPath     = replace (traitSpace trait) space
-        --                 . replace (traitProperty trait) property $ path
-
-        -- lift (createBlobUtf8 newContents) >>= putBlob newPath
-        -- dropEntry path
+      convertTrait (path, contents) = do
+        (newPath, newContents) <- lift $ updateTrait ss ps (path, contents)
+        lift (createBlobUtf8 newContents) >>= putBlob newPath
+        dropEntry path
 
     Git.updateRef (Ref ref) commitMessage $ do
       forM_ (M.toList ss) $ \(slug, uid) -> do
@@ -100,6 +95,24 @@ migrateReferences ref = do
                        .| mapMC convertTrait
                        .| lengthC
       putStrLn $ "Updated " ++ tshow (len :: Int) ++ " traits"
+
+traitPage = undefined
+parsePage = undefined
+
+updateTrait :: MonadThrow m
+            => Map Text Text
+            -> Map Text Text
+            -> (TreeFilePath, Text)
+            -> m (TreeFilePath, Text)
+updateTrait ss ps (path, contents) = do
+  trait    <- parsePage traitPage
+  space    <- fetch ss $ traitSpace trait
+  property <- fetch ps $ traitProperty trait
+  --let updated = trait { traitSpace = space, traitProperty = property }
+  --    newContents = writePage updated
+  --    newPath     = replace (traitSpace trait) space
+  --                $ replace (traitProperty trait) property $ path
+  undefined
 
 throwLeft :: (Exception a, MonadThrow m) => ConduitM (Either a b) b m ()
 throwLeft = awaitForever $ either throwM yield

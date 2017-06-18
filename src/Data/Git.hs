@@ -6,10 +6,12 @@ module Data.Git
   , writeContents
   , ensureUserBranch
   , commitVersion
-  , lookupCommitish
   , writePages
+  , resetRef
   , updateRef
   , move
+  , lookupCommittish
+  , userBranch
   ) where
 
 -- TODO: clean up duplicates, unused exports
@@ -77,6 +79,11 @@ modifyGitRef user ref message updates = useRepo $ do
       (author, committer) <- getSignatures user
       Right <$> createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
 
+resetRef :: MonadGit r m => Ref -> Committish -> m ()
+resetRef ref commish = lookupCommittish commish >>= \case
+  Just r  -> updateReference (refHead ref) (RefObj r)
+  Nothing -> error "Could not find committish to reset"
+
 getSignatures :: MonadIO m => User -> m (Signature, Signature)
 getSignatures User{..} = do
   time <- liftIO getZonedTime
@@ -143,9 +150,9 @@ writeContents user message files = do
       (lift $ createBlobUtf8 contents) >>= putBlob path
   return $ commitVersion <$> ec
 
-lookupCommitish :: MonadGit r m => Committish -> m (Maybe (Oid r))
-lookupCommitish (CommitRef ref) = resolveReference $ refHead ref
-lookupCommitish (CommitSha sha) = Just <$> parseOid sha
+lookupCommittish :: MonadGit r m => Committish -> m (Maybe (Oid r))
+lookupCommittish (CommitRef ref) = resolveReference $ refHead ref
+lookupCommittish (CommitSha sha) = Just <$> parseOid sha
 
 move :: (MonadThrow m, MonadGit r m) => TreeFilePath -> TreeFilePath -> TreeT r m ()
 move old new = getEntry old >>= \case

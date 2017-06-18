@@ -1,9 +1,10 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FunctionalDependencies #-}
 module Types where
 
 import Import.NoFoundation
-import Control.Lens (makeLenses)
+import Control.Lens (camelCaseFields, makeLenses, makeLensesWith)
 
 import Git         (TreeFilePath)
 import Git.Libgit2 (LgRepo)
@@ -76,6 +77,8 @@ data Trait s p = Trait
   , traitValue       :: !Bool
   , traitDescription :: !Text
   } deriving Show
+
+makeLensesWith camelCaseFields ''Trait
 
 data Page a = Page
   { pagePath :: ByteString

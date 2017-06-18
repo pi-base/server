@@ -42,6 +42,8 @@ data AppSettings = AppSettings
 
     , appDetailedRequestLogging :: Bool
     -- ^ Use detailed request logging system
+    , appRequestLogging         :: Bool
+    -- ^ Should any requests be logged?
     , appShouldLogAll           :: Bool
     -- ^ Should all log messages be displayed?
     , appReloadTemplates        :: Bool
@@ -108,6 +110,8 @@ instance FromJSON AppSettings where
 
         appGitHubClientId     <- o .: "github-client-id"
         appGitHubClientSecret <- o .: "github-client-secret"
+
+        appRequestLogging <- o .:? "log-requests" .!= defaultDev
 
         return AppSettings {..}
 

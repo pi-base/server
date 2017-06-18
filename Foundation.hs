@@ -8,7 +8,7 @@ import Text.Jasmine         (minifym)
 
 import Yesod.Auth.Dummy
 
-import Handler.Helpers (createToken, maybeToken)
+import Handler.Helpers (generateToken, maybeToken)
 
 import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
@@ -61,7 +61,7 @@ createGithubUser :: User -> Handler UserId
 createGithubUser user = do
   userId <- runDB $ insert user
   _ <- useRepo $ ensureUserBranch user
-  _ <- createToken userId
+  _ <- generateToken userId
   return userId
 
 -- | A convenient synonym for creating forms.

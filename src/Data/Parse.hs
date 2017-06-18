@@ -25,7 +25,7 @@ import           Git
 
 import Core
 import Conduit
-import Data.Git (commitVersion, getDir, lookupCommitish, useRepo)
+import Data.Git (commitVersion, getDir, lookupCommittish, useRepo)
 import Util     (indexBy)
 
 import qualified Page
@@ -115,7 +115,7 @@ at :: (MonadStore m, MonadThrow m)
    -> (Commit LgRepo -> ReaderT LgRepo m a)
    -> m a
 at commish handler = useRepo $
-  lookupCommitish commish >>= \case
+  lookupCommittish commish >>= \case
     Nothing  -> Core.throwM [CommitNotFound commish]
     Just ref -> lookupCommit (Tagged ref) >>= handler
 

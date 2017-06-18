@@ -8,4 +8,4 @@ database:
   #   database: "_env:SQLITE_DATABASE:pi-base-validator_test.sqlite3"
   database: pi-base-validator_test.sqlite3
 
-auth-dummy-login: true
+log-requests: false

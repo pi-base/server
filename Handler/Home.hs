@@ -3,7 +3,7 @@ module Handler.Home where
 import Import
 
 import Data            (storeMaster, parseViewer)
-import Handler.Helpers (createToken)
+import Handler.Helpers (generateToken)
 import Services.Github (checkPullRequest, webhookHandler)
 import Core            (View(..), unVersion)
 
@@ -28,7 +28,7 @@ activeToken userId = do
   token <- runDB $ selectFirst [TokenUserId ==. userId] [] -- TODO: not expired
   case token of
     Just (Entity _ t) -> return t
-    _ -> createToken userId
+    _ -> generateToken userId
 
 getFrontendR :: Handler ()
 getFrontendR = do

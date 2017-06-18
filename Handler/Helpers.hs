@@ -1,5 +1,6 @@
 module Handler.Helpers
-  ( createToken
+  ( attachToken
+  , generateToken
   , maybeToken
   , requireToken
   ) where
@@ -10,22 +11,14 @@ import qualified Data.Text as T
 import qualified Data.UUID as UUID
 import qualified Data.UUID.V4 as UUID
 
-createToken :: (BaseBackend (YesodPersistBackend site) ~
+generateToken :: (BaseBackend (YesodPersistBackend site) ~
                 SqlBackend,
                 PersistStoreWrite (YesodPersistBackend site), YesodPersist site)
-            => UserId
-            -> HandlerT site IO Token
-createToken userId = do
-  now  <- liftIO getCurrentTime
+              => UserId
+              -> HandlerT site IO Token
+generateToken userId = do
   uuid <- liftIO UUID.nextRandom
-
-  let token = Token
-        { tokenUserId = userId
-        , tokenIssuedAt = now
-        , tokenExpiredAt = Nothing
-        , tokenUuid = UUID.toText uuid
-        }
-  _ <- runDB $ insert token
+  (Entity _ token) <- attachToken userId $ UUID.toText uuid
   return token
 
 maybeToken :: (BaseBackend (YesodPersistBackend site) ~ SqlBackend,
@@ -56,3 +49,12 @@ requireToken = maybeToken >>= \case
       , "type"    .= ("NOT_AUTHORIZED" :: Text)
       ]
     ]
+
+attachToken userId token = do
+  now <- liftIO getCurrentTime
+  runDB $ insertEntity Token
+    { tokenUserId    = userId
+    , tokenIssuedAt  = now
+    , tokenExpiredAt = Nothing
+    , tokenUuid      = token
+    }

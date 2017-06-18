@@ -230,6 +230,7 @@ test-suite test
                  , lens-aeson
                  , bytestring
                  , http-types
+                 , pretty-show
                  --
                  , HUnit
                  , text

@@ -115,16 +115,19 @@ makeApplication foundation = do
 
 makeLogWare :: App -> IO Middleware
 makeLogWare foundation =
-    mkRequestLogger def
-        { outputFormat =
-            if appDetailedRequestLogging $ appSettings foundation
-                then Detailed True
-                else Apache
-                        (if appIpFromHeader $ appSettings foundation
-                            then FromFallback
-                            else FromSocket)
-        , destination = Logger $ loggerSet $ appLogger foundation
-        }
+  if appRequestLogging $ appSettings foundation
+    then
+      mkRequestLogger def
+          { outputFormat =
+              if appDetailedRequestLogging $ appSettings foundation
+                  then Detailed True
+                  else Apache
+                          (if appIpFromHeader $ appSettings foundation
+                              then FromFallback
+                              else FromSocket)
+          , destination = Logger $ loggerSet $ appLogger foundation
+          }
+    else return id
 
 
 -- | Warp settings for the given foundation value.
