@@ -1,47 +1,35 @@
-{-# LANGUAGE DeriveGeneric #-}
 module Page.Property
-  ( Frontmatter(..)
-  , parser
-  , parse
-  , write
+  ( page
   ) where
 
 import Data.Aeson
+import Data.Aeson.Types (Parser)
+import qualified Data.HashMap.Strict as HM
 
 import Core
-import Page.Parser (Page(..))
+import qualified Page
 
-data Frontmatter = Frontmatter
-  { uid :: PropertyId
-  , slug :: Text
-  , name :: Text
-  , aliases :: Maybe [Text]
-  } deriving Generic
+page :: Page Property
+page = Page.build write parse
 
-instance ToJSON Frontmatter
-instance FromJSON Frontmatter
+parse :: PageData -> Parser Property
+parse PageData{..} = do
+  propertyId      <- pageFrontmatter .: "uid"
+  propertySlug    <- pageFrontmatter .: "slug"
+  propertyName    <- pageFrontmatter .: "name"
+  propertyAliases <- pageFrontmatter .:? "aliases"
+  let propertyDescription = pageMain
+  return Property{..}
 
-parser :: Page Frontmatter -> Either Error Property
-parser = parse
-
-parse :: Page Frontmatter -> Either Error Property
-parse (Page _ Frontmatter{..} main _sections) = Right $ Property
-  { propertyId = uid
-  , propertySlug = slug
-  , propertyName = name
-  , propertyAliases = aliases
-  , propertyDescription = main
-  }
-
-write :: Property -> Page Frontmatter
-write Property{..} = Page
-  { pagePath = encodeUtf8 $ "properties/" <> propertySlug <> ".md"
-  , pageFrontmatter = Frontmatter
-    { uid  = propertyId
-    , slug = propertySlug
-    , name = propertyName
-    , aliases = propertyAliases
-    }
+write :: Property -> PageData
+write Property{..} = PageData
+  { pagePath = encodeUtf8 $ "properties/" <> propertyName
+  , pageFrontmatter = HM.fromList
+    [ "uid"     .= propertyId
+    , "slug"    .= propertySlug
+    , "name"    .= propertyName
+    , "aliases" .= propertyAliases
+    ]
   , pageMain = propertyDescription
-  , pageSections = []
+  , pageSections = mempty
   }

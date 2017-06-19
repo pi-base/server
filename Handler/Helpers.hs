@@ -50,6 +50,10 @@ requireToken = maybeToken >>= \case
       ]
     ]
 
+attachToken :: ( BaseBackend (YesodPersistBackend site) ~ SqlBackend
+               , PersistStoreWrite (YesodPersistBackend site)
+               , YesodPersist site)
+            => Key User -> Text -> HandlerT site IO (Entity Token)
 attachToken userId token = do
   now <- liftIO getCurrentTime
   runDB $ insertEntity Token

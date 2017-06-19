@@ -14,7 +14,7 @@ module Formula
 
 import Prelude hiding (negate)
 
-import Types (Formula(..))
+import Types
 
 import           Control.Monad (void, mzero)
 import           Data.Aeson hiding ((.=))
@@ -112,6 +112,10 @@ instance ToJSON (Formula Text) where
   toJSON (And subs) = object [ "and" A..= toJSON subs ]
   toJSON (Or subs) = object [ "or"  A..= toJSON subs ]
   toJSON (Atom p v)  = object [ p A..= v ]
+
+instance ToJSON (Formula PropertyId) where
+  toJSON f = toJSON $ unPropertyId <$> f
+
 
 properties :: (Ord a) => Formula a -> S.Set a
 properties (Atom p _) = S.singleton p

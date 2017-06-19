@@ -1,16 +1,19 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE Rank2Types #-}
 module Types where
 
 import Import.NoFoundation
-import Control.Lens (makeLenses)
+import Control.Lens (Prism', makeLenses)
 
 import Git         (TreeFilePath)
 import Git.Libgit2 (LgRepo)
 
-import qualified Data.Map.Strict as M
-import qualified Data.Set        as S
+import qualified Data.Aeson          as Aeson (Object)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map.Strict     as M
+import qualified Data.Set            as S
 
 type    Uid     = Text
 type    Record  = (TreeFilePath, Text)
@@ -46,7 +49,7 @@ data Space = Space
   , spaceName        :: !Text
   , spaceDescription :: !Text
   , spaceTopology    :: !(Maybe Text)
-  }
+  } deriving Eq
 
 data Property = Property
   { propertyId          :: !PropertyId
@@ -54,7 +57,7 @@ data Property = Property
   , propertyName        :: !Text
   , propertyAliases     :: !(Maybe [Text])
   , propertyDescription :: !Text
-  }
+  } deriving Eq
 
 data Formula p = Atom p Bool
                | And [Formula p]
@@ -80,12 +83,14 @@ data Trait s p = Trait
 
 makeLenses ''Trait
 
-data Page a = Page
-  { pagePath :: ByteString
-  , pageFrontmatter :: a
-  , pageMain :: Text
-  , pageSections :: [(Text, Text)]
+data PageData = PageData
+  { pagePath        :: !ByteString
+  , pageFrontmatter :: !Aeson.Object
+  , pageMain        :: !Text
+  , pageSections    :: !(HM.HashMap Text Text)
   }
+
+newtype Page a = Page (Prism' PageData a)
 
 data Match = Yes | No | Unknown
   deriving (Show, Eq, Ord)

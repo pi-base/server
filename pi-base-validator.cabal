@@ -48,7 +48,6 @@ library
                      Graph.Types
                      Logic
                      Page
-                     Page.Parser
                      Page.Property
                      Page.Space
                      Page.Theorem
@@ -144,6 +143,7 @@ library
                  , gitlib-libgit2
                  , graphql-api
                  , lens
+                 , lens-aeson
                  , lifted-base
                  , mtl
                  , scientific
@@ -188,6 +188,7 @@ test-suite test
     other-modules:     Handler.CommonSpec
                        Handler.GraphSpec
                        Handler.HomeSpec
+                       PageSpec
                        TestImport
     hs-source-dirs:    test
     ghc-options:       -Wall
@@ -236,3 +237,4 @@ test-suite test
                  , text
                  , unordered-containers >= 0.2
                  , wai-extra
+                 , QuickCheck

@@ -8,6 +8,7 @@ module Data.Parse
   , properties
   , traitEntries
   , traits
+  , theoremEntries
   , theorems
   , findProperty
   , findSpace
@@ -30,7 +31,6 @@ import Data.Git     (commitVersion, getDir, lookupCommittish, useRepo)
 import Util         (indexBy)
 
 import qualified Page
-import qualified Page.Parser
 import qualified Page.Property
 import qualified Page.Space
 import qualified Page.Theorem
@@ -120,33 +120,41 @@ at commish handler = useRepo $
     Nothing  -> Core.throwM [CommitNotFound commish]
     Just ref -> lookupCommit (Tagged ref) >>= handler
 
+type EntrySource m r = ConduitM () (TreeFilePath, TreeEntry r) m ()
+
+spaceEntries :: MonadGit r m => Commit r -> EntrySource m r
 spaceEntries commit = sourceCommitEntries commit "spaces"
                    .| filterC (isReadme . fst)
 
 spaces :: MonadStore m
        => Commit LgRepo
-       -> ConduitM i (Either Error Space) (ReaderT LgRepo m) ()
-spaces commit = spaceEntries commit .| parseEntry Page.Space.parser
+       -> ConduitM () (Either Error Space) (ReaderT LgRepo m) ()
+spaces commit = spaceEntries commit .| parseEntry Page.Space.page
 
 
+propertyEntries :: MonadGit r m => Commit r -> EntrySource m r
 propertyEntries commit = sourceCommitEntries commit "properties"
 
 properties :: MonadStore m
            => Commit LgRepo
-           -> ConduitM i (Either Error Property) (ReaderT LgRepo m) ()
-properties commit = propertyEntries commit .| parseEntry Page.Property.parser
+           -> ConduitM () (Either Error Property) (ReaderT LgRepo m) ()
+properties commit = propertyEntries commit .| parseEntry Page.Property.page
+
+theoremEntries :: MonadGit r m => Commit r -> EntrySource m r
+theoremEntries commit = sourceCommitEntries commit "theorems"
 
 theorems :: MonadStore m
          => Commit LgRepo
          -> [Property]
-         -> ConduitM i (Either Error (Theorem Property)) (ReaderT LgRepo m) ()
-theorems commit ps = sourceCommitEntries commit "theorems"
-                  .| parseEntry Page.Theorem.parser
+         -> ConduitM () (Either Error (Theorem Property)) (ReaderT LgRepo m) ()
+theorems commit ps = theoremEntries commit
+                  .| parseEntry Page.Theorem.page
                   .| mapRightC hydrate
   where
-    px      = indexBy propertySlug ps
-    hydrate = mapLeft (ReferenceError "hydrateTheorem") . hydrateTheorem px
+    hydrate = mapLeft (ReferenceError "hydrateTheorem" . map unPropertyId)
+            . hydrateTheorem (indexBy propertyId ps)
 
+traitEntries :: MonadGit r m => Commit r -> EntrySource m r
 traitEntries commit = sourceCommitEntries commit "spaces"
                    .| filterC (not . isReadme . fst)
 
@@ -154,18 +162,18 @@ traits :: MonadStore m
        => Commit LgRepo
        -> [Space]
        -> [Property]
-       -> ConduitM i (Either Error (Trait Space Property)) (ReaderT LgRepo m) ()
+       -> ConduitM () (Either Error (Trait Space Property)) (ReaderT LgRepo m) ()
 traits commit ss ps = traitEntries commit
                    .| filterC (\(path, _) -> relevant path)
-                   .| parseEntry Page.Trait.parser
-                   .| mapC (fmap fst)
+                   .| parseEntry Page.Trait.page
+                   -- .| mapC (fmap fst)
                    .| mapRightC (hydrateTrait sx px)
   where
-    sx :: M.Map Text Space
-    sx = indexBy spaceSlug ss
+    sx :: M.Map SpaceId Space
+    sx = indexBy spaceId ss
 
-    px :: M.Map Text Property
-    px = indexBy propertySlug ps
+    px :: M.Map PropertyId Property
+    px = indexBy propertyId ps
 
     relevant :: TreeFilePath -> Bool
     relevant path = S.member path paths
@@ -185,7 +193,9 @@ sourceCommitEntries commit path = do
   edir <- lift $ do
     tree <- lookupTree $ commitTree commit
     getDir tree path
-  either (const $ return ()) sourceTreeEntries edir
+  case edir of
+    Left    _ -> return ()
+    Right dir -> sourceTreeEntries dir .| mapC (\(p,t) -> (path <> "/" <> p, t))
 
 blobs :: MonadGit r m => ConduitM (TreeFilePath, TreeEntry r) (TreeFilePath, Text) m ()
 blobs = awaitForever $ \(path, entry) -> case entry of
@@ -194,20 +204,21 @@ blobs = awaitForever $ \(path, entry) -> case entry of
     yield (path, blob)
   _ -> return ()
 
-parseEntry :: (FromJSON f, MonadStore m, MonadGit r m)
-           => Page.Parser f a
+parseEntry :: (MonadStore m, MonadGit r m)
+           => Page a
            -> ConduitM
              (TreeFilePath, TreeEntry r)
              (Either Error a)
              m ()
-parseEntry parser = blobs .| mapC (\(path, blob) -> Page.parse parser path blob)
+parseEntry page = blobs .| mapC (\(path, blob) -> Page.parse page (path, blob))
 
-hydrateTrait :: Map Text s -> Map Text p -> Trait Text Text -> Either Error (Trait s p)
+-- TODO: clean this up now that trait is a lens
+hydrateTrait :: Map SpaceId s -> Map PropertyId p -> Trait SpaceId PropertyId -> Either Error (Trait s p)
 hydrateTrait sx px t@Trait{..} = case (M.lookup _traitSpace sx, M.lookup _traitProperty px) of
   (Just s, Just p) -> Right . set traitSpace s $ set traitProperty p t
-  (Just _, _) -> Left $ ReferenceError "hydrateTrait" [_traitProperty]
-  (_, Just _) -> Left $ ReferenceError "hydrateTrait" [_traitSpace]
-  _           -> Left $ ReferenceError "hydrateTrait" [_traitProperty, _traitSpace]
+  (Just _, _) -> Left $ ReferenceError "hydrateTrait" [unPropertyId _traitProperty]
+  (_, Just _) -> Left $ ReferenceError "hydrateTrait" [unSpaceId _traitSpace]
+  _           -> Left $ ReferenceError "hydrateTrait" [unPropertyId _traitProperty, unSpaceId _traitSpace]
 
 mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
 mapRightC f = awaitForever $ \ev -> yield $ ev >>= f

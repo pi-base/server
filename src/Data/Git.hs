@@ -23,7 +23,6 @@ import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
 import Git.Libgit2 (LgRepo, openLgRepository, runLgRepository)
-import qualified Page (write)
 
 openRepo :: FilePath -> IO LgRepo
 openRepo path = openLgRepository $ RepositoryOptions
@@ -117,10 +116,9 @@ commitSignatures CommitMeta{..} = do
       }
   return (author, committer, commitMessage)
 
-writePages :: (ToJSON f, MonadGit r m) => [Page f] -> TreeT r m ()
-writePages pages = forM_ pages $ \p ->
-  let (path, contents) = Page.write p
-  in  (lift $ createBlobUtf8 contents) >>= putBlob path
+writePages :: MonadGit r m => [(TreeFilePath, Text)] -> TreeT r m ()
+writePages pages = forM_ pages $ \(path, contents) ->
+  (lift $ createBlobUtf8 contents) >>= putBlob path
 
 refHead :: Ref -> Text
 refHead (Ref name) = "refs/heads/" <> name

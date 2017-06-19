@@ -10,7 +10,9 @@ import Core hiding (find)
 import Data        (makeId)
 import Data.Git    (useRepo, writePages, updateRef)
 import qualified Data.Parse
-import qualified Page.Property
+
+import qualified Page
+import Page.Property (page)
 
 describe :: (MonadStore m, MonadThrow m) => Maybe Committish -> Property -> m Text
 describe mc p = propertyDescription <$> case mc of
@@ -31,7 +33,7 @@ put :: (MonadStore m, MonadThrow m)
 put ref meta prop' = do
   prop <- assignId prop'
   useRepo $ do
-    version <- updateRef ref meta $ writePages [Page.Property.write prop]
+    version <- updateRef ref meta $ writePages [Page.write page prop]
     return (version, prop)
 
 assignId :: MonadIO m => Property -> m Property

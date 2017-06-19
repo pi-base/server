@@ -1,4 +1,3 @@
-{-# LANGUAGE Rank2Types #-}
 module Handler.Util
   ( deleteDerivedTraits
   , migrateReferences
@@ -8,27 +7,26 @@ module Handler.Util
 import Import
 import Core hiding (Handler)
 
-import qualified Data.Aeson.Types as Aeson
-import qualified Data.Map         as M
-import qualified Data.HashMap.Strict as HM
 
 import Control.Lens hiding ((.=))
-import Control.Lens.Traversal
 import Data
-import Data.Git (modifyGitRef, updateRef, useRepo, writePages)
-import qualified Data.Git as Git
+import qualified Data.Aeson       as Aeson
+import qualified Data.Aeson.Types as Aeson
+import Data.Aeson.Lens
+import Data.Git (modifyGitRef)
+import qualified Data.Git  as Git
+import qualified Data.Map  as M
+import qualified Data.Text as T
+import qualified Formula
 import Git
-import Util (fetch)
 
 import qualified Data.Parse  as P
 import qualified Logic       as L
 import qualified View        as V
 
 import qualified Page
-import qualified Page.Parser
-import qualified Page.Property
-import qualified Page.Space
-import qualified Page.Trait
+
+type Slug = Text
 
 deleteDerivedTraits :: Text -> Handler ()
 deleteDerivedTraits ref = withViewerAt ref $ \v@View{..} -> do
@@ -37,7 +35,7 @@ deleteDerivedTraits ref = withViewerAt ref $ \v@View{..} -> do
   void . modifyGitRef user (Ref ref) "Delete derived traits" $ do
     let deduced = catMaybes $ map (\(t, mp) -> maybe Nothing (const $ Just t) mp) $ V.traits v
     putStrLn $ "Deleting " <> (tshow $ length deduced) <> " traits"
-    mapM_ (dropEntry . Page.Trait.path) deduced
+    mapM_ (dropEntry . error "path") deduced
   putStrLn "Done"
 
 writeProofs :: Text -> Handler ()
@@ -54,107 +52,99 @@ writeProofs ref = withViewerAt ref $ \v@View{..} -> do
           (lift $ createBlobUtf8 contents) >>= putBlob path
 
 -- TODO
--- Updates the given git ref,
--- * rename spaces, properties and traits to use ids
--- * update space: and property: references in traits to use ids instead of slugs
+-- delete correct old paths when moving files
 migrateReferences :: Text -> Handler Version
 migrateReferences ref = do
-  commitMessage <- systemCommit "Update references and paths to use ids"
-
   P.at (CommitRef $ Ref ref) $ \commit -> do
     ss <- runConduit $ P.spaceEntries commit
        .| P.blobs
        .| mapC (Page.withFrontmatter $ \f -> do
-                   uid  <- f .: "uid"
+                   uid  <- SpaceId <$> f .: "uid"
                    slug <- f .: "slug"
                    return (slug, uid))
-       .| throwLeft
+       .| throwLeftC
        .| P.sinkMap
 
     ps <- runConduit $ P.propertyEntries commit
        .| P.blobs
        .| mapC (Page.withFrontmatter $ \f -> do
-                   uid  <- f .: "uid"
+                   uid  <- PropertyId <$> f .: "uid"
                    slug <- f .: "slug"
                    return (slug, uid))
-       .| throwLeft
+       .| throwLeftC
        .| P.sinkMap
 
     let
-      convertTrait (path, contents) = do
-        (newPath, newContents) <- lift $ updateTrait ss ps (path, contents)
-        lift (createBlobUtf8 newContents) >>= putBlob newPath
-        dropEntry path
+      moveWith :: (MonadGit LgRepo m, MonadThrow m)
+               => ((TreeFilePath, Text) -> Either Error (TreeFilePath, Text))
+               -> (TreeFilePath, Text)
+               -> TreeT LgRepo m ()
+      moveWith f (path, contents) = case f (path, contents) of
+        Left err -> lift $ throwM err
+        Right (newPath, newContents) -> do
+          lift (createBlobUtf8 newContents) >>= putBlob newPath
+          unless (path == newPath) $ dropEntry path
 
+    commitMessage <- systemCommit "Update references and paths to use ids"
     Git.updateRef (Ref ref) commitMessage $ do
       forM_ (M.toList ss) $ \(slug, uid) -> do
         Git.move (encodeUtf8 $ "spaces/" <> slug <> "/README.md")
-                 (encodeUtf8 $ "spaces/" <> uid  <> "/README.md")
+                 (encodeUtf8 $ "spaces/" <> unSpaceId uid <> "/README.md")
 
       forM_ (M.toList ps) $ \(slug, uid) -> do
         Git.move (encodeUtf8 $ "properties/" <> slug <> ".md")
-                 (encodeUtf8 $ "properties/" <> uid  <> ".md")
+                 (encodeUtf8 $ "properties/" <> unPropertyId uid <> ".md")
 
-      len <- runConduit $ (transPipe lift $ P.traitEntries commit .| P.blobs)
-                       .| mapMC convertTrait
-                       .| lengthC
-      putStrLn $ "Updated " ++ tshow (len :: Int) ++ " traits"
+      nTheorem <- runConduit $ (transPipe lift $ P.theoremEntries commit .| P.blobs)
+                            .| mapMC (moveWith $ updateTheorem ps)
+                            .| lengthC
+      putStrLn $ "Updated " ++ tshow (nTheorem :: Int) ++ " theorems"
 
-type P = Page Aeson.Object
-newtype Pager a = Pager (Prism' P a)
+      nTrait <- runConduit $ (transPipe lift $ P.traitEntries commit .| P.blobs)
+                          .| mapMC (moveWith $ updateTrait ss ps)
+                          .| lengthC
+      putStrLn $ "Updated " ++ tshow (nTrait :: Int) ++ " traits"
 
-traitPage :: Pager (Trait Text Text)
-traitPage = Pager $ prism toPage fromPage
-  where
-    toPage :: Trait Text Text -> P
-    toPage Trait{..} = Page
-      { pagePath = encodeUtf8 $ "spaces/" <> _traitSpace <> "/properties/" <> _traitProperty <> ".md"
-      , pageFrontmatter = HM.fromList
-        [ "space"    .= _traitSpace
-        , "property" .= _traitProperty
-        , "value"    .= _traitValue
-        ]
-      , pageMain = _traitDescription
-      , pageSections = mempty
-      }
-
-    fromPage :: P -> Either P (Trait Text Text)
-    fromPage p@Page{..} =
-      mapLeft (const p) . flip Aeson.parseEither pageFrontmatter $ \f -> do
-        _traitSpace    <- f .: "space"
-        _traitProperty <- f .: "property"
-        _traitValue    <- f .: "value"
-        let _traitDescription = pageMain
-        return Trait{..}
-
-parsePage :: MonadThrow m => Pager a -> (TreeFilePath, Text) -> m a
-parsePage (Pager p) (path, content) = case Page.Parser.parse (path, content) of
-  Left err -> throwM err
-  Right page -> case page ^? p of
-    Just a  -> return a
-    Nothing -> throwM $ ParseError path "does not define a valid object"
-
-writePage :: Pager a -> a -> (TreeFilePath, Text)
-writePage (Pager p) page = Page.Parser.write $ page ^. re p
-
-updateTrait :: MonadThrow m
-            => Map Text Text
-            -> Map Text Text
+updateTrait :: Map Slug SpaceId
+            -> Map Slug PropertyId
             -> (TreeFilePath, Text)
-            -> m (TreeFilePath, Text)
-updateTrait ss ps (path, contents) = do
-  trait   <- parsePage traitPage (path, contents)
-  updated <- mapMOf traitProperty (flip fetch ps) =<< mapMOf traitSpace (flip fetch ss) trait
-  return $ writePage traitPage (updated :: Trait Text Text)
+            -> Either Error (TreeFilePath, Text)
+updateTrait ss ps = Page.updateMetadata $ \(_, meta) -> do
+  pid <- fmap unPropertyId . lookupEither ps $ meta ^. key "property" . _String
+  sid <- fmap unSpaceId    . lookupEither ss $ meta ^. key "space"    . _String
+  let meta' = meta & key "space" .~ String sid & key "property" .~ String pid
+      path' = encodeUtf8 $ "spaces/" <> sid <> "/properties/" <> pid <> ".md"
+  return (path', meta')
 
-throwLeft :: (Exception a, MonadThrow m) => ConduitM (Either a b) b m ()
-throwLeft = awaitForever $ either throwM yield
+updateTheorem :: Map Slug PropertyId
+              -> (TreeFilePath, Text)
+              -> Either Error (TreeFilePath, Text)
+updateTheorem ps = Page.updateMetadata $ \(_, meta) -> do
+  meta' <- process "if" meta >>= process "then"
+  let path' = encodeUtf8 $ "theorems/" <> (meta ^. key "uid" . _String) <> ".md"
+  return (path', meta')
+  where
+    process field = mapMOf (key field . _Value) h
+
+    h :: Value -> Either String Value
+    h v = do
+      f  <- Aeson.parseEither Aeson.parseJSON v
+      f' <- mapLeft (T.unpack . T.intercalate ", ") $ Formula.hydrate ps f
+      return $ toJSON f'
+
+lookupEither :: (Show k, Ord k) => Map k v -> k -> Either String v
+lookupEither m k = case M.lookup k m of
+  Just v -> Right v
+  Nothing -> Left $ show k
+
+throwLeftC :: (Exception a, MonadThrow m) => ConduitM (Either a b) b m ()
+throwLeftC = awaitForever $ either throwM yield
 
 -- TODO: pull from system .gitconfig if present
-systemUser :: Handler User
+systemUser :: MonadIO m => m User
 systemUser = return $ User "jamesdabbs" "James Dabbs" "jamesdabbs@gmail.com" ""
 
-systemCommit :: Text -> Handler CommitMeta
+systemCommit :: MonadIO m => Text -> m CommitMeta
 systemCommit message = CommitMeta <$> systemUser <*> pure message
 
 withViewerAt :: (MonadIO m, MonadTrans t, MonadStore (t m))

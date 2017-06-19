@@ -10,7 +10,9 @@ import Core hiding (find)
 import Data        (makeId)
 import Data.Git    (useRepo, writePages, updateRef)
 import qualified Data.Parse
-import qualified Page.Space
+
+import qualified Page
+import Page.Space (page)
 
 -- TODO: have descriptions be lazy-loaded? Not stored in the data types? IORefs?
 describe :: (MonadStore m, MonadThrow m) => Maybe Committish -> Space -> m Text
@@ -31,7 +33,7 @@ put :: (MonadStore m, MonadThrow m) => Ref -> CommitMeta -> Space -> m (Version,
 put ref meta space' = do
   space <- assignId space'
   useRepo $ do
-    version <- updateRef ref meta $ writePages [Page.Space.write space]
+    version <- updateRef ref meta $ writePages [Page.write page space]
     return (version, space)
 
 assignId :: MonadIO m => Space -> m Space

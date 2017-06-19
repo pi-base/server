@@ -1,48 +1,36 @@
-{-# LANGUAGE DeriveGeneric #-}
 module Page.Space
-  ( Frontmatter(..)
-  , parse
-  , parser
-  , write
+  ( page
   ) where
 
 import Data.Aeson
+import Data.Aeson.Types (Parser)
 import qualified Data.HashMap.Strict as HM
 
 import Core
-import Page.Parser (Page(..))
+import qualified Page
 
-data Frontmatter = Frontmatter
-  { uid  :: SpaceId
-  , slug :: Text
-  , name :: Text
-  } deriving Generic
+page :: Page Space
+page = Page.build write parse
 
-instance ToJSON Frontmatter
-instance FromJSON Frontmatter
+parse :: PageData -> Parser Space
+parse PageData{..} = do
+  spaceId   <- pageFrontmatter .: "uid"
+  spaceSlug <- pageFrontmatter .: "slug"
+  spaceName <- pageFrontmatter .: "name"
+  let spaceDescription = pageMain
+      spaceTopology = HM.lookup "Proof of Topology" $ pageSections
+  return Space{..}
 
-parser :: Page Frontmatter -> Either Error Space
-parser = parse
-
-parse :: Page Frontmatter -> Either Error Space
-parse (Page _ Frontmatter{..} main sections) = Right $ Space
-  { spaceId = uid
-  , spaceSlug = slug
-  , spaceName = name
-  , spaceDescription = main
-  , spaceTopology = HM.lookup "Proof of Topology" $ HM.fromList sections
-  }
-
-write :: Space -> Page Frontmatter
-write Space{..} = Page
+write :: Space -> PageData
+write Space{..} = PageData
   { pagePath = encodeUtf8 $ "spaces/" <> spaceSlug <> "/README.md"
-  , pageFrontmatter = Frontmatter
-    { uid  = spaceId
-    , slug = spaceSlug
-    , name = spaceName
-    }
+  , pageFrontmatter = HM.fromList
+    [ "uid"  .= spaceId
+    , "slug" .= spaceSlug
+    , "name" .= spaceName
+    ]
   , pageMain = spaceDescription
-  , pageSections = case spaceTopology of
+  , pageSections = HM.fromList $ case spaceTopology of
       Just top -> [("Proof of Topology", top)]
       Nothing  -> []
   }

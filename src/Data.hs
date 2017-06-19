@@ -13,7 +13,6 @@ module Data
   ) where
 
 import           Control.Lens
-import qualified Data.Map.Strict as M
 import qualified Data.UUID       as UUID
 import qualified Data.UUID.V4    as UUID
 import           System.Process  (callCommand)
@@ -22,13 +21,12 @@ import qualified Data.Parse as P
 import qualified Logic      as L
 import qualified View       as V
 
-import qualified Page.Parser
+import qualified Page
 import qualified Page.Theorem
 import qualified Page.Trait
 
 import Core     hiding (assert)
 import Data.Git (openRepo, useRepo, writeContents)
-import Util     (fetch)
 
 storeMaster :: MonadStore m
             => m (Either [Error] View)
@@ -84,25 +82,12 @@ assert logic obj user getView message = getView (userBranchRef user) >>= \case
     Left errs -> return $ Left [LogicError errs]
     Right updates -> persistUpdates updates user (message v)
 
-buildTheorem :: MonadStore m
-             => View -> Formula PropertyId -> Formula PropertyId -> Text -> m (Theorem Property)
-buildTheorem v ant con desc = do
-  _id <- makeId TheoremId "t"
-  let dehyrdated = Theorem _id (Implication ant con) Nothing desc
-  case hydrateTheorem (v ^. viewProperties) dehyrdated of
-    Left errs -> throwM . NotFound $ tshow errs
-    Right t   -> return t
-
-buildTrait :: MonadThrow m
-           => View -> SpaceId -> PropertyId -> Bool -> Text -> m (Trait Space Property)
-buildTrait View{..} sid pid value description = do
-  space    <- fetch sid _viewSpaces
-  property <- fetch pid _viewProperties
-  return $ Trait space property value description
-
 updatedPages :: View -> [(TreeFilePath, Text)]
-updatedPages v = map (Page.Parser.write . Page.Theorem.write) (V.theorems v)
-              <> map (Page.Parser.write . Page.Trait.write)   (V.traits   v)
+updatedPages v = map (Page.write Page.Theorem.page) theorems
+              <> map (Page.write Page.Trait.page)   traits
+  where
+    theorems = map (fmap propertyId) $ V.theorems v
+    traits   = map (identifyTrait . fst) $ V.traits v
 
 persistUpdates :: MonadStore m => View -> User -> Text -> m (Either [Error] View)
 persistUpdates v user message = useRepo $

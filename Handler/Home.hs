@@ -2,7 +2,7 @@ module Handler.Home where
 
 import Import
 
-import Data            (storeMaster, parseViewer)
+import Data            (storeMaster)
 import Handler.Helpers (generateToken)
 import Services.Github (checkPullRequest, webhookHandler)
 import Core            (View(..), unVersion)

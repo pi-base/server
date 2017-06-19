@@ -1,62 +1,38 @@
-{-# LANGUAGE DeriveGeneric #-}
 module Page.Theorem
-  ( parser
-  , parse
-  , write
+  ( page
   ) where
 
 import Data.Aeson
+import Data.Aeson.Types (Parser)
+import qualified Data.HashMap.Strict as HM
 
 import Core
-import Formula (Formula)
-import Page (Parser)
-import Page.Parser (Page(..))
+import qualified Page
 
-data Frontmatter = Frontmatter
-  { uid :: TheoremId
-  , _if :: Formula Text
-  , _then :: Formula Text
-  , _converse :: Maybe [TheoremId]
-  } deriving Generic
+page :: Page (Theorem PropertyId)
+page = Page.build write parse
 
-instance ToJSON Frontmatter where
-  toJSON Frontmatter{..} = object
-    [ "uid" .= uid
-    , "if" .= _if
-    , "then" .= _then
-    , "converse" .= _converse
-    ]
-instance FromJSON Frontmatter where
-  parseJSON = withObject "Theorem Frontmatter" $ \o -> do
-    Frontmatter
-      <$> o .: "uid"
-      <*> o .: "if"
-      <*> o .: "then"
-      <*> o .:? "converse"
+parse :: PageData -> Parser (Theorem PropertyId)
+parse PageData{..} = do
+  theoremId          <- pageFrontmatter .: "uid"
+  theoremConverse    <- pageFrontmatter .:? "converse"
+  theoremImplication <- fmap PropertyId <$>
+    ( Implication
+      <$> pageFrontmatter .: "if"
+      <*> pageFrontmatter .: "then"
+    )
+  let theoremDescription = pageMain
+  return Theorem{..}
 
-parser :: Parser Frontmatter (Theorem Text)
-parser = parse
-
-parse :: Page Frontmatter -> Either Error (Theorem Text)
-parse (Page _ Frontmatter{..} main _sections) = Right $ Theorem
-  { theoremId = uid
-  , theoremImplication = Implication _if _then
-  , theoremConverse = _converse
-  , theoremDescription = main
-  }
-
-write :: Theorem Property -> Page Frontmatter
-write t@Theorem{..} = Page
+write :: Theorem PropertyId -> PageData
+write t@Theorem{..} = PageData
   { pagePath = encodeUtf8 $ "theorems/" <> unTheoremId theoremId <> ".md"
-  , pageFrontmatter = Frontmatter
-    { uid       = theoremId
-    , _if       = serialize $ theoremIf t
-    , _then     = serialize $ theoremThen t
-    , _converse = theoremConverse
-    }
+  , pageFrontmatter = HM.fromList
+    [ "uid"      .= theoremId
+    , "if"       .= (unPropertyId <$> theoremIf t)
+    , "then"     .= (unPropertyId <$> theoremThen t)
+    , "converse" .= theoremConverse
+    ]
   , pageMain = theoremDescription
-  , pageSections = []
+  , pageSections = mempty
   }
-  where
-    serialize :: Formula Property -> Formula Text
-    serialize = map (unPropertyId . propertyId)
