@@ -155,4 +155,4 @@ lookupCommittish (CommitSha sha) = Just <$> parseOid sha
 move :: (MonadThrow m, MonadGit r m) => TreeFilePath -> TreeFilePath -> TreeT r m ()
 move old new = getEntry old >>= \case
   Nothing  -> lift . throwM . NotFound $ "mv: " ++ tshow old
-  Just ent -> putEntry new ent
+  Just ent -> putEntry new ent >> dropEntry old

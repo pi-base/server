@@ -7,15 +7,18 @@ module Data.Theorem
   ) where
 
 import Core hiding (find)
+import qualified Data.Parse
 
 describe :: (MonadStore m, MonadThrow m) => Maybe Committish -> Theorem p -> m Text
-describe = error "describeTheorem"
+describe mc t = case mc of
+  Nothing -> return $ theoremDescription t
+  Just c  -> fmap theoremDescription . fetch c $ theoremId t
 
 find :: MonadStore m => Committish -> TheoremId -> m (Maybe (Theorem Property))
-find = undefined
+find = Data.Parse.findTheorem
 
 fetch :: (MonadStore m, MonadThrow m) => Committish -> TheoremId -> m (Theorem Property)
-fetch = error "fetchTheorem"
+fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unTheoremId _id) return
 
 pending :: TheoremId
 pending = TheoremId ""

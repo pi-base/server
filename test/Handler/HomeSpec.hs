@@ -5,14 +5,14 @@ import TestImport
 spec :: Spec
 spec = withApp $
   describe "Homepage" $ do
-    xit "loads the index and checks it looks right" $ do
+    it "loads the index and checks it looks right" $ do
       get HomeR
 
       statusIs 200
       json $ \j -> do
         j `shouldHaveKey` "version"
 
-    xit "leaves the user table empty" $ do
+    it "leaves the user table empty" $ do
       get HomeR
 
       statusIs 200

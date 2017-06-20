@@ -92,4 +92,4 @@ updateMetadata f (path, content) = mapLeft (ParseError path) $ do
   (header, body)    <- pullFrontmatter content
   front             <- Y.decodeEither $ encodeUtf8 header
   (path', content') <- f (path, front)
-  return (path', "---\n" <> decodeUtf8 (Y.encode content') <> "\n---\n" <> body)
+  return (path', "---\n" <> decodeUtf8 (Y.encode content') <> "---\n" <> body)

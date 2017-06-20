@@ -1,5 +1,6 @@
 module Util
   ( dupes
+  , encodeText
   , fetch
   , flatMapM
   , indexBy
@@ -9,8 +10,11 @@ module Util
 
 import ClassyPrelude hiding (groupBy)
 
+import Data.Aeson (ToJSON, encode)
+
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Data.Text.Lazy as TL
 
 groupBy :: Ord b => (a -> b) -> [a] -> M.Map b [a]
 groupBy f = foldl' add M.empty
@@ -47,3 +51,6 @@ fetch :: (MonadThrow m, Ord k, Show k, Typeable k) => k -> Map k v -> m v
 fetch k m = case M.lookup k m of
   Just v  -> return v
   Nothing -> throwM $ KeyError k
+
+encodeText :: ToJSON a => a -> Text
+encodeText = TL.toStrict . decodeUtf8 . encode

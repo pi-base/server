@@ -120,7 +120,7 @@ counterexamples t =
 
 applyTheorem :: SpaceId -> Theorem PropertyId -> Logic ()
 applyTheorem sid t = do
-  props  <- uses proverView $ attributes sid
+  props <- uses proverView $ attributes sid
   case check props ant of
     (No, _)         -> return ()
     (Yes, evidence) -> force con evidence

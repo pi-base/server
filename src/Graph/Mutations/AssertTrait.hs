@@ -32,5 +32,4 @@ assertTrait AssertTraitInput{..} = do
         , _traitValue       = value
         , _traitDescription = "" -- FIXME
         }
-  updates <- D.assertTrait user trait
-  either halt G.viewR updates
+  D.assertTrait user trait >>= either halt G.viewR

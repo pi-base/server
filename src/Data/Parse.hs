@@ -12,6 +12,7 @@ module Data.Parse
   , theorems
   , findProperty
   , findSpace
+  , findTheorem
   , sinkMap
   , parseEntry
   , blobs
@@ -65,6 +66,9 @@ required (Left  err) = fatal err
 unique :: (a -> b) -> [a] -> Either Error ()
 unique f as = return () -- FIXME
 
+-- TODO: now that the file paths are determined by the object ids,
+--   these don't need to load more than just the one blob
+-- findTheorem in particular is _wildly_ inefficient
 findProperty :: MonadStore m => Committish -> PropertyId -> m (Maybe Property)
 findProperty commish pid = at commish $ \commit ->
   runConduit $ properties commit .| sinkFind (\p -> propertyId p == pid)
@@ -72,6 +76,17 @@ findProperty commish pid = at commish $ \commit ->
 findSpace :: MonadStore m => Committish -> SpaceId -> m (Maybe Space)
 findSpace commish sid = at commish $ \commit ->
   runConduit $ spaces commit .| sinkFind (\s -> spaceId s == sid)
+
+findTheorem :: MonadStore m => Committish -> TheoremId -> m (Maybe (Theorem Property))
+findTheorem commish tid = do
+  ev <- viewSpace (SpaceId "S000001") commish
+  case ev of
+    Left  _ -> return Nothing
+    Right v -> case M.lookup tid $ _viewTheorems v of
+      Nothing -> return Nothing
+      Just t  -> case hydrateTheorem (_viewProperties v) t of
+        Left _ -> return Nothing
+        Right t' -> return $ Just t'
 
 viewSpace :: MonadStore m => SpaceId -> Committish -> m (Either [Error] View)
 viewSpace sid commish = at commish $ \commit -> withErrors $ do

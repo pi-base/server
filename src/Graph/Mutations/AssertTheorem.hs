@@ -36,10 +36,10 @@ assertTheorem AssertTheoremInput{..} = do
                   { theoremId          = TheoremId ""
                   , theoremImplication = Implication a c
                   , theoremConverse    = Nothing
-                  , theoremDescription = ""
+                  , theoremDescription = description
                   }
 
-  either halt G.viewR =<< D.assertTheorem user theorem
+  D.assertTheorem user theorem >>= either halt G.viewR
 
 parseFormula :: Text -> Import.Handler (Formula PropertyId)
 parseFormula text = case decode $ encodeUtf8 $ TL.fromStrict text of
