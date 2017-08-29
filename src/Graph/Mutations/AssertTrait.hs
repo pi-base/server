@@ -8,6 +8,7 @@ import Graph.Import
 
 import           Core
 import qualified Data          as D
+import qualified Data.Trait    as T
 import qualified Graph.Types   as G
 import qualified Graph.Query   as G
 
@@ -30,6 +31,12 @@ assertTrait AssertTraitInput{..} = do
         { _traitSpace       = SpaceId spaceId
         , _traitProperty    = PropertyId propertyId
         , _traitValue       = value
-        , _traitDescription = "" -- FIXME
+        , _traitDescription = "FIXME"
         }
-  D.assertTrait user trait >>= either halt G.viewR
+
+      commit = CommitMeta user $ "Add " <> tshow trait
+
+  view <- T.put (userBranch user) commit trait
+  either halt G.viewR view
+
+  -- D.assertTrait user trait >>= either halt G.viewR

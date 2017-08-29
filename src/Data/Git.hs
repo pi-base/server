@@ -3,12 +3,14 @@ module Data.Git
   , modifyGitRef
   , openRepo
   , useRepo
+  , useRef
   , writeContents
   , ensureUserBranch
   , commitVersion
   , writePages
   , resetRef
   , updateRef
+  , updateRef'
   , move
   , lookupCommittish
   , userBranch
@@ -39,6 +41,31 @@ useRepo handler = do
   Store{..} <- getStore
   runLgRepository storeRepo handler
 
+useRef :: MonadStore m
+       => Ref
+       -> CommitMeta
+       -> TreeT LgRepo (ReaderT LgRepo m) (Either Error a)
+       -> m (Either Error (Version, a))
+useRef ref meta handler = do
+  Store{..} <- getStore
+  mpt <- runLgRepository storeRepo $
+    resolveReference (refHead ref) >>= \case
+      Nothing    -> return Nothing
+      Just found -> runLgRepository storeRepo $ do
+        parent <- lookupCommit $ Tagged found
+        tree   <- lookupTree $ commitTree parent
+        return $ Just (parent, tree)
+  case mpt of
+    Just (parent, tree) -> runLgRepository storeRepo $ do
+      (result, newTree) <- withTree tree handler
+      case result of
+        Left  err -> return $ Left err
+        Right val -> do
+          (author, committer, message) <- commitSignatures meta
+          commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
+          return $ Right (commitVersion commit, val)
+    Nothing -> error "Can't find ref" -- FIXME
+
 commitVersion :: Commit LgRepo -> Version
 commitVersion cmt = case commitOid cmt of
   (Tagged oid) -> Version $ tshow oid
@@ -55,12 +82,16 @@ ensureUserBranch :: MonadStore m => User -> m Ref
 ensureUserBranch user = useRepo $ do
   let branch = userBranch user
   existing <- resolveReference $ refHead branch
-  unless (isJust existing) $ do
-    let masterRef = Ref "master"
-    lookupReference (refHead masterRef) >>= \case
-      Nothing     -> throwM $ UnknownGitRef masterRef
-      Just master -> createReference (refHead branch) master
+  unless (isJust existing) $
+    createRefFromMaster $ userBranch user
   return branch
+
+createRefFromMaster :: (MonadGit r m, MonadThrow m) => Ref -> m ()
+createRefFromMaster ref = do
+  let masterRef = Ref "master"
+  lookupReference (refHead masterRef) >>= \case
+    Nothing -> throwM $ UnknownGitRef masterRef
+    Just master -> createReference (refHead ref) master
 
 modifyGitRef :: MonadStore m
              => User
@@ -123,17 +154,24 @@ writePages pages = forM_ pages $ \(path, contents) ->
 refHead :: Ref -> Text
 refHead (Ref name) = "refs/heads/" <> name
 
-updateRef :: (MonadIO m, MonadGit LgRepo m)
-          => Ref -> CommitMeta -> TreeT LgRepo m a -> m Version
-updateRef ref meta updates = do
+updateRef' :: (MonadIO m, MonadGit LgRepo m)
+          => Ref -> CommitMeta -> TreeT LgRepo m a -> m (a, Version)
+updateRef' ref meta updates = do
   resolveReference (refHead ref) >>= \case
-    Nothing -> throwM $ UnknownGitRef ref
+    Nothing -> do
+      createRefFromMaster ref
+      updateRef' ref meta updates
     Just found -> do
       parent <- lookupCommit $ Tagged found
       tree   <- lookupTree $ commitTree parent
-      (_, newTree) <- withTree tree updates
+      (result, newTree) <- withTree tree updates
       (author, committer, message) <- commitSignatures meta
-      commitVersion <$> createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
+      commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
+      return (result, commitVersion commit)
+
+updateRef ref meta updates = do
+  (_, version) <- updateRef' ref meta updates
+  return version
 
 writeContents :: MonadStore m
               => User

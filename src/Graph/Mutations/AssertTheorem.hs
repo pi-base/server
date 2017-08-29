@@ -10,9 +10,10 @@ import           Data.Aeson     (decode)
 import qualified Data.Text.Lazy as TL
 
 import           Core
-import qualified Data        as D
-import qualified Graph.Types as G
-import qualified Graph.Query as G
+import qualified Data         as D
+import qualified Data.Theorem as T
+import qualified Graph.Types  as G
+import qualified Graph.Query  as G
 
 data AssertTheoremInput = AssertTheoremInput
   { antecedent  :: Text
@@ -32,14 +33,15 @@ assertTheorem AssertTheoremInput{..} = do
   a <- parseFormula antecedent
   c <- parseFormula consequent
 
-  let theorem = Theorem
-                  { theoremId          = TheoremId ""
-                  , theoremImplication = Implication a c
-                  , theoremConverse    = Nothing
-                  , theoremDescription = description
-                  }
+  theorem <- Theorem
+    <$> D.makeId TheoremId "t"
+    <*> pure (Implication a c)
+    <*> pure Nothing
+    <*> pure description
 
-  D.assertTheorem user theorem >>= either halt G.viewR
+  let commit = CommitMeta user $ "Add " <> tshow theorem
+
+  T.put (userBranch user) commit theorem >>= either halt G.viewR
 
 parseFormula :: Text -> Import.Handler (Formula PropertyId)
 parseFormula text = case decode $ encodeUtf8 $ TL.fromStrict text of

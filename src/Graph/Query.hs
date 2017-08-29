@@ -55,7 +55,7 @@ theoremR mc f t@Theorem{..} = pure $ pure "Theorem"
   :<> pure (unTheoremId theoremId)
   :<> (encodeFormula f $ theoremIf t)
   :<> (encodeFormula f $ theoremThen t)
-  :<> Theorem.describe mc t
+  :<> pure theoremDescription
 
 spacesR :: MonadStore m
         => Maybe Committish
@@ -71,7 +71,7 @@ propertyR mc p@Property{..} = pure $ pure "Property"
   :<> pure (unPropertyId propertyId)
   :<> pure propertySlug
   :<> pure propertyName
-  :<> Property.describe mc p
+  :<> pure propertyDescription
 
 propertiesR :: MonadStore m => Maybe Committish -> [Property] -> Handler m (List G.Property)
 propertiesR mc ps = pure $ map (propertyR mc) ps

@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-8.13
+resolver: lts-8.24
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -38,13 +38,14 @@ resolver: lts-8.13
 packages:
 - '.'
 #- '/data/src/github'
+#- '/data/src/pi-base/gitlib/gitlib-libgit2'
 - location:
     git: https://github.com/jamesdabbs/github.git
     commit: 73d154837d354810f7b374f556e81ca0c9728a65
   extra-dep: true
 - location:
-    git: https://github.com/jamesdabbs/yesod-auth-oauth2.git
-    commit: 1cc56dc644e55d0633089eb186260559553ac457
+    git: https://github.com/thoughtbot/yesod-auth-oauth2.git
+    commit: 25e63cdcc22935aed3dde79ef9f233ff783eeea3
   extra-dep: true
 - location:
     git: https://github.com/jml/graphql-api.git
@@ -53,6 +54,7 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 extra-deps:
 - lens-aeson-1.0.1
+- load-env-0.1.1
 
 
 # Override default flag values for local packages and extra-deps

@@ -1,6 +1,8 @@
 module Data.Parse
   ( viewer
   , viewSpace
+  , loader
+  , cloader
   , at
   , spaceEntries
   , spaces
@@ -37,6 +39,8 @@ import qualified Page.Space
 import qualified Page.Theorem
 import qualified Page.Trait
 import qualified View as V
+
+import Git.Libgit2.Types (MonadExcept)
 
 type ET m = ExceptT Error (StateT [Error] m)
 
@@ -135,6 +139,124 @@ at commish handler = useRepo $
     Nothing  -> Core.throwM [CommitNotFound commish]
     Just ref -> lookupCommit (Tagged ref) >>= handler
 
+failFast :: Monad m => ConduitM (Either a b) Void m (Either a [b])
+failFast = go []
+  where
+    go acc = await >>= \case
+      Just (Left a)  -> return $ Left a
+      Just (Right v) -> go $ v : acc
+      Nothing        -> return $ Right acc
+
+withPages page f = mapC $ \(p,b) -> case Page.parse page (p,b) of
+  Left err -> Left $ LoadError p
+  Right v  -> Right $ f v
+
+loader :: (Monad m, Monad n) => m (Loader n)
+loader = do
+  error "FIXME: replace with cloader"
+  -- tree <- currentTree
+  -- let
+  --   -- TODO: clean up
+  --   loadImplications :: MonadStore m => GitT m (Either LoadError [(TheoremId, Implication PropertyId)])
+  --   loadImplications = lift $ runConduit $ subtreeEntries tree "theorems"
+  --                                              .| withPages Page.Theorem.page (\t -> (theoremId t, theoremImplication t))
+  --                                              .| failFast
+
+  --   loadSpaceIds :: MonadStore m => GitT m (Either LoadError [SpaceId])
+  --   loadSpaceIds = lift $ runConduit $ subtreeEntries tree "spaces"
+  --                                          .| filterC (isReadme . fst)
+  --                                          .| withPages Page.Space.page (\s -> spaceId s)
+  --                                          .| failFast
+
+  --   loadSpace :: MonadStore m => SpaceId -> GitT m (Either LoadError Properties)
+  --   loadSpace sid = lift $ do
+  --     epairs <- runConduit $ subtreeEntries tree ("spaces/" <> (encodeUtf8 $ unSpaceId sid) <> "/properties")
+  --                         .| withPages Page.Trait.page (\t -> (_traitProperty t, _traitValue t))
+  --                         .| failFast
+  --     case epairs of
+  --       Left err    -> return $ Left err
+  --       Right pairs -> return . Right $ M.fromList pairs
+
+  --   loadSpaces :: MonadStore m => Set SpaceId -> GitT m (Either LoadError [Space])
+  --   loadSpaces ids = lift $ runConduit $ subtreeEntries tree "spaces"
+  --                                            .| filterC (isReadme . fst)
+  --                                            .| withPages Page.Space.page id
+  --                                            .| filterC matches
+  --                                            .| failFast
+  --     where
+  --       matches (Left _) = True
+  --       matches (Right s) = S.member (spaceId s) ids
+
+  --   loadProperties :: MonadStore m => Set PropertyId -> GitT m (Either LoadError [Property])
+  --   loadProperties ids = lift $ runConduit $ subtreeEntries tree "properties"
+  --                                            .| withPages Page.Property.page id
+  --                                            .| filterC matches
+  --                                            .| failFast
+  --     where
+  --       matches (Left _) = True
+  --       matches (Right p) = S.member (propertyId p) ids
+
+  -- return $ Loader
+  --   { loaderSpace        = loadSpace
+  --   , loaderSpaceIds     = loadSpaceIds
+  --   , loaderSpaces       = loadSpaces
+  --   , loaderProperties   = loadProperties
+  --   , loaderImplications = loadImplications
+  --   }
+
+getSource :: (Applicative m, MonadExcept m, MonadBaseControl IO m, MonadIO m)
+          => Tree LgRepo
+          -> TreeFilePath
+          -> ReaderT LgRepo m
+             ( ConduitM () (TreeFilePath, Text) (ReaderT LgRepo m) () )
+getSource tree path = treeEntry tree path >>= \case
+  Just (TreeEntry _id) -> do
+    sub <- lookupTree _id
+    return $ sourceTreeEntries sub .| blobs
+  Nothing -> return $ return ()
+
+cloader :: MonadStore m => TreeT LgRepo (ReaderT LgRepo m) (CLoader (ReaderT LgRepo m))
+cloader = do
+  tree <- currentTree
+  ss   <- lift $ getSource tree "spaces"
+  ps   <- lift $ getSource tree "properties"
+  ts   <- lift $ getSource tree "theorems"
+
+  let
+    inIds :: Ord a => Maybe (Set a) -> a -> Bool
+    inIds Nothing x = True
+    inIds (Just xs) x = S.member x xs
+
+    -- spaces :: MonadStore m => Maybe (Set SpaceId) -> Source m Space
+    spaces ids = ss
+              .| filterC (isReadme . fst)
+              .| withPages Page.Space.page id
+              .| discardLeftC
+              .| filterC (\Space{..} -> inIds ids spaceId)
+
+    properties ids = ps
+                  .| withPages Page.Property.page id
+                  .| discardLeftC
+                  .| filterC (\Property{..} -> inIds ids propertyId)
+
+    theorems ids = ts
+                .| withPages Page.Theorem.page id
+                .| discardLeftC
+                .| filterC (\Theorem{..} -> inIds ids theoremId)
+
+    traits sid = do
+      let root = "spaces/" <> (encodeUtf8 $ unSpaceId sid) <> "/properties"
+      source <- getSource tree root
+      ts     <- sourceToList $ source .| withPages Page.Trait.page (\t -> (_traitProperty t, _traitValue t)) .| discardLeftC
+      return $ Right $ M.fromList ts
+
+  return $ CLoader
+    { clSpaces     = spaces
+    , clProperties = properties
+    , clTheorems   = theorems
+    , clTraits     = traits
+    }
+
 type EntrySource m r = ConduitM () (TreeFilePath, TreeEntry r) m ()
 
 spaceEntries :: MonadGit r m => Commit r -> EntrySource m r
@@ -212,6 +334,12 @@ sourceCommitEntries commit path = do
     Left    _ -> return ()
     Right dir -> sourceTreeEntries dir .| mapC (\(p,t) -> (path <> "/" <> p, t))
 
+subtreeEntries :: MonadGit LgRepo m
+               => Tree LgRepo -> TreeFilePath -> ConduitM i (TreeFilePath, Text) m ()
+subtreeEntries tree path = (lift $ getDir tree path) >>= \case
+  Left _   -> return ()
+  Right st -> sourceTreeEntries st .| mapC (\(p,t) -> (path <> "/" <> p, t)) .| blobs
+
 blobs :: MonadGit r m => ConduitM (TreeFilePath, TreeEntry r) (TreeFilePath, Text) m ()
 blobs = awaitForever $ \(path, entry) -> case entry of
   (BlobEntry _id _) -> do
@@ -225,7 +353,7 @@ parseEntry :: (MonadStore m, MonadGit r m)
              (TreeFilePath, TreeEntry r)
              (Either Error a)
              m ()
-parseEntry page = blobs .| mapC (\(path, blob) -> Page.parse page (path, blob))
+parseEntry page = blobs .| mapC (Page.parse page)
 
 -- TODO: clean this up now that trait is a lens
 hydrateTrait :: Map SpaceId s -> Map PropertyId p -> Trait SpaceId PropertyId -> Either Error (Trait s p)
@@ -237,6 +365,9 @@ hydrateTrait sx px t@Trait{..} = case (M.lookup _traitSpace sx, M.lookup _traitP
 
 mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
 mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
+
+discardLeftC :: Monad m => ConduitM (Either a b) b m ()
+discardLeftC = awaitForever $ either (const $ return ()) yield
 
 sinkFind :: Monad m => (a -> Bool) -> ConduitM (Either e a) Void m (Maybe a)
 sinkFind predicate = await >>= \case

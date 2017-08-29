@@ -4,17 +4,25 @@ module Data
   , parseViewer
   , viewerAtRef
   , fetchPullRequest
-  , updatedPages
+  -- , updatedPages
   , makeId
   , slugify
+  , persistView
+  , updateView
   --
   , assertTrait
   , assertTheorem
+  , bridgeLoader
+  , viewDeductions
   ) where
 
+import           Conduit         (sourceToList)
 import           Control.Lens
+import qualified Data.Map        as M
+import qualified Data.Set        as S
 import qualified Data.UUID       as UUID
 import qualified Data.UUID.V4    as UUID
+import           Git
 import           System.Process  (callCommand)
 
 import qualified Data.Parse as P
@@ -26,7 +34,8 @@ import qualified Page.Theorem
 import qualified Page.Trait
 
 import Core     hiding (assert)
-import Data.Git (openRepo, useRepo, writeContents)
+import Data.Git (openRepo, useRepo, writeContents, useRef)
+import Util     (indexBy)
 
 storeMaster :: MonadStore m
             => m (Either [Error] View)
@@ -60,39 +69,70 @@ userBranchRef :: User -> Committish
 userBranchRef User{..} = CommitRef . Ref $ "users/" <> userName
 
 assertTrait :: MonadStore m => User -> Trait SpaceId PropertyId -> m (Either [Error] View)
-assertTrait user trait = assert L.assertTrait trait user (P.viewSpace $ trait ^. traitSpace) $ \_v ->
-  -- TODO: better commit message
-  "Add trait " <> tshow (trait ^. traitSpace, trait ^. traitProperty)
+assertTrait = error "assertTrait"
+-- assertTrait user trait = assert L.assertTrait trait user (P.viewSpace $ trait ^. traitSpace) $ \_v ->
+--   -- TODO: better commit message
+--   "Add trait " <> tshow (trait ^. traitSpace, trait ^. traitProperty)
 
-assertTheorem :: MonadStore  m => User -> Theorem PropertyId -> m (Either [Error] View)
-assertTheorem user theorem = assert L.assertTheorem theorem user P.viewer $ \_v ->
- -- TODO: better commit message
- "Add theorem " <> (unTheoremId $ theoremId theorem)
+assertTheorem :: MonadStore m => Ref -> CommitMeta -> (Theorem PropertyId) -> m (Either Error View)
+assertTheorem ref meta theorem = do
+  error "assertTheorem"
+  -- _id <- makeId TheoremId "t"
+  -- let theorem' = theorem { theoremId = _id }
+  -- (view, loader) <- refLoader ref
+  -- L.runLogicT view loader (L.assertTheorem theorem) >>= \case
+  --   Left err      -> return . Left $ LogicError err
+  --   Right results -> return . Right $ viewResults results
 
-assert :: MonadStore m
-       => (a -> L.Logic ())
-       -> a
-       -> User
-       -> (Committish -> m (Either [Error] View))
-       -> (View -> Text)
-       -> m (Either [Error] View)
-assert logic obj user getView message = getView (userBranchRef user) >>= \case
-  Left errs -> return $ Left errs
-  Right v -> case L.updates v $ logic obj of
-    Left errs -> return $ Left [LogicError errs]
-    Right updates -> persistUpdates updates user (message v)
+refLoader :: MonadStore m => Ref -> m (View, Loader m)
+refLoader = error "userLoader"
 
-updatedPages :: View -> [(TreeFilePath, Text)]
-updatedPages v = map (Page.write Page.Theorem.page) theorems
-              <> map (Page.write Page.Trait.page)   traits
+updateView :: MonadStore m
+           => Ref
+           -> CommitMeta
+           -> TreeT LgRepo (ReaderT LgRepo m) (Either Error View)
+           -> m (Either Error View)
+updateView ref meta updates = do
+  results <- useRef ref meta $ do
+    updates >>= \case
+      Left   err -> return $ Left err
+      Right view -> do
+        persistView view
+        return $ Right view
+  case results of
+    Left e -> return $ Left e
+    Right (version, view') -> return . Right $ view' { _viewVersion = Just version }
+
+persistView :: MonadStore m => View -> TreeT LgRepo (ReaderT LgRepo m) ()
+persistView v = forM_ (viewPages v) $ \(path, contents) -> do
+  blob <- lift $ createBlobUtf8 contents
+  putBlob path blob
+
+viewPages :: View -> [(TreeFilePath, Text)]
+viewPages v = map (Page.write Page.Theorem.page) theorems
+           <> map (Page.write Page.Trait.page)   traits
   where
     theorems = map (fmap propertyId) $ V.theorems v
     traits   = map (identifyTrait . fst) $ V.traits v
 
-persistUpdates :: MonadStore m => View -> User -> Text -> m (Either [Error] View)
-persistUpdates v user message = useRepo $
-  writeContents user message (updatedPages v) >>=
-    return . fmap (\version -> v { _viewVersion = Just version })
+-- assert L.assertTheorem theorem user P.viewer $ \_v ->
+--  -- TODO: better commit message
+--  "Add theorem " <> (unTheoremId $ theoremId theorem)
+
+-- assert :: MonadStore m
+--        => (a -> L.Logic ())
+--        -> a
+--        -> User
+--        -> (Committish -> m (Either [Error] View))
+--        -> (View -> Text)
+--        -> m (Either [Error] View)
+-- assert logic obj user getView message = getView (userBranchRef user) >>= \case
+--   Left errs -> return $ Left errs
+--   Right v -> do
+--     print $ "Initial view: " ++ show v
+--     case L.updates v $ logic obj of
+--       Left errs -> return $ Left [LogicError errs]
+--       Right updates -> persistUpdates updates user (message v)
 
 mkStore :: FilePath -> IO Store
 mkStore path = Store
@@ -110,3 +150,42 @@ storeCached f = do
       Left err     -> return $ (Nothing, Left err)
       Right viewer -> return $ (Just viewer, Right viewer)
 
+bridgeLoader CLoader{..} = Loader
+  { loaderImplications = do
+      theorems <- sourceToList $ clTheorems Nothing
+      return $ Right $ map (\t -> (theoremId t, theoremImplication t)) theorems
+  , loaderSpaceIds = do
+      spaces <- sourceToList $ clSpaces Nothing
+      return $ Right $ map spaceId spaces
+  , loaderSpace = \_id -> clTraits _id
+  }
+
+viewDeductions :: Monad m
+               => CLoader m -> L.Deductions -> m (Either Error View)
+viewDeductions loader L.Deductions{..} = runExceptT $ do
+  let (sids, pids) = foldr (\(s,p) (ss,ps) -> (S.insert s ss, S.insert p ps)) (mempty, mempty) $ M.keys deductionTraits
+
+  spaces <- lift $ sourceToList $ clSpaces loader $ Just sids
+  let _viewSpaces = indexBy spaceId spaces
+
+  let pids' = foldr (S.union . theoremProperties) pids deductionTheorems
+  properties <- lift $ sourceToList $ clProperties loader $ Just pids'
+  let _viewProperties = indexBy propertyId properties
+
+  let _viewTheorems = indexBy theoremId deductionTheorems
+      (_viewTraits, _viewProofs) = foldr addProof (mempty, mempty) $ M.toList deductionTraits
+
+  return View{..}
+
+addProof :: (TraitId, (TVal, L.Evidence))
+         -> (Map SpaceId (Map PropertyId (Trait SpaceId PropertyId)), Map (SpaceId, PropertyId) Proof)
+         -> (Map SpaceId (Map PropertyId (Trait SpaceId PropertyId)), Map (SpaceId, PropertyId) Proof)
+addProof ((sid, pid), (value, evidence)) (traits, proofs) =
+  let trait = Trait sid pid value ""
+      proofs' = case evidence of
+        L.Asserted -> proofs
+        L.Deduced thrms props -> M.insert (sid, pid) (Proof sid props thrms) proofs
+  in (insertNested sid pid trait traits, proofs')
+
+insertNested :: (Ord k1, Ord k2) => k1 -> k2 -> v -> Map k1 (Map k2 v) -> Map k1 (Map k2 v)
+insertNested k1 k2 v = M.alter (Just . M.insert k2 v . maybe mempty id) k1

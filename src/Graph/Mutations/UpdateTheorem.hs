@@ -22,10 +22,11 @@ instance Defaultable UpdateTheoremInput where
 
 updateTheorem :: UpdateTheoremInput -> G G.Viewer
 updateTheorem UpdateTheoremInput{..} = do
-  (Entity _id user) <- requireToken
-  let ref = userBranch user
-  old <- T.fetch (CommitRef ref) $ TheoremId uid
-  let updated = old { theoremDescription = description }
-      commit  = CommitMeta user $ "Update " <> theoremName updated
-  (version, t) <- T.put ref commit updated
-  G.viewR $ V.build [] [] [] [t] version
+  error "updateTheorem"
+  -- (Entity _id user) <- requireToken
+  -- let ref = userBranch user
+  -- old <- T.fetch (CommitRef ref) $ TheoremId uid
+  -- let updated = old { theoremDescription = description }
+  --     commit  = CommitMeta user $ "Update " <> theoremName updated
+  -- (version, t) <- T.put ref commit updated
+  -- G.viewR $ V.build [] [] [] [t] version

@@ -41,15 +41,16 @@ deleteDerivedTraits ref = withViewerAt ref $ \v@View{..} -> do
 writeProofs :: Text -> Handler ()
 writeProofs ref = withViewerAt ref $ \v@View{..} -> do
   putStrLn $ "Deriving from " <> (tshow $ length $ V.traits v) <> " traits."
-  case L.updates v $ L.checkAllTraits of
-    Left errs -> putStrLn $ "Errors running prover: " <> tshow errs
-    Right updates -> do
-      let pages = updatedPages updates
-      putStrLn $ "Found " <> (tshow $ length pages) <> " updates. Writing to disk."
-      user <- systemUser
-      void . modifyGitRef user (Ref ref) "Add deduced traits" $ do
-        forM_ pages $ \(path, contents) ->
-          (lift $ createBlobUtf8 contents) >>= putBlob path
+  error "writeProofs"
+  -- case L.updates v $ L.checkAll of
+  --   Left errs -> putStrLn $ "Errors running prover: " <> tshow errs
+  --   Right updates -> do
+  --     let pages = updatedPages updates
+  --     putStrLn $ "Found " <> (tshow $ length pages) <> " updates. Writing to disk."
+  --     user <- systemUser
+  --     void . modifyGitRef user (Ref ref) "Add deduced traits" $ do
+  --       forM_ pages $ \(path, contents) ->
+  --         (lift $ createBlobUtf8 contents) >>= putBlob path
 
 -- TODO
 -- delete correct old paths when moving files

@@ -33,6 +33,7 @@ library
                      Data.Property
                      Data.Space
                      Data.Theorem
+                     Data.Trait
                      Formula
                      Graph.Import
                      Graph.Mutations
