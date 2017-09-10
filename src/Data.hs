@@ -4,20 +4,14 @@ module Data
   , parseViewer
   , viewerAtRef
   , fetchPullRequest
-  -- , updatedPages
   , makeId
   , slugify
-  , persistView
   , updateView
-  --
-  , assertTrait
-  , assertTheorem
   , bridgeLoader
   , viewDeductions
   ) where
 
 import           Conduit         (sourceToList)
-import           Control.Lens
 import qualified Data.Map        as M
 import qualified Data.Set        as S
 import qualified Data.UUID       as UUID
@@ -33,8 +27,8 @@ import qualified Page
 import qualified Page.Theorem
 import qualified Page.Trait
 
-import Core     hiding (assert)
-import Data.Git (openRepo, useRepo, writeContents, useRef)
+import Core
+import Data.Git (openRepo, useRef)
 import Util     (indexBy)
 
 storeMaster :: MonadStore m
@@ -65,32 +59,10 @@ makeId constructor prefix = do
 slugify :: Text -> Text
 slugify t = t -- TODO
 
-userBranchRef :: User -> Committish
-userBranchRef User{..} = CommitRef . Ref $ "users/" <> userName
-
-assertTrait :: MonadStore m => User -> Trait SpaceId PropertyId -> m (Either [Error] View)
-assertTrait = error "assertTrait"
--- assertTrait user trait = assert L.assertTrait trait user (P.viewSpace $ trait ^. traitSpace) $ \_v ->
---   -- TODO: better commit message
---   "Add trait " <> tshow (trait ^. traitSpace, trait ^. traitProperty)
-
-assertTheorem :: MonadStore m => Ref -> CommitMeta -> (Theorem PropertyId) -> m (Either Error View)
-assertTheorem ref meta theorem = do
-  error "assertTheorem"
-  -- _id <- makeId TheoremId "t"
-  -- let theorem' = theorem { theoremId = _id }
-  -- (view, loader) <- refLoader ref
-  -- L.runLogicT view loader (L.assertTheorem theorem) >>= \case
-  --   Left err      -> return . Left $ LogicError err
-  --   Right results -> return . Right $ viewResults results
-
-refLoader :: MonadStore m => Ref -> m (View, Loader m)
-refLoader = error "userLoader"
-
 updateView :: MonadStore m
            => Ref
            -> CommitMeta
-           -> TreeT LgRepo (ReaderT LgRepo m) (Either Error View)
+           -> TreeT LgRepo m (Either Error View)
            -> m (Either Error View)
 updateView ref meta updates = do
   results <- useRef ref meta $ do
@@ -103,7 +75,7 @@ updateView ref meta updates = do
     Left e -> return $ Left e
     Right (version, view') -> return . Right $ view' { _viewVersion = Just version }
 
-persistView :: MonadStore m => View -> TreeT LgRepo (ReaderT LgRepo m) ()
+persistView :: MonadStore m => View -> TreeT LgRepo m ()
 persistView v = forM_ (viewPages v) $ \(path, contents) -> do
   blob <- lift $ createBlobUtf8 contents
   putBlob path blob
@@ -114,25 +86,6 @@ viewPages v = map (Page.write Page.Theorem.page) theorems
   where
     theorems = map (fmap propertyId) $ V.theorems v
     traits   = map (identifyTrait . fst) $ V.traits v
-
--- assert L.assertTheorem theorem user P.viewer $ \_v ->
---  -- TODO: better commit message
---  "Add theorem " <> (unTheoremId $ theoremId theorem)
-
--- assert :: MonadStore m
---        => (a -> L.Logic ())
---        -> a
---        -> User
---        -> (Committish -> m (Either [Error] View))
---        -> (View -> Text)
---        -> m (Either [Error] View)
--- assert logic obj user getView message = getView (userBranchRef user) >>= \case
---   Left errs -> return $ Left errs
---   Right v -> do
---     print $ "Initial view: " ++ show v
---     case L.updates v $ logic obj of
---       Left errs -> return $ Left [LogicError errs]
---       Right updates -> persistUpdates updates user (message v)
 
 mkStore :: FilePath -> IO Store
 mkStore path = Store
@@ -150,6 +103,7 @@ storeCached f = do
       Left err     -> return $ (Nothing, Left err)
       Right viewer -> return $ (Just viewer, Right viewer)
 
+bridgeLoader :: Monad m => CLoader m -> Loader m
 bridgeLoader CLoader{..} = Loader
   { loaderImplications = do
       theorems <- sourceToList $ clTheorems Nothing
@@ -174,6 +128,8 @@ viewDeductions loader L.Deductions{..} = runExceptT $ do
 
   let _viewTheorems = indexBy theoremId deductionTheorems
       (_viewTraits, _viewProofs) = foldr addProof (mempty, mempty) $ M.toList deductionTraits
+
+  let _viewVersion = Nothing
 
   return View{..}
 

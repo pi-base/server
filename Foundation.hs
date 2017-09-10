@@ -17,8 +17,10 @@ import qualified Yesod.Core.Unsafe as Unsafe
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 
-import Types (Store, MonadStore(..))
-import Data.Git (useRepo, ensureUserBranch)
+import Git         (MonadGit(..))
+import Git.Libgit2 (LgRepo, HasLgRepo(..))
+import Types       (Store(..), MonadStore(..))
+import Data.Git    (ensureUserBranch)
 
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -57,18 +59,21 @@ data MenuTypes
 -- type Widget = WidgetT App IO ()
 mkYesodData "App" $(parseRoutesFile "config/routes")
 
-createGithubUser :: User -> Handler UserId
-createGithubUser user = do
-  userId <- runDB $ insert user
-  _ <- useRepo $ ensureUserBranch user
-  _ <- generateToken userId
-  return userId
-
 -- | A convenient synonym for creating forms.
 type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
 
+instance HasLgRepo Handler where
+  getRepository = (storeRepo . appStore) <$> getYesod
+
 instance MonadStore Handler where
   getStore = appStore <$> getYesod
+
+createGithubUser :: User -> Handler UserId
+createGithubUser user = do
+  userId <- runDB $ insert user
+  _ <- ensureUserBranch user
+  _ <- generateToken userId
+  return userId
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.

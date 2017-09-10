@@ -2,7 +2,7 @@ module Data.Git
   ( getDir
   , modifyGitRef
   , openRepo
-  , useRepo
+  -- , useRepo
   , useRef
   , writeContents
   , ensureUserBranch
@@ -44,7 +44,7 @@ useRepo handler = do
 useRef :: MonadStore m
        => Ref
        -> CommitMeta
-       -> TreeT LgRepo (ReaderT LgRepo m) (Either Error a)
+       -> TreeT LgRepo m (Either Error a)
        -> m (Either Error (Version, a))
 useRef ref meta handler = do
   Store{..} <- getStore
@@ -56,7 +56,7 @@ useRef ref meta handler = do
         tree   <- lookupTree $ commitTree parent
         return $ Just (parent, tree)
   case mpt of
-    Just (parent, tree) -> runLgRepository storeRepo $ do
+    Just (parent, tree) -> do
       (result, newTree) <- withTree tree handler
       case result of
         Left  err -> return $ Left err
@@ -79,14 +79,14 @@ userBranch :: User -> Ref
 userBranch u = Ref $ "users/" <> userName u
 
 ensureUserBranch :: MonadStore m => User -> m Ref
-ensureUserBranch user = useRepo $ do
+ensureUserBranch user = do
   let branch = userBranch user
   existing <- resolveReference $ refHead branch
   unless (isJust existing) $
     createRefFromMaster $ userBranch user
   return branch
 
-createRefFromMaster :: (MonadGit r m, MonadThrow m) => Ref -> m ()
+createRefFromMaster :: MonadStore m => Ref -> m ()
 createRefFromMaster ref = do
   let masterRef = Ref "master"
   lookupReference (refHead masterRef) >>= \case
@@ -109,7 +109,7 @@ modifyGitRef user ref message updates = useRepo $ do
       (author, committer) <- getSignatures user
       Right <$> createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
 
-resetRef :: MonadGit r m => Ref -> Committish -> m ()
+resetRef :: MonadStore m => Ref -> Committish -> m ()
 resetRef ref commish = lookupCommittish commish >>= \case
   Just r  -> updateReference (refHead ref) (RefObj r)
   Nothing -> error "Could not find committish to reset"
@@ -154,8 +154,8 @@ writePages pages = forM_ pages $ \(path, contents) ->
 refHead :: Ref -> Text
 refHead (Ref name) = "refs/heads/" <> name
 
-updateRef' :: (MonadIO m, MonadGit LgRepo m)
-          => Ref -> CommitMeta -> TreeT LgRepo m a -> m (a, Version)
+updateRef' :: MonadStore m
+           => Ref -> CommitMeta -> TreeT LgRepo m a -> m (a, Version)
 updateRef' ref meta updates = do
   resolveReference (refHead ref) >>= \case
     Nothing -> do
@@ -169,6 +169,8 @@ updateRef' ref meta updates = do
       commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
       return (result, commitVersion commit)
 
+updateRef :: MonadStore m
+          => Ref -> CommitMeta -> TreeT LgRepo m a -> m Version
 updateRef ref meta updates = do
   (_, version) <- updateRef' ref meta updates
   return version
@@ -186,7 +188,7 @@ writeContents user message files = do
       (lift $ createBlobUtf8 contents) >>= putBlob path
   return $ commitVersion <$> ec
 
-lookupCommittish :: MonadGit r m => Committish -> m (Maybe (Oid r))
+lookupCommittish :: MonadStore m => Committish -> m (Maybe (Oid LgRepo))
 lookupCommittish (CommitRef ref) = resolveReference $ refHead ref
 lookupCommittish (CommitSha sha) = Just <$> parseOid sha
 

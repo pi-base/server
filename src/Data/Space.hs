@@ -8,7 +8,7 @@ module Data.Space
 
 import Core hiding (find)
 import Data        (makeId)
-import Data.Git    (useRepo, writePages, updateRef)
+import Data.Git    (writePages, updateRef)
 import qualified Data.Parse
 
 import qualified Page
@@ -32,9 +32,8 @@ pending = SpaceId ""
 put :: (MonadStore m, MonadThrow m) => Ref -> CommitMeta -> Space -> m (Version, Space)
 put ref meta space' = do
   space <- assignId space'
-  useRepo $ do
-    version <- updateRef ref meta $ writePages [Page.write page space]
-    return (version, space)
+  version <- updateRef ref meta $ writePages [Page.write page space]
+  return (version, space)
 
 assignId :: MonadIO m => Space -> m Space
 assignId p = if spaceId p == pending

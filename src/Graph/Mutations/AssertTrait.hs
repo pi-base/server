@@ -7,7 +7,6 @@ module Graph.Mutations.AssertTrait
 import Graph.Import
 
 import           Core
-import qualified Data          as D
 import qualified Data.Trait    as T
 import qualified Graph.Types   as G
 import qualified Graph.Query   as G
@@ -38,5 +37,3 @@ assertTrait AssertTraitInput{..} = do
 
   view <- T.put (userBranch user) commit trait
   either halt G.viewR view
-
-  -- D.assertTrait user trait >>= either halt G.viewR

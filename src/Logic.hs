@@ -9,7 +9,7 @@ module Logic
   ) where
 
 import Control.Lens hiding (contains)
-import Control.Monad.State.Strict     (MonadState, State, get, runState, state)
+import Control.Monad.State.Strict     (MonadState)
 import Control.Monad.Trans.Except     (throwE)
 import Control.Monad.Trans.RWS.Strict (RWST, runRWST)
 import qualified Data.Map.Strict as M
@@ -17,7 +17,7 @@ import qualified Data.Set        as S
 
 import Core hiding (force, negate)
 import Formula     (negate)
-import Util        (fetch, unionN)
+import Util        (unionN)
 
 data Evidence = Asserted
               | Deduced (Set TheoremId) (Set PropertyId)
@@ -48,9 +48,9 @@ getLoader :: Monad m => LogicT m (Loader m)
 getLoader = LogicT $ lift $ ask
 
 loadSpace :: Monad m => SpaceId -> LogicT m Properties
-loadSpace id = do
+loadSpace _id = do
   loader <- getLoader
-  (lift $ loaderSpace loader id) >>= \case
+  (lift $ loaderSpace loader _id) >>= \case
     Left  err   -> fatal $ LoadFailure err
     Right props -> return props
 
@@ -144,11 +144,6 @@ evaluate ts (Or sf) =
         Just _ -> (Unknown, S.empty)
         Nothing -> (No, unionN . map snd $ subs)
 
-search :: Formula PropertyId -> Match -> View -> [SpaceId]
-search f mode v = filter matches . M.keys $ v ^. viewSpaces
-  where
-    matches sid = mode == (fst $ evaluate (attributes sid v) f)
-
 applyTheorem :: Monad m => TheoremId -> Implication PropertyId -> SpaceId -> Properties -> LogicT m Properties
 applyTheorem tid (Implication ant con) sid props =
   case evaluate props ant of
@@ -159,21 +154,21 @@ applyTheorem tid (Implication ant con) sid props =
       _ -> return props
   where
     force :: Monad m => Formula PropertyId -> Set PropertyId -> Properties -> LogicT m Properties
-    force (Atom pid asserted) evidence props =
-      case M.lookup pid props of
-        Nothing -> addTrait sid pid asserted (Deduced (S.singleton tid) evidence) props
+    force (Atom pid asserted) evidence props' =
+      case M.lookup pid props' of
+        Nothing -> addTrait sid pid asserted (Deduced (S.singleton tid) evidence) props'
         Just found -> if found == asserted
-          then return props
+          then return props'
           else fatal $ Contradiction sid pid asserted found
-    force (And sf) evidence props = foldM (\ps f -> force f evidence ps) props sf
-    force (Or  sf) evidence props = do
-      let subs     = map (\f -> (f, evaluate props f)) sf
+    force (And sf) evidence props' = foldM (\ps f -> force f evidence ps) props' sf
+    force (Or  sf) evidence props' = do
+      let subs     = map (\f -> (f, evaluate props' f)) sf
           yeses    = [f | (f, (    Yes, _)) <- subs]
           unknowns = [f | (f, (Unknown, _)) <- subs]
           extra    = unionN [ev | (_, (No, ev)) <- subs]
       case (yeses, unknowns) of
-        ([], [unknown]) -> force unknown (evidence `S.union` extra) props
-        _ -> return props
+        ([], [unknown]) -> force unknown (evidence `S.union` extra) props'
+        _ -> return props'
 
 addTrait :: Monad m => SpaceId -> PropertyId -> TVal -> Evidence -> Properties -> LogicT m Properties
 addTrait s p v evidence props = do
@@ -185,14 +180,6 @@ recordTheorem t r = r { deductionTheorems = t : deductionTheorems r }
 
 recordProof :: TraitId -> TVal -> Evidence -> Deductions -> Deductions
 recordProof tid value evidence r = r { deductionTraits = M.insert tid (value, evidence) $ deductionTraits r }
-
-contains :: SpaceId -> PropertyId -> View -> Bool
-contains sid pid = M.member pid . attributes sid
-
-attributes :: SpaceId -> View -> Properties
-attributes sid View{..} = case M.lookup sid _viewTraits of
-  Nothing    -> M.empty
-  Just props -> M.map _traitValue props
 
 filterMatch :: Match -> [(Match, a)] -> Maybe a
 filterMatch t pairs = listToMaybe [ts | (m, ts) <- pairs, m == t]

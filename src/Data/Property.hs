@@ -8,7 +8,7 @@ module Data.Property
 
 import Core hiding (find)
 import Data        (makeId)
-import Data.Git    (useRepo, writePages, updateRef)
+import Data.Git    (writePages, updateRef)
 import qualified Data.Parse
 
 import qualified Page
@@ -32,9 +32,8 @@ put :: (MonadStore m, MonadThrow m)
     => Ref -> CommitMeta -> Property -> m (Version, Property)
 put ref meta prop' = do
   prop <- assignId prop'
-  useRepo $ do
-    version <- updateRef ref meta $ writePages [Page.write page prop]
-    return (version, prop)
+  version <- updateRef ref meta $ writePages [Page.write page prop]
+  return (version, prop)
 
 assignId :: MonadIO m => Property -> m Property
 assignId p = if propertyId p == pending

@@ -2,11 +2,9 @@ module Data.Trait
   ( put
   ) where
 
-import Core
-import Data
-import qualified Data.Map   as M
+import           Core
+import           Data
 import qualified Data.Parse
-import qualified Data.Set   as S
 import qualified Logic      as L
 
 put :: (MonadStore m, MonadThrow m)

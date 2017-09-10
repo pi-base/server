@@ -7,9 +7,8 @@ module Types where
 import Import.NoFoundation
 import Control.Lens (Prism', makeLenses)
 
-import Git         (MonadGit(..), TreeT, TreeFilePath)
+import Git         (MonadGit(..), TreeFilePath)
 import Git.Libgit2 (LgRepo)
-import qualified Git.Libgit2 as G
 
 import qualified Data.Aeson          as Aeson (Object)
 import qualified Data.HashMap.Strict as HM
@@ -46,6 +45,7 @@ data Error = CommitNotFound Committish
            | PersistError   String
            | ReferenceError TreeFilePath [Uid]
            | UnknownGitRef  Ref
+           | GeneralError   Text
            deriving Eq
 
 data Space = Space
@@ -145,8 +145,5 @@ data CommitMeta = CommitMeta
   , commitMessage :: Text
   }
 
-class (MonadBaseControl IO m, MonadIO m, MonadMask m) => MonadStore m where
+class (MonadBaseControl IO m, MonadIO m, MonadMask m, MonadGit LgRepo m) => MonadStore m where
   getStore :: m Store
-
-instance MonadStore m => MonadStore (ReaderT r m) where
-  getStore = lift getStore

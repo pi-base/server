@@ -38,7 +38,7 @@ resolver: lts-8.24
 packages:
 - '.'
 #- '/data/src/github'
-#- '/data/src/pi-base/gitlib/gitlib-libgit2'
+- '/data/src/pi-base/gitlib/gitlib-libgit2'
 - location:
     git: https://github.com/jamesdabbs/github.git
     commit: 73d154837d354810f7b374f556e81ca0c9728a65

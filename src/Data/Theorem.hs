@@ -7,16 +7,9 @@ module Data.Theorem
   ) where
 
 import Core                 hiding (find)
-import Data                 (makeId, persistView, updateView, bridgeLoader, viewDeductions)
-import qualified Data.Map   as M
+import Data                 (makeId, updateView, bridgeLoader, viewDeductions)
 import qualified Data.Parse
-import qualified Data.Set   as S
 import qualified Logic      as L
-import Util                 (indexBy)
-
-import Git (TreeT)
-
-import Control.Monad.Trans.Except
 
 describe :: (MonadStore m, MonadThrow m) => Maybe Committish -> Theorem p -> m Text
 describe mc t = case mc of

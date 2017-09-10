@@ -64,7 +64,7 @@ migrateReferences ref = do
                    slug <- f .: "slug"
                    return (slug, uid))
        .| throwLeftC
-       .| P.sinkMap
+       .| sinkMap
 
     ps <- runConduit $ P.propertyEntries commit
        .| P.blobs
@@ -73,7 +73,7 @@ migrateReferences ref = do
                    slug <- f .: "slug"
                    return (slug, uid))
        .| throwLeftC
-       .| P.sinkMap
+       .| sinkMap
 
     let
       moveWith :: (MonadGit LgRepo m, MonadThrow m)
@@ -155,3 +155,6 @@ withViewerAt :: (MonadIO m, MonadTrans t, MonadStore (t m))
 withViewerAt ref f = viewerAtRef ref >>= \case
   Left errors  -> mapM_ (lift . putStrLn . explainError) errors
   Right viewer -> f viewer
+
+sinkMap :: (Ord a, Monad m) => ConduitM (a,b) Void m (Map a b)
+sinkMap = sinkList >>= return . M.fromList
