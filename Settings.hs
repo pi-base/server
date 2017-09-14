@@ -62,7 +62,7 @@ data AppSettings = AppSettings
     , appAuthDummyLogin         :: Bool
     -- ^ Indicate if auth dummy login should be enabled
 
-    , appRepoPath               :: FilePath
+    , appDataPath               :: FilePath
     , appFrontendUrl            :: Text
 
     , appGitHubToken            :: GitHub.Auth
@@ -99,7 +99,7 @@ instance FromJSON AppSettings where
 
         appAuthDummyLogin         <- o .:? "auth-dummy-login" .!= defaultDev
 
-        appRepoPath    <- o .:  "repo-path"
+        appDataPath    <- o .:  "data-path"
         appFrontendUrl <- o .:? "frontend-url" .!= "http://localhost:3000"
 
         appGitHubOwner <- o .: "github-owner"
@@ -111,9 +111,12 @@ instance FromJSON AppSettings where
         appGitHubClientId     <- o .: "github-client-id"
         appGitHubClientSecret <- o .: "github-client-secret"
 
-        appRequestLogging <- o .:? "log-requests" .!= defaultDev
+        appRequestLogging <- o .: "log-requests"
 
         return AppSettings {..}
+
+appRepoPath :: AppSettings -> FilePath
+appRepoPath app = appDataPath app <> "/repo"
 
 -- | Settings for 'widgetFile', such as which template languages to support and
 -- default Hamlet settings.

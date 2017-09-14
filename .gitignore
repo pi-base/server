@@ -18,3 +18,4 @@ cabal.sandbox.config
 *.keter
 .env
 .hspec-failures
+env*

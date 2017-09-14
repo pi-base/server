@@ -5,7 +5,7 @@ database:
   # would like to have environment variable overrides, you could instead use
   # something like:
   #
-  #   database: "_env:SQLITE_DATABASE:pi-base-validator_test.sqlite3"
-  database: pi-base-validator_test.sqlite3
+  #   database: "_env:SQLITE_DATABASE:pi-base-server_test.sqlite3"
+  database: pi-base-server_test.sqlite3
 
 log-requests: false

@@ -1,4 +1,4 @@
-name:              pi-base-validator
+name:              pi-base-server
 version:           0.0.0
 cabal-version:     >= 1.8
 build-type:        Simple
@@ -146,6 +146,7 @@ library
                  , lens
                  , lens-aeson
                  , lifted-base
+                 , load-env
                  , mtl
                  , scientific
                  , tagged
@@ -155,13 +156,13 @@ library
                  -- FIXME: only used for `git fetch`
                  , process
 
-executable         pi-base-validator
+executable         pi-base-server
     if flag(library-only)
         Buildable: False
 
     main-is:           main.hs
     hs-source-dirs:    app
-    build-depends:     base, pi-base-validator
+    build-depends:     base, pi-base-server
 
     ghc-options:       -threaded -rtsopts -with-rtsopts=-N
 
@@ -213,7 +214,7 @@ test-suite test
                 CPP
 
     build-depends: base
-                 , pi-base-validator
+                 , pi-base-server
                  , yesod-auth
                  , yesod-test >= 1.5.2 && < 1.6
                  , yesod-core

@@ -63,9 +63,7 @@ queryRoot = pure $ pure "Query"
   :<> assertTheorem
 
 query :: QueryData -> Import.Handler Aeson.Value
-query q = do
-  response <- runQuery queryRoot q
-  return . Aeson.toJSON $ toValue response
+query q = (Aeson.toJSON . toValue) <$> runQuery queryRoot q
 
 runQuery :: Monad m => Handler m QueryRoot -> QueryData -> m Response
 runQuery root QueryData{..} = interpretQuery @QueryRoot root qQuery operation (buildVariables qVariables)

@@ -19,6 +19,7 @@ import Database.Persist.Sqlite              (createSqlitePool, runSqlPool,
                                              sqlDatabase, sqlPoolSize)
 import Import
 import Language.Haskell.TH.Syntax           (qLocation)
+import LoadEnv                              (loadEnvFrom)
 import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp             (Settings, defaultSettings,
                                              defaultShouldDisplayException,
@@ -156,6 +157,7 @@ getApplicationDev = do
 
 getAppSettings :: IO AppSettings
 getAppSettings = do
+  loadEnvFrom "/app/env"
   checkEnv
   loadYamlSettings [configSettingsYml] [] useEnv
 
@@ -180,7 +182,7 @@ appMain = do
     -- Generate a WAI Application from the foundation
     app <- makeApplication foundation
 
-    putStrLn "App starting"
+    putStrLn $ "App starting on port " <> tshow (appPort settings)
 
     -- Run the application with Warp
     runSettings (warpSettings foundation) app

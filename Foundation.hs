@@ -219,8 +219,8 @@ instance YesodAuth App where
 
     authenticate Creds{..} = do
       let extras = Map.fromList credsExtra
-      case (Map.lookup "access_token" extras, Map.lookup "login" extras) of
-        (Just token, Just login) -> do
+      case (Map.lookup "access_token" extras, Map.lookup "login" extras, Map.lookup "email" extras) of
+        (Just token, Just login, Just email) -> do
           let _id  = credsPlugin <> ":" <> credsIdent
           x <- runDB . getBy $ UniqueUser _id
           case x of
@@ -228,7 +228,7 @@ instance YesodAuth App where
             Nothing -> Authenticated <$> createGithubUser User
               { userIdent = _id
               , userName = login
-              , userEmail = error "lookup email at login"
+              , userEmail = email
               , userGithubToken = token
               }
         _ -> return $ ServerError "Missing access token or login"
