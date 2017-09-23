@@ -12,7 +12,8 @@ github-owner: "_env:GITHUB_OWNER:pi-base"
 github-repo:  "_env:GITHUB_REPO:data"
 
 # Path to a copy of the pi-base/data repo on the local machine
-data-path: "_env:DATA_PATH:/data"
+data-path:      "_env:DATA_PATH:/data"
+default-branch: "_env:DEFAULT_BRANCH:master"
 
 # Authorization to use for the webhook validator
 github-auth:           "_env:GITHUB_AUTH:"

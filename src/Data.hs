@@ -17,7 +17,8 @@ import qualified Data.Set        as S
 import qualified Data.UUID       as UUID
 import qualified Data.UUID.V4    as UUID
 import           Git
-import           System.Process  (callCommand)
+import           System.Directory (doesDirectoryExist)
+import           System.Process   (callCommand)
 
 import qualified Data.Parse as P
 import qualified Logic      as L
@@ -33,7 +34,17 @@ import Util     (indexBy)
 
 storeMaster :: MonadStore m
             => m (Either [Error] View)
-storeMaster = storeCached $ parseViewer (CommitRef $ Ref "master")
+storeMaster = do
+  base <- storeBaseRef <$> getStore
+  storeCached . parseViewer $ CommitRef base
+
+initializeRepo :: MonadIO m => FilePath -> m LgRepo
+initializeRepo path = liftIO $ do
+  exists <- doesDirectoryExist path
+  unless exists $ do
+    putStrLn "Cloning initial repository"
+    callCommand $ "git clone https://github.com/pi-base/data.git " ++ path
+  openRepo path
 
 fetchPullRequest :: MonadIO m => FilePath -> m ()
 fetchPullRequest path = liftIO $ do
@@ -87,10 +98,11 @@ viewPages v = map (Page.write Page.Theorem.page) theorems
     theorems = map (fmap propertyId) $ V.theorems v
     traits   = map (identifyTrait . fst) $ V.traits v
 
-mkStore :: FilePath -> IO Store
-mkStore path = Store
-  <$> openRepo path
+mkStore :: FilePath -> Ref -> IO Store
+mkStore path baseRef = Store
+  <$> initializeRepo path
   <*> newMVar Nothing
+  <*> pure baseRef
 
 storeCached :: MonadStore m
             => m (Either a View)

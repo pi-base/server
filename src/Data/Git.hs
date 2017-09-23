@@ -83,15 +83,15 @@ ensureUserBranch user = do
   let branch = userBranch user
   existing <- resolveReference $ refHead branch
   unless (isJust existing) $
-    createRefFromMaster $ userBranch user
+    createRefFromBase branch
   return branch
 
-createRefFromMaster :: MonadStore m => Ref -> m ()
-createRefFromMaster ref = do
-  let masterRef = Ref "master"
-  lookupReference (refHead masterRef) >>= \case
-    Nothing -> throwM $ UnknownGitRef masterRef
-    Just master -> createReference (refHead ref) master
+createRefFromBase :: MonadStore m => Ref -> m ()
+createRefFromBase ref = do
+  base <- storeBaseRef <$> getStore
+  lookupReference (refHead base) >>= \case
+    Nothing -> throwM $ UnknownGitRef base
+    Just b -> createReference (refHead ref) b
 
 modifyGitRef :: MonadStore m
              => User
@@ -159,7 +159,7 @@ updateRef' :: MonadStore m
 updateRef' ref meta updates = do
   resolveReference (refHead ref) >>= \case
     Nothing -> do
-      createRefFromMaster ref
+      createRefFromBase ref
       updateRef' ref meta updates
     Just found -> do
       parent <- lookupCommit $ Tagged found

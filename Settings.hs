@@ -71,6 +71,7 @@ data AppSettings = AppSettings
     , appGitHubWebhookSecret    :: Text
     , appGitHubClientId         :: Text
     , appGitHubClientSecret     :: Text
+    , appDefaultBranch          :: Text
     }
 
 instance FromJSON AppSettings where
@@ -112,6 +113,7 @@ instance FromJSON AppSettings where
         appGitHubClientSecret <- o .: "github-client-secret"
 
         appRequestLogging <- o .: "log-requests"
+        appDefaultBranch  <- o .: "default-branch"
 
         return AppSettings {..}
 
