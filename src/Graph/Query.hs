@@ -88,7 +88,9 @@ viewer mver = do
     _ -> storeMaster
   case eviewer of
     Left errs -> halt errs
-    Right v   -> viewR v
+    Right v   -> do
+      summarizeView v
+      viewR v
 
 viewR :: MonadStore m => View -> Handler m G.Viewer
 viewR View{..} = pure $ pure "Viewer"
@@ -108,3 +110,11 @@ findKey :: (MonadThrow m, Ord k, Show k) => M.Map k v -> k -> m v
 findKey props p = case M.lookup p props of
   Nothing   -> throwM . Core.NotFound $ tshow p
   Just prop -> return prop
+
+summarizeView :: MonadIO m => View -> m ()
+summarizeView View{..} = do
+  putStrLn $ "view @ " <> (tshow _viewVersion)
+  putStrLn $ (tshow $ length _viewSpaces) <> " spaces"
+  putStrLn $ (tshow $ length _viewProperties) <> " properties"
+  putStrLn $ (tshow $ length _viewTraits) <> " traits"
+  putStrLn $ (tshow $ length _viewTraits) <> " theorems"

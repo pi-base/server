@@ -12,7 +12,7 @@ github-owner: "_env:GITHUB_OWNER:pi-base"
 github-repo:  "_env:GITHUB_REPO:data"
 
 # Path to a copy of the pi-base/data repo on the local machine
-data-path:      "_env:DATA_PATH:/data"
+repo-path:      "_env:REPO_PATH:/data/repo"
 default-branch: "_env:DEFAULT_BRANCH:master"
 
 # Authorization to use for the webhook validator
@@ -44,7 +44,7 @@ log-requests: "_env:LOG_REQUESTS:false"
 
 database:
   # See config/test-settings.yml for an override during tests
-  database: "_env:SQLITE_DATABASE:pi-base-server.sqlite3"
+  database: "_env:SQLITE_DATABASE:/data/pi-base-server.sqlite3"
   poolsize: "_env:SQLITE_POOLSIZE:10"
 
 copyright: Insert copyright statement here

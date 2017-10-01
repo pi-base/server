@@ -17,7 +17,7 @@ import qualified Yesod.Core.Unsafe as Unsafe
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 
-import Git.Libgit2 (LgRepo, HasLgRepo(..))
+import Git.Libgit2 (HasLgRepo(..))
 import Types       (Store(..), MonadStore(..))
 import Data.Git    (ensureUserBranch)
 

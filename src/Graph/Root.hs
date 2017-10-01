@@ -74,7 +74,7 @@ runQuery root QueryData{..} = interpretQuery @QueryRoot root qQuery operation (b
 
 instance FromJSON QueryData where
   parseJSON = Aeson.withObject "QueryData" $ \o -> QueryData
-    <$> o .: "operationName"
+    <$> o .:? "operationName" .!= Anonymous
     <*> o .: "query"
     <*> o .:? "variables"
 
