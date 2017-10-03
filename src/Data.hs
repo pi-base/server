@@ -40,6 +40,7 @@ storeMaster = do
 
 initializeRepo :: MonadIO m => FilePath -> m LgRepo
 initializeRepo path = liftIO $ do
+  putStrLn $ "Initializing repository at " ++ tshow path
   exists <- doesDirectoryExist path
   unless exists $ do
     putStrLn "Cloning initial repository"

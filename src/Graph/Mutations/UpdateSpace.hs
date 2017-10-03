@@ -28,4 +28,4 @@ updateSpace UpdateSpaceInput{..} = do
   let updated = old { spaceDescription = description }
       commit  = CommitMeta user $ "Update " <> spaceName updated
   (version, s) <- S.put ref commit updated
-  G.viewR $ V.build [s] [] [] [] version
+  G.presentView $ V.build [s] [] [] [] version

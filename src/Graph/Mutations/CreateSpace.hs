@@ -32,4 +32,4 @@ createSpace CreateSpaceInput{..} = do
         }
       commit = CommitMeta user $ "Add " <> name
   (version, s) <- S.put (userBranch user) commit space
-  G.viewR $ V.build [s] [] [] [] version
+  G.presentView $ V.build [s] [] [] [] version

@@ -36,6 +36,7 @@ library
                      Data.Trait
                      Formula
                      Graph.Import
+                     Graph.Loader
                      Graph.Mutations
                      Graph.Mutations.AssertTrait
                      Graph.Mutations.AssertTheorem

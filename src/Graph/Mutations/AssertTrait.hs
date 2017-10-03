@@ -36,4 +36,4 @@ assertTrait AssertTraitInput{..} = do
       commit = CommitMeta user $ "Add " <> tshow trait
 
   view <- T.put (userBranch user) commit trait
-  either halt G.viewR view
+  either halt G.presentView view

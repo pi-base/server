@@ -41,7 +41,7 @@ assertTheorem AssertTheoremInput{..} = do
 
   let commit = CommitMeta user $ "Add " <> tshow theorem
 
-  T.put (userBranch user) commit theorem >>= either halt G.viewR
+  T.put (userBranch user) commit theorem >>= either halt G.presentView
 
 parseFormula :: Text -> Import.Handler (Formula PropertyId)
 parseFormula text = case decode $ encodeUtf8 $ TL.fromStrict text of

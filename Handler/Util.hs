@@ -21,7 +21,7 @@ import qualified Formula
 import Git
 
 import qualified Data.Parse  as P
-import qualified Logic       as L
+-- import qualified Logic       as L
 import qualified View        as V
 
 import qualified Page

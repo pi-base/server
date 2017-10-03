@@ -32,4 +32,4 @@ createProperty CreatePropertyInput{..} = do
         }
       commit = CommitMeta user $ "Add " <> name
   (version, p) <- P.put (userBranch user) commit property
-  G.viewR $ V.build [] [p] [] [] version
+  G.presentView $ V.build [] [p] [] [] version

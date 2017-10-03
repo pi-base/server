@@ -2,6 +2,7 @@ module Data.Git
   ( getDir
   , modifyGitRef
   , openRepo
+  , commitFromLabel
   -- , useRepo
   , useRef
   , writeContents
@@ -92,6 +93,22 @@ createRefFromBase ref = do
   lookupReference (refHead base) >>= \case
     Nothing -> throwM $ UnknownGitRef base
     Just b -> createReference (refHead ref) b
+
+commitFromLabel :: MonadStore m => Maybe Text -> m (Commit LgRepo)
+commitFromLabel Nothing = baseCommit
+commitFromLabel (Just label) = do
+  msha <- resolveCommittish $ CommitSha label
+  case msha of
+    Just sha -> return sha
+    Nothing -> do
+      mref <- resolveCommittish $ CommitRef $ Ref label
+      maybe baseCommit return mref
+
+baseCommit :: MonadStore m => m (Commit LgRepo)
+baseCommit = do
+  base <- CommitRef . storeBaseRef <$> getStore
+  (Just moid) <- lookupCommittish base
+  lookupCommit $ Tagged moid
 
 modifyGitRef :: MonadStore m
              => User
@@ -191,6 +208,15 @@ writeContents user message files = do
 lookupCommittish :: MonadStore m => Committish -> m (Maybe (Oid LgRepo))
 lookupCommittish (CommitRef ref) = resolveReference $ refHead ref
 lookupCommittish (CommitSha sha) = Just <$> parseOid sha
+
+resolveCommittish :: MonadStore m => Committish -> m (Maybe (Commit LgRepo))
+resolveCommittish c = do
+  moid <- lookupCommittish c
+  case moid of
+    Nothing  -> return $ Nothing
+    Just oid -> do
+      commit <- lookupCommit $ Tagged oid
+      return $ Just commit
 
 move :: (MonadThrow m, MonadGit r m) => TreeFilePath -> TreeFilePath -> TreeT r m ()
 move old new = getEntry old >>= \case

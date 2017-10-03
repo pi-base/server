@@ -4,14 +4,17 @@ module Data.Parse
   , findProperty
   , findSpace
   , findTheorem
-  -- TODO: deprecate these vvvv
-  -- , parseEntry
   , at
+  , spaces
+  , properties
+  , traits
+  , theorems
   , spaceEntries
   , propertyEntries
   , traitEntries
   , theoremEntries
   , blobs
+  , discardLeftC
   ) where
 
 import           Control.Monad.State.Strict (modify)
@@ -33,8 +36,6 @@ import qualified Page.Space
 import qualified Page.Theorem
 import qualified Page.Trait
 import qualified View as V
-
-import Git.Libgit2.Types (MonadExcept)
 
 type ET m = ExceptT Error (StateT [Error] m)
 
@@ -101,7 +102,7 @@ viewer commish = at commish $ \commit -> withErrors $ do
   ps <- noteErrors $ runConduit $ properties commit .| sinkList
   required $ unique propertyId ps
 
-  is <- noteErrors $ runConduit $ theorems commit ps .| sinkList
+  is <- noteErrors $ runConduit $ hydratedTheorems commit ps .| sinkList
   required $ unique theoremId is
 
   ts <- noteErrors $ runConduit $ traits commit ss ps .| sinkList
@@ -212,11 +213,14 @@ theoremEntries commit = sourceCommitEntries commit "theorems"
 
 theorems :: MonadStore m
          => Commit LgRepo
-         -> [Property]
-         -> ConduitM () (Either Error (Theorem Property)) m ()
-theorems commit ps = theoremEntries commit
-                  .| parseEntry Page.Theorem.page
-                  .| mapRightC hydrate
+         -> ConduitM () (Either Error (Theorem PropertyId)) m ()
+theorems commit = theoremEntries commit .| parseEntry Page.Theorem.page
+
+hydratedTheorems :: MonadStore m
+                 => Commit LgRepo
+                 -> [Property]
+                 -> ConduitM () (Either Error (Theorem Property)) m ()
+hydratedTheorems commit ps = theorems commit .| mapRightC hydrate
   where
     hydrate = mapLeft (ReferenceError "hydrateTheorem" . map unPropertyId)
             . hydrateTheorem (indexBy propertyId ps)
@@ -233,7 +237,6 @@ traits :: MonadStore m
 traits commit ss ps = traitEntries commit
                    .| filterC (\(path, _) -> relevant path)
                    .| parseEntry Page.Trait.page
-                   -- .| mapC (fmap fst)
                    .| mapRightC (hydrateTrait sx px)
   where
     sx :: M.Map SpaceId Space
@@ -247,7 +250,14 @@ traits commit ss ps = traitEntries commit
 
     -- TODO: split and then check rather than building this whole n*n size set
     paths :: S.Set TreeFilePath
-    paths = S.fromList [ (encodeUtf8 $ spaceSlug s) <> "/properties/" <> (encodeUtf8 $ propertySlug p) <> ".md" | s <- ss, p <- ps ]
+    paths = S.fromList
+      [ "spaces/"
+      <> (encodeUtf8 $ unSpaceId $ spaceId s)
+      <> "/properties/"
+      <> (encodeUtf8 $ unPropertyId $ propertyId p)
+      <> ".md"
+      | s <- ss, p <- ps
+      ]
 
 isReadme :: TreeFilePath -> Bool
 isReadme path = "README.md" `BS.isSuffixOf` path
@@ -292,3 +302,6 @@ mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
 
 discardLeftC :: Monad m => ConduitM (Either a b) b m ()
 discardLeftC = awaitForever $ either (const $ return ()) yield
+
+traceC :: (Monad m, Show d) => (o -> d) -> ConduitM o o m ()
+traceC f = mapC $ \x -> trace (show $ f x) x

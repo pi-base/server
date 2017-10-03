@@ -1,120 +1,121 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
-module Graph.Query where
+module Graph.Query
+  ( presentView
+  , user
+  , viewer
+  ) where
 
 import Graph.Import
 
 import qualified Data.Aeson
-import qualified Data.Map as M
 import qualified Data.Text.Lazy as TL
 import           Database.Persist.Types (Entity(..))
 
 import           Core hiding (Handler)
-import           Data
+import           Data.Git as Git
 import           Formula (Formula)
+import qualified Graph.Loader as GL
 import qualified Graph.Types as G
 import           Handler.Helpers (requireToken)
 import           Model (User(..))
-
-import qualified Data.Property as Property
-import qualified Data.Space    as Space
-import qualified Data.Theorem  as Theorem
-
-spaceR :: MonadStore m
-       => Maybe Committish
-       -> Space
-       -> M.Map PropertyId (Trait SpaceId PropertyId)
-       -> M.Map PropertyId Property
-       -> Handler m G.Space
-spaceR mc s@Space{..} traitMap propMap = pure $ pure "Space"
-  :<> pure (unSpaceId spaceId)
-  :<> pure spaceSlug
-  :<> pure spaceName
-  :<> Space.describe mc s
-  :<> pure spaceTopology
-  :<> traitsR mc (M.elems traitMap) propMap
-
-
-traitsR :: MonadStore m
-        => Maybe Committish
-        -> [Trait s PropertyId]
-        -> M.Map PropertyId Property
-        -> Handler m (List G.Trait)
-traitsR mc traits props = pure $ map render traits
-  where
-    render Trait{..} = pure $ pure "Trait"
-      :<> (findKey props _traitProperty >>= propertyR mc)
-      :<> pure _traitValue
-
-theoremsR ::  MonadStore m
-          => Maybe Committish -> [Theorem p] -> (p -> m Property) -> Handler m (List G.Theorem)
-theoremsR mc ts f = pure $ map (theoremR mc f) ts
-
-theoremR :: MonadStore m => Maybe Committish -> (p -> m Property) -> Theorem p -> Handler m G.Theorem
-theoremR mc f t@Theorem{..} = pure $ pure "Theorem"
-  :<> pure (unTheoremId theoremId)
-  :<> (encodeFormula f $ theoremIf t)
-  :<> (encodeFormula f $ theoremThen t)
-  :<> pure theoremDescription
-
-spacesR :: MonadStore m
-        => Maybe Committish
-        -> [Space]
-        -> M.Map SpaceId (M.Map PropertyId (Trait SpaceId PropertyId))
-        -> M.Map PropertyId Property
-        -> Handler m (List G.Space)
-spacesR mc ss traitMap propMap = pure $ map space ss
-  where space s = spaceR mc s (M.findWithDefault mempty (spaceId s) traitMap) propMap
-
-propertyR :: MonadStore m => Maybe Committish -> Property -> Handler m G.Property
-propertyR mc p@Property{..} = pure $ pure "Property"
-  :<> pure (unPropertyId propertyId)
-  :<> pure propertySlug
-  :<> pure propertyName
-  :<> pure propertyDescription
-
-propertiesR :: MonadStore m => Maybe Committish -> [Property] -> Handler m (List G.Property)
-propertiesR mc ps = pure $ map (propertyR mc) ps
 
 user :: G G.User
 user = do
   (Entity _id User{..}) <- requireToken
   return $ pure "User" :<> pure userName
 
-viewer :: (MonadStore m, MonadHandler m) => Maybe Text -> Handler m G.Viewer
+viewer :: Maybe Text -> G G.Viewer
 viewer mver = do
-  eviewer <- case mver of
-    (Just ver) -> parseViewer $ CommitSha ver
-    _ -> storeMaster
-  case eviewer of
-    Left errs -> halt errs
-    Right v   -> do
-      summarizeView v
-      viewR v
+  commit <- Git.commitFromLabel mver
+  loader <- GL.mkLoader commit -- TODO: cache loader for base branch
+  return $ pure "Viewer"
+    :<> pure (unVersion $ GL.version loader)
+    :<> loadSpaces loader
+    :<> loadProperties loader
+    :<> loadTheorems loader
 
-viewR :: MonadStore m => View -> Handler m G.Viewer
-viewR View{..} = pure $ pure "Viewer"
-  :<> pure (maybe "" unVersion _viewVersion)
-  :<> spacesR     sha (M.elems _viewSpaces    ) _viewTraits _viewProperties
-  :<> propertiesR sha (M.elems _viewProperties)
-  :<> theoremsR   sha (M.elems _viewTheorems  ) (findKey _viewProperties)
+-- Pure presenters (unify with m ~ Identity)
+presentSpace :: Monad m
+             => Space
+             -> [Trait s Property]
+             -> Handler m G.Space
+presentSpace s@Space{..} traits = pure $ pure "Space"
+  :<> pure (unSpaceId spaceId)
+  :<> pure spaceSlug
+  :<> pure spaceName
+  :<> pure spaceDescription
+  :<> pure spaceTopology
+  :<> pure (map presentTrait traits)
+
+presentProperty :: Monad m => Property -> Handler m G.Property
+presentProperty Property{..} = pure $ pure "Property"
+  :<> pure (unPropertyId propertyId)
+  :<> pure propertySlug
+  :<> pure propertyName
+  :<> pure propertyDescription
+
+presentTrait :: Monad m
+             => Trait s Property
+             -> Handler m G.Trait
+presentTrait t@Trait{..} = pure $ pure "Trait"
+  :<> presentProperty _traitProperty
+  :<> pure _traitValue
+
+presentTheorem :: Monad m => Theorem PropertyId -> Handler m G.Theorem
+presentTheorem t@Theorem{..} = pure $ pure "Theorem"
+  :<> pure (unTheoremId theoremId)
+  :<> pure (encodeFormula $ theoremIf t)
+  :<> pure (encodeFormula $ theoremThen t)
+  :<> pure theoremDescription
+
+presentView :: Monad m => View -> Handler m G.Viewer
+presentView = error "presentView"
+-- viewR View{..} = pure $ pure "Viewer"
+--   :<> pure (maybe "" unVersion _viewVersion)
+--   :<> spacesR     sha (M.elems _viewSpaces    ) _viewTraits _viewProperties
+--   :<> (pure . map propertyR $ M.elems _viewProperties)
+--   :<> theoremsR   sha (M.elems _viewTheorems  ) (findKey _viewProperties)
+--   where
+--     sha = CommitSha . unVersion <$> _viewVersion
+
+-- Cached loader based handlers
+loadProperties :: MonadStore m
+               => GL.Loader
+               -> Handler m (List G.Property)
+loadProperties loader = do
+  properties <- GL.allProperties loader
+  return $ map presentProperty properties
+
+loadTheorems :: MonadStore m
+             => GL.Loader
+             -> Handler m (List G.Theorem)
+loadTheorems loader = do
+  theorems <- GL.allTheorems loader
+  return $ map presentTheorem theorems
+
+loadSpaces :: MonadStore m
+           => GL.Loader
+           -> Handler m (List G.Space)
+loadSpaces loader = do
+  spaces <- GL.allSpaces loader
+  return $ map (loadSpace loader) spaces
+
+loadSpace :: MonadStore m
+          => GL.Loader
+          -> Space
+          -> Handler m G.Space
+loadSpace loader s@Space{..} = pure $ pure "Space"
+  :<> pure (unSpaceId spaceId)
+  :<> pure spaceSlug
+  :<> pure spaceName
+  :<> pure spaceDescription
+  :<> pure spaceTopology
+  :<> loadTraits
   where
-    sha = CommitSha . unVersion <$> _viewVersion
+    loadTraits = do
+      traits <- GL.spaceTraits loader s
+      return $ map presentTrait traits
 
-encodeFormula :: MonadThrow m => (p -> m Property) -> Formula p -> m Text
-encodeFormula f formula =
-  mapM f formula >>=
-    return . TL.toStrict . decodeUtf8 . Data.Aeson.encode . map (unPropertyId . propertyId)
-
-findKey :: (MonadThrow m, Ord k, Show k) => M.Map k v -> k -> m v
-findKey props p = case M.lookup p props of
-  Nothing   -> throwM . Core.NotFound $ tshow p
-  Just prop -> return prop
-
-summarizeView :: MonadIO m => View -> m ()
-summarizeView View{..} = do
-  putStrLn $ "view @ " <> (tshow _viewVersion)
-  putStrLn $ (tshow $ length _viewSpaces) <> " spaces"
-  putStrLn $ (tshow $ length _viewProperties) <> " properties"
-  putStrLn $ (tshow $ length _viewTraits) <> " traits"
-  putStrLn $ (tshow $ length _viewTraits) <> " theorems"
+encodeFormula :: Formula PropertyId -> Text
+encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unPropertyId

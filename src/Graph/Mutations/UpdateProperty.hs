@@ -28,4 +28,4 @@ updateProperty UpdatePropertyInput{..} = do
   let updated = old { propertyDescription = description }
       commit  = CommitMeta user $ "Update " <> propertyName updated
   (version, p) <- P.put ref commit updated
-  G.viewR $ V.build [] [p] [] [] version
+  G.presentView $ V.build [] [p] [] [] version
