@@ -1,5 +1,7 @@
 module Handler.Helpers
   ( attachToken
+  , ensureToken
+  , ensureUser
   , generateToken
   , maybeToken
   , requireToken
@@ -62,3 +64,35 @@ attachToken userId token = do
     , tokenExpiredAt = Nothing
     , tokenUuid      = token
     }
+
+ensureUser :: ( BaseBackend (YesodPersistBackend site) ~ SqlBackend
+              , PersistStoreWrite (YesodPersistBackend site)
+              , PersistUniqueRead (YesodPersistBackend site)
+              , YesodPersist site )
+           => User -> HandlerT site IO (Entity User)
+ensureUser user = findOrCreate (UniqueUser . userIdent) $ user
+
+ensureToken :: ( BaseBackend (YesodPersistBackend site) ~ SqlBackend
+               , PersistStoreWrite (YesodPersistBackend site)
+               , PersistUniqueRead (YesodPersistBackend site)
+               , YesodPersist site )
+           => UserId -> Text -> HandlerT site IO (Entity Token)
+ensureToken _id token = do
+  now <- liftIO getCurrentTime
+  findOrCreate (UniqueToken . tokenUuid) $ Token _id now Nothing token
+
+findOrCreate :: ( PersistEntityBackend record ~ BaseBackend (YesodPersistBackend site)
+                , PersistStoreWrite (YesodPersistBackend site)
+                , PersistEntity record
+                , PersistUniqueRead (YesodPersistBackend site)
+                , YesodPersist site)
+             => (record -> Unique record)
+             -> record
+             -> HandlerT site IO (Entity record)
+findOrCreate by obj = do
+  mfound <- runDB . getBy $ by obj
+  case mfound of
+    Just entity -> return entity
+    Nothing -> do
+      _id <- runDB $ insert obj
+      return $ Entity _id obj

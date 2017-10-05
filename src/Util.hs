@@ -1,19 +1,23 @@
 module Util
-  ( dupes
+  ( discardLeftC
+  , dupes
   , encodeText
   , fetch
   , flatMapM
-  , indexBy
   , groupBy
+  , indexBy
+  , insertNested
+  , mapRightC
+  , traceC
   , unionN
   ) where
 
 import ClassyPrelude hiding (groupBy)
 
-import Data.Aeson (ToJSON, encode)
-
-import qualified Data.Map as M
-import qualified Data.Set as S
+import           Conduit        hiding (throwM)
+import           Data.Aeson     (ToJSON, encode)
+import qualified Data.Map       as M
+import qualified Data.Set       as S
 import qualified Data.Text.Lazy as TL
 
 groupBy :: Ord b => (a -> b) -> [a] -> M.Map b [a]
@@ -54,3 +58,17 @@ fetch k m = case M.lookup k m of
 
 encodeText :: ToJSON a => a -> Text
 encodeText = TL.toStrict . decodeUtf8 . encode
+
+insertNested :: (Ord a, Ord b) => a -> b -> v -> Map a (Map b v) -> Map a (Map b v)
+insertNested a b v = M.alter add a
+  where
+    add = Just . M.insert b v . maybe mempty id
+
+mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
+mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
+
+discardLeftC :: Monad m => ConduitM (Either a b) b m ()
+discardLeftC = awaitForever $ either (const $ return ()) yield
+
+traceC :: (Monad m, Show d) => (o -> d) -> ConduitM o o m ()
+traceC f = mapC $ \x -> trace (show $ f x) x

@@ -7,8 +7,7 @@ module Types where
 import Import.NoFoundation
 import Control.Lens (Prism', makeLenses)
 
-import Git         (MonadGit(..), TreeFilePath)
-import Git.Libgit2 (LgRepo)
+import Git (TreeFilePath)
 
 import qualified Data.Aeson          as Aeson (Object)
 import qualified Data.HashMap.Strict as HM
@@ -134,17 +133,7 @@ data CLoader m = CLoader
   , clTraits     :: SpaceId -> m (Either LoadError Properties) -- FIXME
   }
 
--- TODO: enforce that only one thread gets to write to a branch at a time
-data Store = Store
-  { storeRepo    :: LgRepo
-  , storeCache   :: MVar (Maybe View)
-  , storeBaseRef :: Ref
-  }
-
 data CommitMeta = CommitMeta
   { commitUser    :: User
   , commitMessage :: Text
   }
-
-class (MonadBaseControl IO m, MonadIO m, MonadMask m, MonadGit LgRepo m) => MonadStore m where
-  getStore :: m Store

@@ -41,6 +41,7 @@ type QueryRoot = Graph.Import.Object "QueryRoot" '[]
    , Argument "input" UpdateTheoremInput  :> Field "updateTheorem"  Viewer
    , Argument "input" AssertTraitInput    :> Field "assertTrait"    Viewer
    , Argument "input" AssertTheoremInput  :> Field "assertTheorem"  Viewer
+   , Argument "input" TestResetInput      :> Field "testReset"      TestResetResponse
    ]
 
 data QueryData = QueryData
@@ -61,6 +62,7 @@ queryRoot = pure $ pure "Query"
   :<> updateTheorem
   :<> assertTrait
   :<> assertTheorem
+  :<> testReset
 
 query :: QueryData -> Import.Handler Aeson.Value
 query q = (Aeson.toJSON . toValue) <$> runQuery queryRoot q

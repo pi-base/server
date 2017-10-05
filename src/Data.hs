@@ -1,5 +1,5 @@
 module Data
-  ( mkStore
+  ( initializeStore
   , storeMaster
   , parseViewer
   , viewerAtRef
@@ -29,14 +29,17 @@ import qualified Page.Theorem
 import qualified Page.Trait
 
 import Core
-import Data.Git (openRepo, useRef)
-import Util     (indexBy)
+import Data.Git    (openRepo, useRef, resolveCommittish)
+import Data.Store
+import Git.Libgit2 (runLgRepository)
+import Util        (indexBy)
 
 storeMaster :: MonadStore m
             => m (Either [Error] View)
 storeMaster = do
   base <- storeBaseRef <$> getStore
-  storeCached . parseViewer $ CommitRef base
+  error "storeMaster"
+  -- storeCached . parseViewer $ CommitRef base
 
 initializeRepo :: MonadIO m => FilePath -> m LgRepo
 initializeRepo path = liftIO $ do
@@ -46,6 +49,13 @@ initializeRepo path = liftIO $ do
     putStrLn "Cloning initial repository"
     callCommand $ "git clone https://github.com/pi-base/data.git " ++ path
   openRepo path
+
+initializeStore :: (MonadIO m, MonadBase IO m, MonadBaseControl IO m, MonadMask m)
+                => FilePath -> Ref -> m Store
+initializeStore path ref = do
+  repo <- initializeRepo path
+  (Just commit) <- runLgRepository repo $ resolveCommittish $ CommitRef ref
+  mkStore repo ref commit
 
 fetchPullRequest :: MonadIO m => FilePath -> m ()
 fetchPullRequest path = liftIO $ do
@@ -98,23 +108,6 @@ viewPages v = map (Page.write Page.Theorem.page) theorems
   where
     theorems = map (fmap propertyId) $ V.theorems v
     traits   = map (identifyTrait . fst) $ V.traits v
-
-mkStore :: FilePath -> Ref -> IO Store
-mkStore path baseRef = Store
-  <$> initializeRepo path
-  <*> newMVar Nothing
-  <*> pure baseRef
-
-storeCached :: MonadStore m
-            => m (Either a View)
-            -> m (Either a View)
-storeCached f = do
-  Store{..} <- getStore
-  modifyMVar storeCache $ \mev -> case mev of
-    Just viewer -> return $ (Just viewer, Right viewer)
-    _ -> f >>= \case
-      Left err     -> return $ (Nothing, Left err)
-      Right viewer -> return $ (Just viewer, Right viewer)
 
 bridgeLoader :: Monad m => CLoader m -> Loader m
 bridgeLoader CLoader{..} = Loader

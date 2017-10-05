@@ -29,22 +29,25 @@ library
                      Core
                      Data
                      Data.Git
+                     Data.Loader
                      Data.Parse
                      Data.Property
                      Data.Space
+                     Data.Store
                      Data.Theorem
                      Data.Trait
                      Formula
                      Graph.Import
-                     Graph.Loader
                      Graph.Mutations
                      Graph.Mutations.AssertTrait
                      Graph.Mutations.AssertTheorem
                      Graph.Mutations.CreateProperty
                      Graph.Mutations.CreateSpace
+                     Graph.Mutations.TestReset
                      Graph.Mutations.UpdateProperty
                      Graph.Mutations.UpdateSpace
                      Graph.Mutations.UpdateTheorem
+                     Graph.Loader
                      Graph.Query
                      Graph.Root
                      Graph.Types
@@ -56,6 +59,8 @@ library
                      Page.Trait
                      Services.Github
                      Types
+                     Types.Loader
+                     Types.Store
                      Util
                      View
 

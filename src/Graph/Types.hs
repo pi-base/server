@@ -57,3 +57,8 @@ type Viewer = Object "Viewer" '[]
    , Field "theorems"   (List Theorem)
    ]
 
+type TestResetResponse = Object "TestResetResponse" '[]
+  '[ Field "__typename" Text
+   , Field "version"    Text
+   , Field "token"      (Maybe Text)
+   ]

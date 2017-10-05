@@ -72,6 +72,7 @@ data AppSettings = AppSettings
     , appGitHubClientId         :: Text
     , appGitHubClientSecret     :: Text
     , appDefaultBranch          :: Text
+    , appTestMode               :: Bool
     }
 
 instance FromJSON AppSettings where
@@ -114,6 +115,8 @@ instance FromJSON AppSettings where
 
         appRequestLogging <- o .: "log-requests"
         appDefaultBranch  <- o .: "default-branch"
+
+        appTestMode <- o .: "test-mode"
 
         return AppSettings {..}
 

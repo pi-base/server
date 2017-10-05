@@ -26,6 +26,7 @@ import Git.Libgit2                      as Core (LgRepo)
 
 import Model as Core
 import Types as Core
+import Types.Store as Core (Store)
 
 import Control.Lens hiding ((.=))
 import Data.Aeson (ToJSON(..), object, (.=))
@@ -118,19 +119,21 @@ instance Show TheoremId where
   show = T.unpack . unTheoremId
 
 instance Show Space where
-  show Space{..} = T.unpack $ "[" <> unSpaceId spaceId <> "|" <> spaceName <> "]"
+  show Space{..} = T.unpack $ "<" <> unSpaceId spaceId <> "|" <> spaceName <> ">"
 
 instance Show Property where
-  show Property{..} = T.unpack $ "[" <> unPropertyId propertyId <> "|" <> propertyName <> "]"
+  show Property{..} = T.unpack $ "<" <> unPropertyId propertyId <> "|" <> propertyName <> ">"
 
 instance Show p => Show (Implication p) where
   show (Implication a c) = show a ++ " => " ++ show c
 
 instance Show p => Show (Theorem p) where
-  show Theorem{..} = "[" ++ show theoremId ++ "|" ++ show theoremImplication ++ "]"
+  show Theorem{..} = "<" ++ show theoremId ++ "|" ++ show theoremImplication ++ ">"
+
+instance Show Version where
+  show = show . unVersion
 
 deriving instance Show Proof
-deriving instance Show Version
 deriving instance Show View
 deriving instance Show LogicError
 deriving instance Show Error
@@ -149,3 +152,6 @@ instance Monoid View where
     }
 
   mempty = View mempty mempty mempty mempty mempty Nothing
+
+class (MonadBaseControl IO m, MonadIO m, MonadMask m, MonadGit LgRepo m) => MonadStore m where
+  getStore :: m Store

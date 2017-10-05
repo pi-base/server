@@ -1,63 +1,67 @@
 module Graph.Loader
   ( Loader
-  , mkLoader
+  , Graph.Loader.mkLoader
   , allProperties
+  , loadProperty
   , allSpaces
   , allTheorems
   , spaceTraits
   , version
   ) where
 
+import qualified Data.Map as M
+
 import Core hiding (Loader) -- FIXME
-import Graph.Import
 
-import           Data.Git      (commitVersion)
-import qualified Data.Parse as Parse
+import           Conduit
+import           Data.Git     (commitVersion)
+import           Data.Loader  as L
+import qualified Data.Parse   as Parse
+import           Types        hiding (Loader)
+import           Types.Loader as L
+import           Types.Store
+import           Util         (insertNested)
 
-data Loader = Loader
-  { lCommit     :: Commit LgRepo
-  , lSpaces     :: IORef [Space]
-  , lProperties :: IORef [Property]
-  , lTheorems   :: IORef [Theorem PropertyId]
-  }
-
-mkLoader :: MonadBase IO m => Commit LgRepo -> m Loader
-mkLoader commit = Loader
-  <$> pure commit
-  <*> newIORef mempty
-  <*> newIORef mempty
-  <*> newIORef mempty
-
-version :: Loader -> Version
-version = commitVersion . lCommit
+mkLoader :: MonadStore m => Commit LgRepo -> m Loader
+mkLoader commit = do
+  loaderVar    <- storeLoader <$> getStore
+  cachedLoader <- readMVar loaderVar
+  if (commitVersion commit) == (commitVersion $ L.commit cachedLoader)
+    then return cachedLoader
+    else L.mkLoader commit
 
 allProperties :: MonadStore m => Loader -> m [Property]
-allProperties Loader{..} = storeLoad lProperties $ Parse.properties lCommit
+allProperties Loader{..} = storeLoad properties $ Parse.properties commit
+
+loadProperty :: MonadStore m => Loader -> PropertyId -> m Property
+loadProperty loader pid = do
+  properties <- allProperties loader
+  case find (\p -> propertyId p == pid) properties of
+    Just found -> return found
+    Nothing -> Core.throwM . Types.NotFound $ unPropertyId pid
 
 allSpaces :: MonadStore m => Loader -> m [Space]
-allSpaces Loader{..} = storeLoad lSpaces $ Parse.spaces lCommit
+allSpaces Loader{..} = storeLoad spaces $ Parse.spaces commit
 
 allTheorems :: MonadStore m => Loader -> m [Theorem PropertyId]
-allTheorems Loader{..} = storeLoad lTheorems $ Parse.theorems lCommit
+allTheorems Loader{..} = storeLoad theorems $ Parse.theorems commit
 
--- Idea:
--- * each loader tracks what has been loaded (All | Ids [...])
--- * hold a reference to a loader for the master branch
-spaceTraits :: MonadStore m => Loader -> Space -> m [Trait Space Property]
-spaceTraits l@Loader{..} space = do
-  props <- allProperties l
-  sourceToList $ Parse.traits lCommit [space] props .| Parse.discardLeftC
+allTVals :: MonadStore m => Loader -> m (Map SpaceId (Map PropertyId TVal))
+allTVals Loader{..} = cache traits $ do
+  tuples <- sourceToList $ Parse.allTraits commit
+  return $ foldr acc mempty tuples
+  where
+    acc :: Trait SpaceId PropertyId -> Map SpaceId (Map PropertyId TVal) -> Map SpaceId (Map PropertyId TVal)
+    acc t = insertNested (_traitSpace t) (_traitProperty t) (_traitValue t)
 
-storeLoad :: (MonadIO m, MonadBase IO m)
-          => IORef [v]
+spaceTraits :: MonadStore m => Loader -> Space -> m (Map PropertyId TVal)
+spaceTraits loader space = do
+  tvals <- allTVals loader
+  return $ M.findWithDefault mempty (spaceId space) tvals
+
+storeLoad :: (MonadIO m, MonadBase IO m, MonadBaseControl IO m, Eq v, Show v)
+          => Field [v]
           -> ConduitM () (Either Error v) m ()
           -> m [v]
-storeLoad ref source = do
-  vs <- readIORef ref
-  if null vs
-    then do
-      vs' <- sourceToList $ source .| Parse.discardLeftC
-      modifyIORef' ref $ const vs'
-      return vs'
-    else return vs
-
+storeLoad ref source = cache ref $
+  sourceToList $ source .| Parse.discardLeftC

@@ -35,7 +35,7 @@ import System.Exit                          (die)
 import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
                                              toLogStr)
 
-import Data  (mkStore)
+import Data  (initializeStore)
 import Types (Ref(..))
 
 -- Import all relevant handler modules here.
@@ -62,7 +62,7 @@ makeFoundation appSettings = do
     appStatic <-
         (if appMutableStatic appSettings then staticDevel else static)
         (appStaticDir appSettings)
-    appStore <- mkStore (appRepoPath appSettings) (Ref $ appDefaultBranch appSettings)
+    appStore <- initializeStore (appRepoPath appSettings) (Ref $ appDefaultBranch appSettings)
 
     -- We need a log function to create a connection pool. We need a connection
     -- pool to create our foundation. And we need our foundation to get a

@@ -8,6 +8,7 @@ module Data.Parse
   , spaces
   , properties
   , traits
+  , allTraits
   , theorems
   , spaceEntries
   , propertyEntries
@@ -28,7 +29,7 @@ import Core
 import Conduit
 import Control.Lens (set)
 import Data.Git     (commitVersion, getDir, lookupCommittish)
-import Util         (indexBy)
+import Util
 
 import qualified Page
 import qualified Page.Property
@@ -229,6 +230,11 @@ traitEntries :: MonadGit r m => Commit r -> EntrySource m r
 traitEntries commit = sourceCommitEntries commit "spaces"
                    .| filterC (not . isReadme . fst)
 
+allTraits :: MonadStore m => Commit LgRepo -> ConduitM () (Trait SpaceId PropertyId) m ()
+allTraits commit = traitEntries commit
+                .| parseEntry Page.Trait.page
+                .| discardLeftC
+
 traits :: MonadStore m
        => Commit LgRepo
        -> [Space]
@@ -296,12 +302,3 @@ hydrateTrait sx px t@Trait{..} = case (M.lookup _traitSpace sx, M.lookup _traitP
   (Just _, _) -> Left $ ReferenceError "hydrateTrait" [unPropertyId _traitProperty]
   (_, Just _) -> Left $ ReferenceError "hydrateTrait" [unSpaceId _traitSpace]
   _           -> Left $ ReferenceError "hydrateTrait" [unPropertyId _traitProperty, unSpaceId _traitSpace]
-
-mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
-mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
-
-discardLeftC :: Monad m => ConduitM (Either a b) b m ()
-discardLeftC = awaitForever $ either (const $ return ()) yield
-
-traceC :: (Monad m, Show d) => (o -> d) -> ConduitM o o m ()
-traceC f = mapC $ \x -> trace (show $ f x) x

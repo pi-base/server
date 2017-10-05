@@ -23,11 +23,14 @@ github-webhook-secret: "_env:GITHUB_WEBHOOK_SECRET:"
 github-client-id:     "_env:GITHUB_CLIENT_ID:"
 github-client-secret: "_env:GITHUB_CLIENT_SECRET:"
 
+test-mode: "_env:TEST_MODE:false"
+
 # Default behavior: determine the application root from the request headers.
 # Uncomment to set an explicit approot
 #approot:        "_env:APPROOT:http://localhost:3000"
 
-log-requests: "_env:LOG_REQUESTS:false"
+log-requests:   "_env:LOG_REQUESTS:false"
+should-log-all: "_env:LOG_ALL:false"
 
 # Optional values with the following production defaults.
 # In development, they default to the inverse.

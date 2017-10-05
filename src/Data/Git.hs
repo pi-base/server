@@ -1,8 +1,11 @@
 module Data.Git
-  ( getDir
+  ( Commit
+  , LgRepo
+  , getDir
   , modifyGitRef
   , openRepo
   , commitFromLabel
+  , resolveCommittish
   -- , useRepo
   , useRef
   , writeContents
@@ -26,6 +29,7 @@ import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
 import Git.Libgit2 (LgRepo, openLgRepository, runLgRepository)
+import Types.Store (storeRepo, storeBaseRef)
 
 openRepo :: FilePath -> IO LgRepo
 openRepo path = openLgRepository $ RepositoryOptions
@@ -39,8 +43,8 @@ useRepo :: MonadStore m
         => ReaderT LgRepo m a
         -> m a
 useRepo handler = do
-  Store{..} <- getStore
-  runLgRepository storeRepo handler
+  repo <- storeRepo <$> getStore
+  runLgRepository repo handler
 
 useRef :: MonadStore m
        => Ref
@@ -48,11 +52,11 @@ useRef :: MonadStore m
        -> TreeT LgRepo m (Either Error a)
        -> m (Either Error (Version, a))
 useRef ref meta handler = do
-  Store{..} <- getStore
-  mpt <- runLgRepository storeRepo $
+  repo <- storeRepo <$> getStore
+  mpt <- runLgRepository repo $
     resolveReference (refHead ref) >>= \case
       Nothing    -> return Nothing
-      Just found -> runLgRepository storeRepo $ do
+      Just found -> runLgRepository repo $ do
         parent <- lookupCommit $ Tagged found
         tree   <- lookupTree $ commitTree parent
         return $ Just (parent, tree)
@@ -126,10 +130,12 @@ modifyGitRef user ref message updates = useRepo $ do
       (author, committer) <- getSignatures user
       Right <$> createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
 
-resetRef :: MonadStore m => Ref -> Committish -> m ()
+resetRef :: MonadStore m => Ref -> Committish -> m Version
 resetRef ref commish = lookupCommittish commish >>= \case
-  Just r  -> updateReference (refHead ref) (RefObj r)
   Nothing -> error "Could not find committish to reset"
+  Just r -> do
+    updateReference (refHead ref) (RefObj r)
+    return $ Version $ renderOid r
 
 getSignatures :: MonadIO m => User -> m (Signature, Signature)
 getSignatures User{..} = do
@@ -205,11 +211,11 @@ writeContents user message files = do
       (lift $ createBlobUtf8 contents) >>= putBlob path
   return $ commitVersion <$> ec
 
-lookupCommittish :: MonadStore m => Committish -> m (Maybe (Oid LgRepo))
+lookupCommittish :: MonadGit LgRepo m => Committish -> m (Maybe (Oid LgRepo))
 lookupCommittish (CommitRef ref) = resolveReference $ refHead ref
 lookupCommittish (CommitSha sha) = Just <$> parseOid sha
 
-resolveCommittish :: MonadStore m => Committish -> m (Maybe (Commit LgRepo))
+resolveCommittish :: MonadGit LgRepo m => Committish -> m (Maybe (Commit LgRepo))
 resolveCommittish c = do
   moid <- lookupCommittish c
   case moid of
