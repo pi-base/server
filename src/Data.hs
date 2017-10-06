@@ -46,8 +46,10 @@ initializeRepo path = liftIO $ do
   putStrLn $ "Initializing repository at " ++ tshow path
   exists <- doesDirectoryExist path
   unless exists $ do
+    -- Clone initial repository along with all remote branches. See
+    -- https://stackoverflow.com/questions/67699
     putStrLn "Cloning initial repository"
-    callCommand $ "git clone https://github.com/pi-base/data.git " ++ path
+    callCommand $ "git clone --mirror https://github.com/pi-base/data.git " ++ path ++ "/.git && cd " ++ path ++ " && git config --bool core.bare false && git checkout master"
   openRepo path
 
 initializeStore :: (MonadIO m, MonadBase IO m, MonadBaseControl IO m, MonadMask m)
