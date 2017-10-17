@@ -12,8 +12,10 @@ import qualified Graph.Types as G
 import qualified Graph.Query as G
 import qualified View        as V
 
-data CreateSpaceInput = CreateSpaceInput { name :: Text, description :: Text }
-  deriving (Show, Generic)
+data CreateSpaceInput = CreateSpaceInput
+  { name        :: Text
+  , description :: Text
+  } deriving (Show, Generic)
 
 instance FromValue CreateSpaceInput
 instance HasAnnotatedInputType CreateSpaceInput
@@ -26,6 +28,7 @@ createSpace CreateSpaceInput{..} = do
   let space = Space
         { spaceId          = S.pending
         , spaceName        = name
+        , spaceAliases     = []
         , spaceDescription = description
         , spaceSlug        = slugify name
         , spaceTopology    = Nothing

@@ -12,6 +12,7 @@ type Space = Object "Space" '[]
    , Field "uid"             Text
    , Field "slug"            Text
    , Field "name"            Text
+   , Field "aliases"         (List Text)
    , Field "description"     Text
    , Field "proofOfTopology" (Maybe Text)
    , Field "traits"          (List Trait)
@@ -22,6 +23,7 @@ type Property = Object "Property" '[]
    , Field "uid"             Text
    , Field "slug"            Text
    , Field "name"            Text
+   , Field "aliases"         (List Text)
    , Field "description"     Text
    ]
 

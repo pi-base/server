@@ -17,7 +17,7 @@ parse PageData{..} = do
   propertyId      <- pageFrontmatter .: "uid"
   propertySlug    <- pageFrontmatter .: "slug"
   propertyName    <- pageFrontmatter .: "name"
-  propertyAliases <- pageFrontmatter .:? "aliases"
+  propertyAliases <- pageFrontmatter .:? "aliases" .!= []
   let propertyDescription = pageMain
   return Property{..}
 

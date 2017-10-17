@@ -12,8 +12,10 @@ import qualified Graph.Types   as G
 import qualified Graph.Query   as G
 import qualified View          as V
 
-data CreatePropertyInput = CreatePropertyInput { name :: Text, description :: Text }
-  deriving (Show, Generic)
+data CreatePropertyInput = CreatePropertyInput
+  { name        :: Text
+  , description :: Text
+  } deriving (Show, Generic)
 
 instance FromValue CreatePropertyInput
 instance HasAnnotatedInputType CreatePropertyInput
@@ -28,7 +30,7 @@ createProperty CreatePropertyInput{..} = do
         , propertyName        = name
         , propertyDescription = description
         , propertySlug        = slugify name
-        , propertyAliases     = Just []
+        , propertyAliases     = []
         }
       commit = CommitMeta user $ "Add " <> name
   (version, p) <- P.put (userBranch user) commit property

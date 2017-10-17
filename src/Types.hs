@@ -51,6 +51,7 @@ data Space = Space
   { spaceId          :: !SpaceId
   , spaceSlug        :: !Text
   , spaceName        :: !Text
+  , spaceAliases     :: ![Text]
   , spaceDescription :: !Text
   , spaceTopology    :: !(Maybe Text)
   } deriving Eq
@@ -59,7 +60,7 @@ data Property = Property
   { propertyId          :: !PropertyId
   , propertySlug        :: !Text
   , propertyName        :: !Text
-  , propertyAliases     :: !(Maybe [Text])
+  , propertyAliases     :: ![Text]
   , propertyDescription :: !Text
   } deriving Eq
 

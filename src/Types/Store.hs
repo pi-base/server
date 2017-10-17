@@ -2,7 +2,6 @@ module Types.Store where
 
 import Import.NoFoundation
 
-import Git          (MonadGit(..), Commit)
 import Git.Libgit2  (LgRepo)
 import Types        hiding (Loader)
 import Types.Loader

@@ -14,9 +14,10 @@ page = Page.build write parse
 
 parse :: PageData -> Parser Space
 parse PageData{..} = do
-  spaceId   <- pageFrontmatter .: "uid"
-  spaceSlug <- pageFrontmatter .: "slug"
-  spaceName <- pageFrontmatter .: "name"
+  spaceId      <- pageFrontmatter .: "uid"
+  spaceSlug    <- pageFrontmatter .: "slug"
+  spaceName    <- pageFrontmatter .: "name"
+  spaceAliases <- pageFrontmatter .:? "aliases" .!= []
   let spaceDescription = pageMain
       spaceTopology = HM.lookup "Proof of Topology" $ pageSections
   return Space{..}
