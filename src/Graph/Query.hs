@@ -64,6 +64,7 @@ presentTrait :: Monad m
 presentTrait t@Trait{..} = pure $ pure "Trait"
   :<> presentProperty _traitProperty
   :<> pure _traitValue
+  :<> pure _traitDescription
 
 presentTheorem :: Monad m => Theorem PropertyId -> Handler m G.Theorem
 presentTheorem t@Theorem{..} = pure $ pure "Theorem"
@@ -137,6 +138,7 @@ loadTrait :: MonadStore m => GL.Loader -> Space -> (PropertyId, TVal) -> Handler
 loadTrait loader space (pid, tval) = pure $ pure "Trait"
   :<> (GL.loadProperty loader pid >>= presentProperty)
   :<> pure tval
+  :<> (_traitDescription <$> GL.loadTrait loader (spaceId space) pid)
 
 encodeFormula :: Formula PropertyId -> Text
 encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unPropertyId

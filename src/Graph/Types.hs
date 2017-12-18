@@ -28,9 +28,10 @@ type Property = Object "Property" '[]
    ]
 
 type Trait = Object "Trait" '[]
-  '[ Field "__typename" Text
-   , Field "property"   Property
-   , Field "value"      Bool
+  '[ Field "__typename"  Text
+   , Field "property"    Property
+   , Field "value"       Bool
+   , Field "description" Text
    ]
 
 type Theorem = Object "Theorem" '[]

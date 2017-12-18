@@ -5,6 +5,7 @@ module Graph.Loader
   , loadProperty
   , allSpaces
   , allTheorems
+  , loadTrait
   , spaceTraits
   , version
   ) where
@@ -39,6 +40,13 @@ loadProperty loader pid = do
   case find (\p -> propertyId p == pid) properties of
     Just found -> return found
     Nothing -> Core.throwM . Types.NotFound $ unPropertyId pid
+
+loadTrait :: MonadStore m => Loader -> SpaceId -> PropertyId -> m (Trait SpaceId PropertyId)
+loadTrait loader sid pid = do
+  mtrait <- Parse.trait (commit loader) sid pid
+  case mtrait of
+    Left    err -> Core.throwM err
+    Right trait -> return trait
 
 allSpaces :: MonadStore m => Loader -> m [Space]
 allSpaces Loader{..} = storeLoad spaces $ Parse.spaces commit

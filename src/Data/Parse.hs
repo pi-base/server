@@ -8,6 +8,7 @@ module Data.Parse
   , spaces
   , properties
   , traits
+  , trait
   , allTraits
   , theorems
   , spaceEntries
@@ -27,8 +28,8 @@ import           Git
 
 import Core
 import Conduit
-import Control.Lens (set)
-import Data.Git     (commitVersion, getDir, lookupCommittish)
+import Control.Lens      (set)
+import Data.Git          (commitVersion, getDir, lookupCommittish)
 import Util
 
 import qualified Page
@@ -234,6 +235,21 @@ allTraits :: MonadStore m => Commit LgRepo -> ConduitM () (Trait SpaceId Propert
 allTraits commit = traitEntries commit
                 .| parseEntry Page.Trait.page
                 .| discardLeftC
+
+trait :: MonadStore m
+      => Commit LgRepo
+      -> SpaceId
+      -> PropertyId
+      -> m (Either Error (Trait SpaceId PropertyId))
+trait commit sid pid = do
+  tree <- lookupTree $ commitTree commit
+  let path = "spaces/" <> unSpaceId sid <> "/properties/" <> unPropertyId pid <> ".md"
+  mfile <- treeEntry tree (encodeUtf8 path)
+  case mfile of
+    Just (BlobEntry oid _) -> do
+      blob <- catBlobUtf8 oid
+      return $ Page.parse Page.Trait.page (encodeUtf8 path, blob)
+    _ -> return . Left $ NotFound path
 
 traits :: MonadStore m
        => Commit LgRepo
