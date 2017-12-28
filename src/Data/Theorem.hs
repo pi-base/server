@@ -20,10 +20,10 @@ find :: MonadStore m => Committish -> TheoremId -> m (Maybe (Theorem Property))
 find = Data.Parse.findTheorem
 
 fetch :: (MonadStore m, MonadThrow m) => Committish -> TheoremId -> m (Theorem Property)
-fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unTheoremId _id) return
+fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return
 
 pending :: TheoremId
-pending = TheoremId ""
+pending = Id ""
 
 put :: (MonadStore m, MonadThrow m) => Ref -> CommitMeta -> Theorem PropertyId -> m (Either [Error] View)
 put ref meta theorem' = do
@@ -42,6 +42,6 @@ put ref meta theorem' = do
 assignId :: MonadIO m => Theorem p -> m (Theorem p)
 assignId t = if theoremId t == pending
   then do
-    _id <- makeId TheoremId "t"
+    _id <- makeId "t"
     return $ t { theoremId = _id }
   else return t

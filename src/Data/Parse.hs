@@ -183,7 +183,7 @@ cloader' tree = do
                 .| filterC (\Theorem{..} -> inIds ids theoremId)
 
     clTraits sid = do
-      let root = "spaces/" <> (encodeUtf8 $ unSpaceId sid) <> "/properties"
+      let root = "spaces/" <> (encodeUtf8 $ unId sid) <> "/properties"
       source <- getSource tree root
       props  <- sourceToList $ source .| withPages Page.Trait.page (\t -> (_traitProperty t, _traitValue t)) .| discardLeftC
       return $ Right $ M.fromList props
@@ -224,7 +224,7 @@ hydratedTheorems :: MonadStore m
                  -> ConduitM () (Either Error (Theorem Property)) m ()
 hydratedTheorems commit ps = theorems commit .| mapRightC hydrate
   where
-    hydrate = mapLeft (ReferenceError "hydrateTheorem" . map unPropertyId)
+    hydrate = mapLeft (ReferenceError "hydrateTheorem" . map unId)
             . hydrateTheorem (indexBy propertyId ps)
 
 traitEntries :: MonadGit r m => Commit r -> EntrySource m r
@@ -243,7 +243,7 @@ trait :: MonadStore m
       -> m (Either Error (Trait SpaceId PropertyId))
 trait commit sid pid = do
   tree <- lookupTree $ commitTree commit
-  let path = "spaces/" <> unSpaceId sid <> "/properties/" <> unPropertyId pid <> ".md"
+  let path = "spaces/" <> unId sid <> "/properties/" <> unId pid <> ".md"
   mfile <- treeEntry tree (encodeUtf8 path)
   case mfile of
     Just (BlobEntry oid _) -> do
@@ -274,9 +274,9 @@ traits commit ss ps = traitEntries commit
     paths :: S.Set TreeFilePath
     paths = S.fromList
       [ "spaces/"
-      <> (encodeUtf8 $ unSpaceId $ spaceId s)
+      <> (encodeUtf8 $ unId $ spaceId s)
       <> "/properties/"
-      <> (encodeUtf8 $ unPropertyId $ propertyId p)
+      <> (encodeUtf8 $ unId $ propertyId p)
       <> ".md"
       | s <- ss, p <- ps
       ]
@@ -315,6 +315,6 @@ parseEntry page = blobs .| mapC (Page.parse page)
 hydrateTrait :: Map SpaceId s -> Map PropertyId p -> Trait SpaceId PropertyId -> Either Error (Trait s p)
 hydrateTrait sx px t@Trait{..} = case (M.lookup _traitSpace sx, M.lookup _traitProperty px) of
   (Just s, Just p) -> Right . set traitSpace s $ set traitProperty p t
-  (Just _, _) -> Left $ ReferenceError "hydrateTrait" [unPropertyId _traitProperty]
-  (_, Just _) -> Left $ ReferenceError "hydrateTrait" [unSpaceId _traitSpace]
-  _           -> Left $ ReferenceError "hydrateTrait" [unPropertyId _traitProperty, unSpaceId _traitSpace]
+  (Just _, _) -> Left $ ReferenceError "hydrateTrait" [unId _traitProperty]
+  (_, Just _) -> Left $ ReferenceError "hydrateTrait" [unId _traitSpace]
+  _           -> Left $ ReferenceError "hydrateTrait" [unId _traitProperty, unId _traitSpace]

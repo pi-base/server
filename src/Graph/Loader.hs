@@ -39,7 +39,7 @@ loadProperty loader pid = do
   properties <- allProperties loader
   case find (\p -> propertyId p == pid) properties of
     Just found -> return found
-    Nothing -> Core.throwM . Types.NotFound $ unPropertyId pid
+    Nothing -> Core.throwM . Types.NotFound $ unId pid
 
 loadTrait :: MonadStore m => Loader -> SpaceId -> PropertyId -> m (Trait SpaceId PropertyId)
 loadTrait loader sid pid = do

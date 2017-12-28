@@ -10,15 +10,18 @@ module Util
   , mapRightC
   , traceC
   , unionN
+  , traverseDir
   ) where
 
 import ClassyPrelude hiding (groupBy)
 
-import           Conduit        hiding (throwM)
-import           Data.Aeson     (ToJSON, encode)
-import qualified Data.Map       as M
-import qualified Data.Set       as S
-import qualified Data.Text.Lazy as TL
+import           Conduit            hiding (throwM)
+import           Data.Aeson         (ToJSON, encode)
+import qualified Data.Map           as M
+import qualified Data.Set           as S
+import qualified Data.Text.Lazy     as TL
+import           System.Directory   (listDirectory)
+import           System.Posix.Files (getFileStatus, isDirectory)
 
 groupBy :: Ord b => (a -> b) -> [a] -> M.Map b [a]
 groupBy f = foldl' add M.empty
@@ -72,3 +75,15 @@ discardLeftC = awaitForever $ either (const $ return ()) yield
 
 traceC :: (Monad m, Show d) => (o -> d) -> ConduitM o o m ()
 traceC f = mapC $ \x -> trace (show $ f x) x
+
+traverseDir :: (a -> FilePath -> IO a) -> FilePath -> a -> IO a
+traverseDir f top = go [top]
+  where
+    go (path : rest) acc = do
+      stat <- getFileStatus path
+      if isDirectory stat
+        then do
+          children <- listDirectory path
+          go (rest <> map (\d -> path </> d) children) acc
+        else f acc path >>= go rest
+    go [] acc = return acc

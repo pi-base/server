@@ -20,27 +20,28 @@ instance Arbitrary Uid where
 instance Arbitrary PropertyId where
   arbitrary = do
     n <- arbitrary
-    return . PropertyId $ tshow (n :: Int)
+    return . Id $ tshow (n :: Int)
 
 instance Arbitrary Core.Property where
   arbitrary = Property
     <$> arbitrary
     <*> string
     <*> string
-    <*> pure Nothing
+    <*> pure []
     <*> pure "description"
 
 instance Arbitrary SpaceId where
   arbitrary = do
     n <- arbitrary
-    return . SpaceId $ tshow (n :: Int)
+    return . Id $ tshow (n :: Int)
 
 instance Arbitrary Space where
   arbitrary = Space
     <$> arbitrary
     <*> string
     <*> string
-    <*> pure "desc"
+    <*> pure []
+    <*> pure "description"
     <*> pure Nothing
 
 string = fmap T.pack arbitrary

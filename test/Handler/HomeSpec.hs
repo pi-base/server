@@ -4,7 +4,7 @@ import TestImport
 
 spec :: Spec
 spec = withApp $
-  describe "Homepage" $ do
+  xdescribe "Homepage" $ do
     it "loads the index and checks it looks right" $ do
       get HomeR
 

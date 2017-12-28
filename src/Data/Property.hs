@@ -23,10 +23,10 @@ find :: MonadStore m => Committish -> PropertyId -> m (Maybe Property)
 find = Data.Parse.findProperty
 
 fetch :: (MonadStore m, MonadThrow m) => Committish -> PropertyId -> m Property
-fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unPropertyId _id) return
+fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return
 
 pending :: PropertyId
-pending = PropertyId ""
+pending = Id ""
 
 put :: (MonadStore m, MonadThrow m)
     => Ref -> CommitMeta -> Property -> m (Version, Property)
@@ -38,7 +38,7 @@ put ref meta prop' = do
 assignId :: MonadIO m => Property -> m Property
 assignId p = if propertyId p == pending
   then do
-    _id <- makeId PropertyId "p"
+    _id <- makeId "p"
     return $ p { propertyId = _id }
   else return p
 

@@ -1,8 +1,13 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE Rank2Types #-}
-module Types where
+{-# LANGUAGE
+    DeriveFunctor
+  , DeriveTraversable
+  , FunctionalDependencies
+  , Rank2Types
+#-}
+module Types
+  ( module Types
+  , module X
+  ) where
 
 import Import.NoFoundation
 import Control.Lens (Prism', makeLenses)
@@ -12,16 +17,21 @@ import Git (TreeFilePath)
 import qualified Data.Aeson          as Aeson (Object)
 import qualified Data.HashMap.Strict as HM
 
+import Types.Base as X
+
 type    Uid     = Text
 type    Record  = (TreeFilePath, Text)
 newtype Version = Version { unVersion :: Text } deriving (Eq, ToJSON, FromJSON)
 
 newtype Ref     = Ref Text deriving (Eq, Show)
-data Committish = CommitRef Ref | CommitSha Text deriving (Eq, Show)
+type    Sha     = Text
+data Committish = CommitRef Ref | CommitSha Sha deriving (Eq, Show)
 
-newtype SpaceId    = SpaceId    { unSpaceId    :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
-newtype PropertyId = PropertyId { unPropertyId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
-newtype TheoremId  = TheoremId  { unTheoremId  :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
+newtype Id a = Id { unId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
+
+type SpaceId    = Id Space
+type PropertyId = Id Property
+type TheoremId  = Id (Theorem PropertyId)
 
 type TraitId = (SpaceId, PropertyId)
 type TVal = Bool
@@ -137,4 +147,10 @@ data CLoader m = CLoader
 data CommitMeta = CommitMeta
   { commitUser    :: User
   , commitMessage :: Text
+  }
+
+data BranchStatus = BranchStatus
+  { branch       :: Branch
+  , branchHead   :: Sha
+  , branchAccess :: BranchAccess
   }

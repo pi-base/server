@@ -13,3 +13,12 @@ Token
   uuid Text
   UniqueToken uuid
   deriving Typeable
+
+Branch
+  name Text
+  ownerId UserId Maybe
+
+UserBranch
+  userId UserId
+  branchId BranchId
+  role BranchAccess

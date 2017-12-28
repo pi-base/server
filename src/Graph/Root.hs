@@ -1,9 +1,13 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE
+    DataKinds
+  , DeriveGeneric
+  , TypeApplications
+  , TypeOperators
+#-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Graph.Root
-  ( query
+  ( Graph.Root.query
+  , exec
   ) where
 
 import Graph.Import
@@ -18,61 +22,50 @@ import Data.Text                   (Text)
 import GraphQL                     (VariableValues)
 import GraphQL.Value               (makeName, objectFromList)
 import GraphQL.Value.ToValue       (ToValue(..), toValue)
-import GraphQL.Internal.Syntax.AST (Name(..), Variable(..))
+import GraphQL.Internal.Syntax.AST (Variable(..))
+import GraphQL.Internal.Validation (QueryDocument, VariableValue)
 
 import Core (Maybe)
 
-import Graph.Query    as G
-import Graph.Types    as G
-
 import Graph.Mutations
+import Graph.Queries   as G
+import Graph.Types     as G
 
-data Operation = Named Name | Anonymous deriving Show
 
-type QueryRoot = Graph.Import.Object "QueryRoot" '[]
-  '[ Field "__typename" Text
-   , Argument "version" (Maybe Text) :> Field "viewer" Viewer
-   , Field "me" G.User
-   -- Mutations
-   , Argument "input" CreateSpaceInput    :> Field "createSpace"    Viewer
-   , Argument "input" CreatePropertyInput :> Field "createProperty" Viewer
-   , Argument "input" UpdateSpaceInput    :> Field "updateSpace"    Viewer
-   , Argument "input" UpdatePropertyInput :> Field "updateProperty" Viewer
-   , Argument "input" UpdateTheoremInput  :> Field "updateTheorem"  Viewer
-   , Argument "input" AssertTraitInput    :> Field "assertTrait"    Viewer
-   , Argument "input" AssertTheoremInput  :> Field "assertTheorem"  Viewer
-   , Argument "input" TestResetInput      :> Field "testReset"      TestResetResponse
-   ]
+patchMutations :: MonadGraph m => PatchInput -> Handler m PatchMutation
+patchMutations PatchInput{..} = do
+  $(logInfo) $ "Patching branch " <> branch <> " at sha " <> sha
+  -- TODO:
+  --   401 if user does not have write access to branch
+  --   409 if sha does not match head of branch
+  return $ pure "PatchMutation"
+    :<> createSpace
+    :<> createProperty
+    :<> updateSpace
+    :<> updateProperty
+    :<> updateTheorem
+    :<> assertTrait
+    :<> assertTheorem
 
-data QueryData = QueryData
-  { qOperation :: Operation
-  , qQuery     :: Text
-  , qVariables :: Maybe Aeson.Object
-  } deriving Show
-
-queryRoot :: G QueryRoot
-queryRoot = pure $ pure "Query"
+rootHandler :: MonadGraph m => Handler m Root
+rootHandler = pure $ pure "Query"
   :<> G.viewer
   :<> G.user
   -- Mutations
-  :<> createSpace
-  :<> createProperty
-  :<> updateSpace
-  :<> updateProperty
-  :<> updateTheorem
-  :<> assertTrait
-  :<> assertTheorem
+  :<> patchMutations
   :<> testReset
 
 query :: QueryData -> Import.Handler Aeson.Value
-query q = (Aeson.toJSON . toValue) <$> runQuery queryRoot q
+query q = (Aeson.toJSON . toValue) <$> runQuery rootHandler q
 
-runQuery :: Monad m => Handler m QueryRoot -> QueryData -> m Response
-runQuery root QueryData{..} = interpretQuery @QueryRoot root qQuery operation (buildVariables qVariables)
+runQuery :: Monad m => Handler m Root -> QueryData -> m Response
+runQuery root QueryData{..} = interpretQuery @Root root query (op operation) (buildVariables variables)
   where
-    operation = case qOperation of
-      Named name -> Just name
-      Anonymous  -> Nothing
+    op (Named name) = Just name
+    op _ = Nothing
+
+exec :: MonadGraph m => QueryDocument VariableValue -> Maybe Aeson.Object -> m Aeson.Value
+exec q vars = (Aeson.toJSON . toValue) <$> executeQuery @Root rootHandler q Nothing (buildVariables vars)
 
 instance FromJSON QueryData where
   parseJSON = Aeson.withObject "QueryData" $ \o -> QueryData

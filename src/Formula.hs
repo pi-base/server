@@ -114,7 +114,7 @@ instance ToJSON (Formula Text) where
   toJSON (Atom p v)  = object [ p A..= v ]
 
 instance ToJSON (Formula PropertyId) where
-  toJSON f = toJSON $ unPropertyId <$> f
+  toJSON f = toJSON $ unId <$> f
 
 
 properties :: (Ord a) => Formula a -> S.Set a

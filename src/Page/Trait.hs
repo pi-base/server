@@ -14,7 +14,7 @@ page :: Page (Trait SpaceId PropertyId)
 page = Page.build write parse
 
 path :: Trait SpaceId PropertyId -> TreeFilePath
-path Trait{..} = encodeUtf8 $ "spaces/" <> (unSpaceId _traitSpace) <> "/properties/" <> (unPropertyId _traitProperty) <> ".md"
+path Trait{..} = encodeUtf8 $ "spaces/" <> (unId _traitSpace) <> "/properties/" <> (unId _traitProperty) <> ".md"
 
 parse :: PageData -> Parser (Trait SpaceId PropertyId)
 parse PageData{..} = do

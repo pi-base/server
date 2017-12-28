@@ -6,7 +6,8 @@ module Data.Git
   , openRepo
   , commitFromLabel
   , resolveCommittish
-  -- , useRepo
+  , headSha
+  , useRepo
   , useRef
   , writeContents
   , ensureUserBranch
@@ -107,6 +108,7 @@ commitFromLabel (Just label) = do
     Nothing -> do
       mref <- resolveCommittish $ CommitRef $ Ref label
       maybe baseCommit return mref
+
 
 baseCommit :: MonadStore m => m (Commit LgRepo)
 baseCommit = do
@@ -210,6 +212,14 @@ writeContents user message files = do
     forM_ files $ \(path, contents) -> do
       (lift $ createBlobUtf8 contents) >>= putBlob path
   return $ commitVersion <$> ec
+
+
+headSha :: MonadGit LgRepo m => Branch -> m Sha
+headSha Branch{..} = do
+  found <- lookupCommittish $ CommitRef $ Ref branchName
+  case found of
+    Just oid -> return $ tshow oid
+    Nothing -> error $ "Could not find branch " <> show branchName
 
 lookupCommittish :: MonadGit LgRepo m => Committish -> m (Maybe (Oid LgRepo))
 lookupCommittish (CommitRef ref) = resolveReference $ refHead ref

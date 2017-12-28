@@ -5,7 +5,7 @@ module Core
   ( module Core
   ) where
 
-import ClassyPrelude                    as Core
+import ClassyPrelude                    as Core hiding (Handler)
 import Control.Applicative              as Core ((<|>))
 import Control.Monad.IO.Class           as Core (MonadIO, liftIO)
 import Control.Monad.Reader             as Core (MonadReader(..), ReaderT, asks, runReaderT)
@@ -24,6 +24,7 @@ import Data.Void                        as Core (Void)
 import Git                              as Core (TreeFilePath, MonadGit, Commit, CommitMessage)
 import Git.Libgit2                      as Core (LgRepo)
 
+import Class as Core
 import Model as Core
 import Types as Core
 import Types.Store as Core (Store)
@@ -109,20 +110,15 @@ hydrateTheorem props theorem =
       (_, Left bs) -> Left bs
       (Right a', Right c') -> Right $ theorem { theoremImplication = Implication a' c' }
 
-instance Show SpaceId where
-  show = T.unpack . unSpaceId
-
-instance Show PropertyId where
-  show = T.unpack . unPropertyId
-
-instance Show TheoremId where
-  show = T.unpack . unTheoremId
+-- TODO: move instances to Class.hs
+instance Show (Id a) where
+  show = T.unpack . unId
 
 instance Show Space where
-  show Space{..} = T.unpack $ "<" <> unSpaceId spaceId <> "|" <> spaceName <> ">"
+  show Space{..} = T.unpack $ "<" <> unId spaceId <> "|" <> spaceName <> ">"
 
 instance Show Property where
-  show Property{..} = T.unpack $ "<" <> unPropertyId propertyId <> "|" <> propertyName <> ">"
+  show Property{..} = T.unpack $ "<" <> unId propertyId <> "|" <> propertyName <> ">"
 
 instance Show p => Show (Implication p) where
   show (Implication a c) = show a ++ " => " ++ show c
@@ -152,6 +148,3 @@ instance Monoid View where
     }
 
   mempty = View mempty mempty mempty mempty mempty Nothing
-
-class (MonadBaseControl IO m, MonadIO m, MonadMask m, MonadGit LgRepo m) => MonadStore m where
-  getStore :: m Store

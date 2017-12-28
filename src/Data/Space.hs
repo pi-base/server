@@ -24,10 +24,10 @@ find :: MonadStore m => Committish -> SpaceId -> m (Maybe Space)
 find = Data.Parse.findSpace
 
 fetch :: (MonadStore m, MonadThrow m) => Committish -> SpaceId -> m Space
-fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unSpaceId _id) return
+fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return
 
 pending :: SpaceId
-pending = SpaceId ""
+pending = Id ""
 
 put :: (MonadStore m, MonadThrow m) => Ref -> CommitMeta -> Space -> m (Version, Space)
 put ref meta space' = do
@@ -38,7 +38,7 @@ put ref meta space' = do
 assignId :: MonadIO m => Space -> m Space
 assignId p = if spaceId p == pending
   then do
-    _id <- makeId SpaceId "s"
+    _id <- makeId "s"
     return $ p { spaceId = _id }
   else return p
 

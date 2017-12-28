@@ -1,32 +1,53 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
-module Graph.Query
-  ( presentView
+{-#
+  LANGUAGE
+    TypeApplications
+  , TypeOperators
+#-}
+module Graph.Queries
+  ( compileAll
+  , presentView
   , user
   , viewer
   ) where
 
-import Graph.Import
+import Graph.Import hiding (readFile)
 
 import qualified Data.Aeson
 import qualified Data.Text.Lazy as TL
 import           Database.Persist.Types (Entity(..))
 
-import           Core            hiding (Handler)
-import           Data.Git        as Git
-import qualified Data.Map        as M
-import           Formula         (Formula)
-import qualified Graph.Loader    as GL
-import qualified Graph.Types     as G
-import           Handler.Helpers (requireToken)
-import           Model           (User(..))
+import           Core         hiding (readFile)
+import           Data.Branch  (userBranches)
+import           Data.Git     as Git
+import qualified Data.Map     as M
+import           Data.Text.IO (readFile)
+import           Formula      (Formula)
+import qualified Graph.Loader as GL
+import qualified Graph.Types  as G
+import           Model        (User(..))
+import           Types        (BranchAccess(..))
+import           Util         (traverseDir)
 
-user :: G G.User
+compileAll :: IO (Map FilePath (Either QueryError G.Query))
+compileAll = do
+  let
+    Right schema = makeSchema @G.Root
+    f acc path = do
+        contents <- readFile path
+        return $ M.insert path (compileQuery schema contents) acc
+  queries   <- traverseDir f "graph/queries" mempty
+  mutations <- traverseDir f "graph/mutations" mempty
+  return $ queries <> mutations
+
+user :: MonadGraph m => Handler m G.User
 user = do
-  (Entity _id User{..}) <- requireToken
-  return $ pure "User" :<> pure userName
+  u@(Entity _id User{..}) <- requireUser
+  branches <- userBranches u
+  return $ pure "User"
+    :<> pure userName
+    :<> pure (map presentBranch branches)
 
-viewer :: Maybe Text -> G G.Viewer
+viewer :: MonadGraph m => Maybe Text -> Handler m G.Viewer
 viewer mver = do
   commit <- Git.commitFromLabel mver
   loader <- GL.mkLoader commit
@@ -37,12 +58,22 @@ viewer mver = do
     :<> loadTheorems loader
 
 -- Pure presenters (unify with m ~ Identity)
+presentBranch :: Monad m => BranchStatus -> Handler m G.Branch
+presentBranch BranchStatus{..} = pure $ pure "Branch"
+  :<> pure (branchName branch)
+  :<> pure (serializeAccess branchAccess)
+  :<> pure branchHead
+  where
+    serializeAccess BranchRead = "read"
+    serializeAccess BranchWrite = "write"
+    serializeAccess BranchAdmin = "admin"
+
 presentSpace :: Monad m
              => Space
              -> [Trait s Property]
              -> Handler m G.Space
 presentSpace Space{..} traits = pure $ pure "Space"
-  :<> pure (unSpaceId spaceId)
+  :<> pure (unId spaceId)
   :<> pure spaceSlug
   :<> pure spaceName
   :<> pure (map pure spaceAliases)
@@ -52,7 +83,7 @@ presentSpace Space{..} traits = pure $ pure "Space"
 
 presentProperty :: Monad m => Property -> Handler m G.Property
 presentProperty Property{..} = pure $ pure "Property"
-  :<> pure (unPropertyId propertyId)
+  :<> pure (unId propertyId)
   :<> pure propertySlug
   :<> pure propertyName
   :<> pure (map pure propertyAliases)
@@ -68,7 +99,7 @@ presentTrait t@Trait{..} = pure $ pure "Trait"
 
 presentTheorem :: Monad m => Theorem PropertyId -> Handler m G.Theorem
 presentTheorem t@Theorem{..} = pure $ pure "Theorem"
-  :<> pure (unTheoremId theoremId)
+  :<> pure (unId theoremId)
   :<> pure (encodeFormula $ theoremIf t)
   :<> pure (encodeFormula $ theoremThen t)
   :<> pure theoremDescription
@@ -121,7 +152,7 @@ loadSpace :: MonadStore m
           -> Space
           -> Handler m G.Space
 loadSpace loader s@Space{..} = pure $ pure "Space"
-  :<> pure (unSpaceId spaceId)
+  :<> pure (unId spaceId)
   :<> pure spaceSlug
   :<> pure spaceName
   :<> pure (map pure spaceAliases)
@@ -141,4 +172,4 @@ loadTrait loader space (pid, tval) = pure $ pure "Trait"
   :<> (_traitDescription <$> GL.loadTrait loader (spaceId space) pid)
 
 encodeFormula :: Formula PropertyId -> Text
-encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unPropertyId
+encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unId

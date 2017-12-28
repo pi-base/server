@@ -15,7 +15,7 @@ module Application
 
 import Control.Monad.Logger                 (liftLoc, runLoggingT)
 import qualified Data.Text                  as T
-import Database.Persist.Sqlite              (createSqlitePool, runSqlPool,
+import Database.Persist.Sqlite              (ConnectionPool, createSqlitePool, runSqlPool,
                                              sqlDatabase, sqlPoolSize)
 import Import
 import Language.Haskell.TH.Syntax           (qLocation)
@@ -35,8 +35,9 @@ import System.Exit                          (die)
 import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
                                              toLogStr)
 
-import Data  (initializeStore)
-import Types (Ref(..))
+import Data       (initializeStore)
+import Data.Store (Store)
+import Types      (Ref(..))
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
@@ -62,19 +63,26 @@ makeFoundation appSettings = do
     appStatic <-
         (if appMutableStatic appSettings then staticDevel else static)
         (appStaticDir appSettings)
-    appStore <- initializeStore (appRepoPath appSettings) (Ref $ appDefaultBranch appSettings)
 
     -- We need a log function to create a connection pool. We need a connection
     -- pool to create our foundation. And we need our foundation to get a
     -- logging function. To get out of this loop, we initially create a
     -- temporary foundation without a real connection pool, get a log function
     -- from there, and then create the real foundation.
-    let mkFoundation appConnPool = App {..}
+    let
+        mkFoundation :: ConnectionPool -> Store -> App
+        mkFoundation appConnPool appStore = App {..}
         -- The App {..} syntax is an example of record wild cards. For more
         -- information, see:
         -- https://ocharles.org.uk/blog/posts/2014-12-04-record-wildcards.html
-        tempFoundation = mkFoundation $ error "connPool forced in tempFoundation"
+        tempFoundation :: App
+        tempFoundation = mkFoundation
+          (error "connPool forced in tempFoundation")
+          (error "store forced in tempFoundation")
         logFunc = messageLoggerSource tempFoundation appLogger
+
+    store <- flip runLoggingT logFunc $
+      initializeStore (appRepoPath appSettings) (Ref $ appDefaultBranch appSettings)
 
     -- Create the database connection pool
     pool <- flip runLoggingT logFunc $ createSqlitePool
@@ -85,7 +93,7 @@ makeFoundation appSettings = do
     runLoggingT (runSqlPool (runMigration migrateAll) pool) logFunc
 
     -- Return the foundation
-    return $ mkFoundation pool
+    return $ mkFoundation pool store
 
 checkEnv :: IO ()
 checkEnv = do

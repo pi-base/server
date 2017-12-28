@@ -1,0 +1,72 @@
+type Space {
+  uid: ID!
+  name: String!
+  description: String!
+  traits: [Trait!]!
+}
+
+type Property {
+  uid: ID!
+  name: String!
+  description: String!
+}
+
+type Trait {
+  property: Property!
+  value: Boolean!
+  description: String!
+}
+
+type Theorem {
+  uid: ID!
+  if: String!
+  then: String!
+  description: String!
+}
+
+type User {
+  name: String!
+}
+
+type Viewer {
+  spaces: [Space!]!
+  properties: [Property!]!
+  theorems: [Theorem!]!
+  version: String!
+}
+
+type Query {
+  me: User
+  viewer(version: String): Viewer!
+}
+
+input CreateSpaceInput {
+  name: String!
+  description: String!
+}
+
+input CreatePropertyInput {
+  name: String!
+  description: String!
+}
+
+input TestResetInput {
+  token: String
+  ref: String!
+}
+
+type TestResetResponse {
+  version: String!
+  token: String
+}
+
+type Mutation {
+  createSpace(input: CreateSpaceInput): Viewer
+  createProperty(input: CreatePropertyInput): Viewer
+  testReset(input: TestResetInput!): TestResetResponse
+}
+
+schema {
+  query: Query
+  mutation: Mutation
+}

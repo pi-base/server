@@ -5,8 +5,7 @@ module Handler.Util
   ) where
 
 import Import
-import Core hiding (Handler)
-
+import Core
 
 import Control.Lens hiding ((.=))
 import Data
@@ -36,7 +35,6 @@ deleteDerivedTraits ref = withViewerAt ref $ \v@View{..} -> do
     let deduced = catMaybes $ map (\(t, mp) -> maybe Nothing (const $ Just t) mp) $ V.traits v
     putStrLn $ "Deleting " <> (tshow $ length deduced) <> " traits"
     mapM_ (dropEntry . error "path") deduced
-  putStrLn "Done"
 
 writeProofs :: Text -> Handler ()
 writeProofs ref = withViewerAt ref $ \v@View{..} -> do
@@ -60,7 +58,7 @@ migrateReferences ref = do
     ss <- runConduit $ P.spaceEntries commit
        .| P.blobs
        .| mapC (Page.withFrontmatter $ \f -> do
-                   uid  <- SpaceId <$> f .: "uid"
+                   uid  <- Id <$> f .: "uid"
                    slug <- f .: "slug"
                    return (slug, uid))
        .| throwLeftC
@@ -69,7 +67,7 @@ migrateReferences ref = do
     ps <- runConduit $ P.propertyEntries commit
        .| P.blobs
        .| mapC (Page.withFrontmatter $ \f -> do
-                   uid  <- PropertyId <$> f .: "uid"
+                   uid  <- Id <$> f .: "uid"
                    slug <- f .: "slug"
                    return (slug, uid))
        .| throwLeftC
@@ -90,11 +88,11 @@ migrateReferences ref = do
     Git.updateRef (Ref ref) commitMessage $ do
       forM_ (M.toList ss) $ \(slug, uid) -> do
         Git.move (encodeUtf8 $ "spaces/" <> slug <> "/README.md")
-                 (encodeUtf8 $ "spaces/" <> unSpaceId uid <> "/README.md")
+                 (encodeUtf8 $ "spaces/" <> unId uid <> "/README.md")
 
       forM_ (M.toList ps) $ \(slug, uid) -> do
         Git.move (encodeUtf8 $ "properties/" <> slug <> ".md")
-                 (encodeUtf8 $ "properties/" <> unPropertyId uid <> ".md")
+                 (encodeUtf8 $ "properties/" <> unId uid <> ".md")
 
       nTheorem <- runConduit $ (transPipe lift $ P.theoremEntries commit .| P.blobs)
                             .| mapMC (moveWith $ updateTheorem ps)
@@ -111,8 +109,8 @@ updateTrait :: Map Slug SpaceId
             -> (TreeFilePath, Text)
             -> Either Error (TreeFilePath, Text)
 updateTrait ss ps = Page.updateMetadata $ \(_, meta) -> do
-  pid <- fmap unPropertyId . lookupEither ps $ meta ^. key "property" . _String
-  sid <- fmap unSpaceId    . lookupEither ss $ meta ^. key "space"    . _String
+  pid <- fmap unId . lookupEither ps $ meta ^. key "property" . _String
+  sid <- fmap unId . lookupEither ss $ meta ^. key "space"    . _String
   let meta' = meta & key "space" .~ String sid & key "property" .~ String pid
       path' = encodeUtf8 $ "spaces/" <> sid <> "/properties/" <> pid <> ".md"
   return (path', meta')

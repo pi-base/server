@@ -16,7 +16,7 @@ parse :: PageData -> Parser (Theorem PropertyId)
 parse PageData{..} = do
   theoremId          <- pageFrontmatter .: "uid"
   theoremConverse    <- pageFrontmatter .:? "converse"
-  theoremImplication <- fmap PropertyId <$>
+  theoremImplication <- fmap Id <$>
     ( Implication
       <$> pageFrontmatter .: "if"
       <*> pageFrontmatter .: "then"
@@ -26,11 +26,11 @@ parse PageData{..} = do
 
 write :: Theorem PropertyId -> PageData
 write t@Theorem{..} = PageData
-  { pagePath = encodeUtf8 $ "theorems/" <> unTheoremId theoremId <> ".md"
+  { pagePath = encodeUtf8 $ "theorems/" <> unId theoremId <> ".md"
   , pageFrontmatter = HM.fromList
     [ "uid"      .= theoremId
-    , "if"       .= (unPropertyId <$> theoremIf t)
-    , "then"     .= (unPropertyId <$> theoremThen t)
+    , "if"       .= (unId <$> theoremIf t)
+    , "then"     .= (unId <$> theoremThen t)
     , "converse" .= theoremConverse
     ]
   , pageMain = theoremDescription

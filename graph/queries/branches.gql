@@ -1,0 +1,7 @@
+query Branches {
+  branches {
+    name
+    sha
+    access
+  }
+}

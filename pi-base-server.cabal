@@ -18,6 +18,7 @@ library
                      Import
                      Import.NoFoundation
                      Model
+                     Model.Fields
                      Settings
                      Settings.StaticFiles
                      Handler.Common
@@ -26,8 +27,10 @@ library
                      Handler.Home
                      Handler.Util
                      -- src
+                     Class
                      Core
                      Data
+                     Data.Branch
                      Data.Git
                      Data.Loader
                      Data.Parse
@@ -39,16 +42,8 @@ library
                      Formula
                      Graph.Import
                      Graph.Mutations
-                     Graph.Mutations.AssertTrait
-                     Graph.Mutations.AssertTheorem
-                     Graph.Mutations.CreateProperty
-                     Graph.Mutations.CreateSpace
-                     Graph.Mutations.TestReset
-                     Graph.Mutations.UpdateProperty
-                     Graph.Mutations.UpdateSpace
-                     Graph.Mutations.UpdateTheorem
                      Graph.Loader
-                     Graph.Query
+                     Graph.Queries
                      Graph.Root
                      Graph.Types
                      Logic
@@ -59,6 +54,7 @@ library
                      Page.Trait
                      Services.Github
                      Types
+                     Types.Base
                      Types.Loader
                      Types.Store
                      Util
@@ -159,6 +155,8 @@ library
                  , transformers
                  , wai-cors
                  , yesod-auth-oauth2
+                 , esqueleto
+                 , unix
                  -- FIXME: only used for `git fetch`
                  , process
 
@@ -196,6 +194,7 @@ test-suite test
     other-modules:     Handler.CommonSpec
                        Handler.GraphSpec
                        Handler.HomeSpec
+                       GraphSpec
                        PageSpec
                        TestImport
     hs-source-dirs:    test
@@ -246,3 +245,8 @@ test-suite test
                  , unordered-containers >= 0.2
                  , wai-extra
                  , QuickCheck
+                 , tasty
+                 , tasty-hspec
+                 , gitlib-libgit2
+                 , aeson-pretty
+                 , containers

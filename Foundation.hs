@@ -8,7 +8,7 @@ import Text.Jasmine         (minifym)
 
 import Yesod.Auth.Dummy
 
-import Handler.Helpers (generateToken, maybeToken)
+import Handler.Helpers (generateToken, maybeToken, requireToken)
 
 import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
@@ -17,7 +17,7 @@ import qualified Yesod.Core.Unsafe as Unsafe
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Text.Encoding as TE
 
-import Core        (MonadStore(..))
+import Class
 import Git.Libgit2 (HasLgRepo(..))
 import Data.Git    (ensureUserBranch)
 import Data.Store  (Store, storeRepo)
@@ -68,6 +68,13 @@ instance HasLgRepo Handler where
 instance MonadStore Handler where
   getStore = appStore <$> getYesod
 
+instance MonadDB Handler where
+  db = runDB
+
+instance MonadGraph Handler where
+  getSettings = appSettings <$> getYesod
+  requireUser = requireToken
+
 createGithubUser :: User -> Handler UserId
 createGithubUser user = do
   userId <- runDB $ insert user
@@ -106,37 +113,6 @@ instance Yesod App where
     defaultLayout widget = do
         master <- getYesod
         mmsg <- getMessage
-
-        muser <- maybeAuthPair
-        mcurrentRoute <- getCurrentRoute
-
-        -- Get the breadcrumbs, as defined in the YesodBreadcrumbs instance.
-        (title, parents) <- breadcrumbs
-
-        -- Define the menu items of the header.
-        let menuItems =
-                [ NavbarLeft MenuItem
-                    { menuItemLabel = "Home"
-                    , menuItemRoute = HomeR
-                    , menuItemAccessCallback = True
-                    }
-                , NavbarRight MenuItem
-                    { menuItemLabel = "Login"
-                    , menuItemRoute = AuthR LoginR
-                    , menuItemAccessCallback = isNothing muser
-                    }
-                , NavbarRight MenuItem
-                    { menuItemLabel = "Logout"
-                    , menuItemRoute = AuthR LogoutR
-                    , menuItemAccessCallback = isJust muser
-                    }
-                ]
-
-        let navbarLeftMenuItems = [x | NavbarLeft x <- menuItems]
-        let navbarRightMenuItems = [x | NavbarRight x <- menuItems]
-
-        let navbarLeftFilteredMenuItems = [x | x <- navbarLeftMenuItems, menuItemAccessCallback x]
-        let navbarRightFilteredMenuItems = [x | x <- navbarRightMenuItems, menuItemAccessCallback x]
 
         -- We break up the default layout into two components:
         -- default-layout is the contents of the body tag, and
@@ -191,12 +167,6 @@ instance Yesod App where
     -- Provide proper Bootstrap styling for default displays, like
     -- error pages
     defaultMessageWidget title body = $(widgetFile "default-message-widget")
-
--- Define breadcrumbs.
-instance YesodBreadcrumbs App where
-  breadcrumb HooksR = return ("Home", Nothing)
-  breadcrumb (AuthR _) = return ("Login", Just HooksR)
-  breadcrumb  _ = return ("home", Nothing)
 
 -- How to run database actions.
 instance YesodPersist App where

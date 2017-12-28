@@ -76,8 +76,9 @@ wipeDB app = do
     pool <- runLoggingT (createSqlPool (wrapConnection sqliteConn) 1) logFunc
 
     flip runSqlPersistMPool pool $ do
-        tables <- getTables
         sqlBackend <- ask
+        -- tables <- getTables -- need to control the order
+        let tables = ["token", "user_branch", "branch", "user"]
         let queries = map (\t -> "DELETE FROM " ++ (connEscapeName sqlBackend $ DBName t)) tables
         forM_ queries (\q -> rawExecute q [])
 
@@ -139,10 +140,3 @@ shouldHaveKey :: Value -> Text -> YesodExample App ()
 shouldHaveKey (Object _map) key = liftIO $ H.assertBool msg (HM.member key _map)
   where msg = "Value does not contain key: " ++ T.unpack key
 shouldHaveKey _ _ = liftIO $ H.assertBool "Value is not an object" False
-
-assertNotEq :: (Eq a, Show a) => String -> a -> a -> YesodExample site ()
-assertNotEq m a b =
-  liftIO $ H.assertBool msg (not $ a == b)
-  where msg = "Assertion: " ++ m ++ "\n" ++
-              "First argument:  " ++ ppShow a ++ "\n" ++
-              "Second argument: " ++ ppShow b ++ "\n"

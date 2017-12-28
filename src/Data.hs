@@ -11,14 +11,15 @@ module Data
   , viewDeductions
   ) where
 
-import           Conduit         (sourceToList)
-import qualified Data.Map        as M
-import qualified Data.Set        as S
-import qualified Data.UUID       as UUID
-import qualified Data.UUID.V4    as UUID
+import           Conduit              (sourceToList)
+import           Control.Monad.Logger (MonadLogger, logInfo)
+import qualified Data.Map             as M
+import qualified Data.Set             as S
+import qualified Data.UUID            as UUID
+import qualified Data.UUID.V4         as UUID
 import           Git
-import           System.Directory (doesDirectoryExist)
-import           System.Process   (callCommand)
+import           System.Directory     (doesDirectoryExist)
+import           System.Process       (callCommand)
 
 import qualified Data.Parse as P
 import qualified Logic      as L
@@ -41,18 +42,18 @@ storeMaster = do
   error "storeMaster"
   -- storeCached . parseViewer $ CommitRef base
 
-initializeRepo :: MonadIO m => FilePath -> m LgRepo
-initializeRepo path = liftIO $ do
-  putStrLn $ "Initializing repository at " ++ tshow path
-  exists <- doesDirectoryExist path
+initializeRepo :: (MonadIO m, MonadLogger m) => FilePath -> m LgRepo
+initializeRepo path = do
+  $(logInfo) $ "Initializing repository at " ++ tshow path
+  exists <- liftIO $ doesDirectoryExist path
   unless exists $ do
     -- Clone initial repository along with all remote branches. See
     -- https://stackoverflow.com/questions/67699
-    putStrLn "Cloning initial repository"
-    callCommand $ "git clone --mirror https://github.com/pi-base/data.git " ++ path ++ "/.git && cd " ++ path ++ " && git config --bool core.bare false && git checkout master"
-  openRepo path
+    $(logInfo) $ "Cloning initial repository"
+    liftIO . callCommand $ "git clone --mirror https://github.com/pi-base/data.git " ++ path ++ "/.git && cd " ++ path ++ " && git config --bool core.bare false && git checkout master"
+  liftIO $ openRepo path
 
-initializeStore :: (MonadIO m, MonadBase IO m, MonadBaseControl IO m, MonadMask m)
+initializeStore :: (MonadIO m, MonadBase IO m, MonadBaseControl IO m, MonadMask m, MonadLogger m)
                 => FilePath -> Ref -> m Store
 initializeStore path ref = do
   repo <- initializeRepo path
@@ -75,10 +76,10 @@ parseViewer commish = do
   -- validate
   return eviewer
 
-makeId :: MonadIO m => (Text -> a) -> Text -> m a
-makeId constructor prefix = do
+makeId :: MonadIO m => Text -> m (Id a)
+makeId prefix = do
   uuid <- liftIO UUID.nextRandom
-  return . constructor $ prefix <> UUID.toText uuid
+  return . Id $ prefix <> UUID.toText uuid
 
 slugify :: Text -> Text
 slugify t = t -- TODO
