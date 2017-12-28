@@ -25,7 +25,6 @@ library
                      Handler.Graph
                      Handler.Helpers
                      Handler.Home
-                     Handler.Util
                      -- src
                      Class
                      Core
@@ -42,7 +41,6 @@ library
                      Formula
                      Graph.Import
                      Graph.Mutations
-                     Graph.Loader
                      Graph.Queries
                      Graph.Root
                      Graph.Types

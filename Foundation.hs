@@ -19,7 +19,7 @@ import qualified Data.Text.Encoding as TE
 
 import Class
 import Git.Libgit2 (HasLgRepo(..))
-import Data.Git    (ensureUserBranch)
+import Data.Branch (ensureUserBranch)
 import Data.Store  (Store, storeRepo)
 
 -- | The foundation datatype for your application. This can be a good place to
@@ -78,7 +78,7 @@ instance MonadGraph Handler where
 createGithubUser :: User -> Handler UserId
 createGithubUser user = do
   userId <- runDB $ insert user
-  _ <- ensureUserBranch user
+  _ <- ensureUserBranch $ Entity userId user
   _ <- generateToken userId
   return userId
 

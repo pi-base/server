@@ -24,10 +24,10 @@ import Data.Void                        as Core (Void)
 import Git                              as Core (TreeFilePath, MonadGit, Commit, CommitMessage)
 import Git.Libgit2                      as Core (LgRepo)
 
-import Class as Core
-import Model as Core
-import Types as Core
-import Types.Store as Core (Store)
+import Class        as Core
+import Model        as Core
+import Types        as Core
+import Types.Store  as Core (Store)
 
 import Control.Lens hiding ((.=))
 import Data.Aeson (ToJSON(..), object, (.=))
@@ -128,6 +128,9 @@ instance Show p => Show (Theorem p) where
 
 instance Show Version where
   show = show . unVersion
+
+instance Show Branch where
+  show = show . branchName
 
 deriving instance Show Proof
 deriving instance Show View

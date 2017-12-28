@@ -1,6 +1,5 @@
 module Data.Space
   ( describe
-  , find
   , fetch
   , pending
   , put
@@ -9,7 +8,6 @@ module Data.Space
 import Core hiding (find)
 import Data        (makeId)
 import Data.Git    (writePages, updateRef)
-import qualified Data.Parse
 
 import qualified Page
 import Page.Space (page)
@@ -21,7 +19,7 @@ describe mc s = spaceDescription <$> case mc of
   Just c  -> fetch c $ spaceId s
 
 find :: MonadStore m => Committish -> SpaceId -> m (Maybe Space)
-find = Data.Parse.findSpace
+find = error "find"
 
 fetch :: (MonadStore m, MonadThrow m) => Committish -> SpaceId -> m Space
 fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return

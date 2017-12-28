@@ -1,27 +1,20 @@
 module Data.Git
   ( Commit
   , LgRepo
-  , getDir
-  , modifyGitRef
-  , openRepo
+  , branchExists
   , commitFromLabel
-  , resolveCommittish
+  , commitSha
+  , createBranchFromBase
+  , getDir
   , headSha
-  , useRepo
-  , useRef
-  , writeContents
-  , ensureUserBranch
-  , commitVersion
-  , writePages
-  , resetRef
+  , openRepo
+  , resetBranch
+  , resolveCommittish
   , updateRef
-  , updateRef'
-  , move
-  , lookupCommittish
-  , userBranch
+  , useRef
+  , useRepo
+  , writePages
   ) where
-
--- TODO: clean up duplicates, unused exports
 
 import Core
 import Model (User(..))
@@ -29,8 +22,9 @@ import Model (User(..))
 import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
-import Git.Libgit2 (LgRepo, openLgRepository, runLgRepository)
-import Types.Store (storeRepo, storeBaseRef)
+import Git.Libgit2  (LgRepo, openLgRepository, runLgRepository)
+import Types.Loader (Loader, mkLoader)
+import Types.Store  (storeRepo, storeBaseRef)
 
 openRepo :: FilePath -> IO LgRepo
 openRepo path = openLgRepository $ RepositoryOptions
@@ -50,7 +44,7 @@ useRepo handler = do
 useRef :: MonadStore m
        => Ref
        -> CommitMeta
-       -> TreeT LgRepo m (Either Error a)
+       -> (Loader -> TreeT LgRepo m (Either Error a))
        -> m (Either Error (Version, a))
 useRef ref meta handler = do
   repo <- storeRepo <$> getStore
@@ -63,34 +57,41 @@ useRef ref meta handler = do
         return $ Just (parent, tree)
   case mpt of
     Just (parent, tree) -> do
-      (result, newTree) <- withTree tree handler
+      loader <- mkLoader parent
+      (result, newTree) <- withTree tree $ handler loader
       case result of
         Left  err -> return $ Left err
         Right val -> do
           (author, committer, message) <- commitSignatures meta
           commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
-          return $ Right (commitVersion commit, val)
+          return $ Right (Version $ commitSha commit, val)
     Nothing -> error "Can't find ref" -- FIXME
 
+commitSha :: Commit LgRepo -> Sha
+commitSha cmt = case commitOid cmt of
+  (Tagged oid) -> tshow oid
+
 commitVersion :: Commit LgRepo -> Version
-commitVersion cmt = case commitOid cmt of
-  (Tagged oid) -> Version $ tshow oid
+commitVersion = Version . commitSha
 
 getDir :: (MonadGit r m) => Tree r -> TreeFilePath -> m (Either Error (Tree r))
 getDir tree path = treeEntry tree path >>= \case
   Just (TreeEntry _id) -> lookupTree _id >>= return . Right
   _ -> return . Left $ NotATree path
 
-userBranch :: User -> Ref
-userBranch u = Ref $ "users/" <> userName u
+branchRef :: Branch -> Ref
+branchRef = Ref . branchName
 
-ensureUserBranch :: MonadStore m => User -> m Ref
-ensureUserBranch user = do
-  let branch = userBranch user
-  existing <- resolveReference $ refHead branch
-  unless (isJust existing) $
-    createRefFromBase branch
-  return branch
+branchExists :: MonadStore m => Branch -> m Bool
+branchExists branch = do
+  existing <- resolveReference $ refHead $ branchRef branch
+  return $ isJust existing
+
+createBranchFromBase :: MonadStore m => Branch -> Branch -> m ()
+createBranchFromBase new base = do
+  lookupReference (refHead $ branchRef base) >>= \case
+    Nothing -> throwM $ UnknownGitRef $ branchRef base
+    Just b  -> createReference (refHead $ branchRef new) b
 
 createRefFromBase :: MonadStore m => Ref -> m ()
 createRefFromBase ref = do
@@ -116,44 +117,12 @@ baseCommit = do
   (Just moid) <- lookupCommittish base
   lookupCommit $ Tagged moid
 
-modifyGitRef :: MonadStore m
-             => User
-             -> Ref
-             -> CommitMessage
-             -> TreeT LgRepo (ReaderT LgRepo m) a
-             -> m (Either [Error] (Commit LgRepo))
-modifyGitRef user ref message updates = useRepo $ do
-  resolveReference (refHead ref) >>= \case
-    Nothing -> return $ Left [ UnknownGitRef ref ]
-    Just found -> do
-      parent <- lookupCommit $ Tagged found
-      tree <- lookupTree $ commitTree parent
-      (_, newTree) <- withTree tree updates
-      (author, committer) <- getSignatures user
-      Right <$> createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
-
-resetRef :: MonadStore m => Ref -> Committish -> m Version
-resetRef ref commish = lookupCommittish commish >>= \case
+resetBranch :: MonadStore m => Branch -> Committish -> m Sha
+resetBranch branch commish = lookupCommittish commish >>= \case
   Nothing -> error "Could not find committish to reset"
   Just r -> do
-    updateReference (refHead ref) (RefObj r)
-    return $ Version $ renderOid r
-
-getSignatures :: MonadIO m => User -> m (Signature, Signature)
-getSignatures User{..} = do
-  time <- liftIO getZonedTime
-  let
-    author = defaultSignature
-      { signatureEmail = userEmail
-      , signatureName  = userName
-      , signatureWhen  = time
-      }
-    committer = defaultSignature
-      { signatureEmail = "system@pi-base.org"
-      , signatureName  = "Pi-Base"
-      , signatureWhen  = time
-      }
-  return (author, committer)
+    updateReference (refHead $ branchRef branch) (RefObj r)
+    return $ renderOid r
 
 commitSignatures :: MonadIO m => CommitMeta -> m (Signature, Signature, Text)
 commitSignatures CommitMeta{..} = do
@@ -200,20 +169,6 @@ updateRef ref meta updates = do
   (_, version) <- updateRef' ref meta updates
   return version
 
-writeContents :: MonadStore m
-              => User
-              -> CommitMessage
-              -> [(TreeFilePath, Text)]
-              -> m (Either [Error] Version)
-writeContents user message files = do
-  branch <- ensureUserBranch user
-
-  ec <- modifyGitRef user branch message $ do
-    forM_ files $ \(path, contents) -> do
-      (lift $ createBlobUtf8 contents) >>= putBlob path
-  return $ commitVersion <$> ec
-
-
 headSha :: MonadGit LgRepo m => Branch -> m Sha
 headSha Branch{..} = do
   found <- lookupCommittish $ CommitRef $ Ref branchName
@@ -233,8 +188,3 @@ resolveCommittish c = do
     Just oid -> do
       commit <- lookupCommit $ Tagged oid
       return $ Just commit
-
-move :: (MonadThrow m, MonadGit r m) => TreeFilePath -> TreeFilePath -> TreeT r m ()
-move old new = getEntry old >>= \case
-  Nothing  -> lift . throwM . NotFound $ "mv: " ++ tshow old
-  Just ent -> putEntry new ent >> dropEntry old

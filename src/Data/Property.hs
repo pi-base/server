@@ -1,6 +1,5 @@
 module Data.Property
   ( describe
-  , find
   , fetch
   , pending
   , put
@@ -9,7 +8,6 @@ module Data.Property
 import Core hiding (find)
 import Data        (makeId)
 import Data.Git    (writePages, updateRef)
-import qualified Data.Parse
 
 import qualified Page
 import Page.Property (page)
@@ -20,7 +18,7 @@ describe mc p = propertyDescription <$> case mc of
   Just c  -> fetch c $ propertyId p
 
 find :: MonadStore m => Committish -> PropertyId -> m (Maybe Property)
-find = Data.Parse.findProperty
+find = error "find"
 
 fetch :: (MonadStore m, MonadThrow m) => Committish -> PropertyId -> m Property
 fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return

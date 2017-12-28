@@ -19,10 +19,12 @@ import           Database.Persist.Types (Entity(..))
 import           Core         hiding (readFile)
 import           Data.Branch  (userBranches)
 import           Data.Git     as Git
+import           Data.Loader  (Loader)
+import qualified Data.Loader  as Loader
 import qualified Data.Map     as M
+import           Data.Store   (storeLoader)
 import           Data.Text.IO (readFile)
 import           Formula      (Formula)
-import qualified Graph.Loader as GL
 import qualified Graph.Types  as G
 import           Model        (User(..))
 import           Types        (BranchAccess(..))
@@ -42,17 +44,18 @@ compileAll = do
 user :: MonadGraph m => Handler m G.User
 user = do
   u@(Entity _id User{..}) <- requireUser
-  branches <- userBranches u
   return $ pure "User"
     :<> pure userName
-    :<> pure (map presentBranch branches)
+    :<> do
+      branches <- userBranches u
+      pure (map presentBranch branches)
 
 viewer :: MonadGraph m => Maybe Text -> Handler m G.Viewer
 viewer mver = do
   commit <- Git.commitFromLabel mver
-  loader <- GL.mkLoader commit
+  loader <- cachedLoader commit
   return $ pure "Viewer"
-    :<> pure (unVersion $ GL.version loader)
+    :<> pure (unVersion $ Loader.version loader)
     :<> loadSpaces loader
     :<> loadProperties loader
     :<> loadTheorems loader
@@ -64,7 +67,7 @@ presentBranch BranchStatus{..} = pure $ pure "Branch"
   :<> pure (serializeAccess branchAccess)
   :<> pure branchHead
   where
-    serializeAccess BranchRead = "read"
+    serializeAccess BranchRead  = "read"
     serializeAccess BranchWrite = "write"
     serializeAccess BranchAdmin = "admin"
 
@@ -92,7 +95,7 @@ presentProperty Property{..} = pure $ pure "Property"
 presentTrait :: Monad m
              => Trait s Property
              -> Handler m G.Trait
-presentTrait t@Trait{..} = pure $ pure "Trait"
+presentTrait Trait{..} = pure $ pure "Trait"
   :<> presentProperty _traitProperty
   :<> pure _traitValue
   :<> pure _traitDescription
@@ -127,28 +130,28 @@ presentView View{..} = pure $ pure "Viewer"
 
 -- Cached loader based handlers
 loadProperties :: MonadStore m
-               => GL.Loader
+               => Loader
                -> Handler m (List G.Property)
 loadProperties loader = do
-  properties <- GL.allProperties loader
+  properties <- Loader.properties loader
   return $ map presentProperty properties
 
 loadTheorems :: MonadStore m
-             => GL.Loader
+             => Loader
              -> Handler m (List G.Theorem)
 loadTheorems loader = do
-  theorems <- GL.allTheorems loader
+  theorems <- Loader.theorems loader
   return $ map presentTheorem theorems
 
 loadSpaces :: MonadStore m
-           => GL.Loader
+           => Loader
            -> Handler m (List G.Space)
 loadSpaces loader = do
-  spaces <- GL.allSpaces loader
+  spaces <- Loader.spaces loader
   return $ map (loadSpace loader) spaces
 
 loadSpace :: MonadStore m
-          => GL.Loader
+          => Loader.Loader
           -> Space
           -> Handler m G.Space
 loadSpace loader s@Space{..} = pure $ pure "Space"
@@ -160,16 +163,24 @@ loadSpace loader s@Space{..} = pure $ pure "Space"
   :<> pure spaceTopology
   :<> loadTraits loader s
 
-loadTraits :: MonadStore m => GL.Loader -> Space -> Handler m (List G.Trait)
+loadTraits :: MonadStore m => Loader -> Space -> Handler m (List G.Trait)
 loadTraits loader space = do
-  traits <- GL.spaceTraits loader space
+  traits <- Loader.spaceTraits loader $ spaceId space
   return . map (loadTrait loader space) $ M.toList traits
 
-loadTrait :: MonadStore m => GL.Loader -> Space -> (PropertyId, TVal) -> Handler m G.Trait
+loadTrait :: MonadStore m => Loader -> Space -> (PropertyId, TVal) -> Handler m G.Trait
 loadTrait loader space (pid, tval) = pure $ pure "Trait"
-  :<> (GL.loadProperty loader pid >>= presentProperty)
+  :<> (Loader.property loader pid >>= presentProperty)
   :<> pure tval
-  :<> (_traitDescription <$> GL.loadTrait loader (spaceId space) pid)
+  :<> (_traitDescription <$> Loader.trait loader (spaceId space) pid)
+
+cachedLoader :: MonadStore m => Commit LgRepo -> m Loader
+cachedLoader commit = do
+  loaderVar <- storeLoader <$> getStore
+  loader    <- readMVar loaderVar
+  if (commitSha commit) == (commitSha $ Loader.commit loader)
+    then return loader
+    else Loader.mkLoader commit
 
 encodeFormula :: Formula PropertyId -> Text
 encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unId

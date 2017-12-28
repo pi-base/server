@@ -2,6 +2,7 @@ module Data.Store
   ( Store
   , mkStore
   , storeBaseRef
+  , storeLoader
   , storeRepo
   ) where
 

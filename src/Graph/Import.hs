@@ -15,7 +15,6 @@ import Handler.Helpers as Graph.Import
 
 import           Types  (Ref(..))
 import qualified Core   (Error, explainError)
-import qualified Import (Handler)
 
 -- TODO: status should change depending on error type
 halt :: MonadHandler m => [Core.Error] -> m a

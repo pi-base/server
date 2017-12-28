@@ -40,7 +40,7 @@ data LoadError = LoadError TreeFilePath deriving (Eq, Show)
 
 data LogicError = Contradiction SpaceId PropertyId TVal TVal
                 | Counterexamples [SpaceId]
-                | LoadFailure LoadError
+                | LoadFailure Error
                 deriving Eq
 
 -- TODO: make sure error handling is consistent throughout the application
@@ -128,21 +128,6 @@ data View = View
 makeLenses ''View
 
 type Properties = Map PropertyId TVal
-
-data Loader m = Loader
-  { loaderSpace        :: SpaceId -> m (Either LoadError Properties)
-  , loaderSpaceIds     :: m (Either LoadError [SpaceId])
-  , loaderSpaces       :: Set SpaceId -> m (Either LoadError [Space])
-  , loaderProperties   :: Set PropertyId -> m (Either LoadError [Property])
-  , loaderImplications :: m (Either LoadError [(TheoremId, Implication PropertyId)])
-  }
-
-data CLoader m = CLoader
-  { clSpaces     :: Maybe (Set SpaceId)    -> Source m Space
-  , clProperties :: Maybe (Set PropertyId) -> Source m Property
-  , clTheorems   :: Maybe (Set TheoremId)  -> Source m (Theorem PropertyId)
-  , clTraits     :: SpaceId -> m (Either LoadError Properties) -- FIXME
-  }
 
 data CommitMeta = CommitMeta
   { commitUser    :: User

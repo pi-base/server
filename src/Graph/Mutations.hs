@@ -17,7 +17,7 @@ import           GraphQL.Resolver
 
 import           Core
 import           Data            (makeId, slugify)
-import           Data.Git        (ensureUserBranch, resetRef)
+import           Data.Branch     (ensureUserBranch, resetBranch)
 import qualified Data.Property   as Property
 import qualified Data.Space      as Space
 import qualified Data.Theorem    as Theorem
@@ -100,16 +100,16 @@ testReset G.TestResetInput{..} = do
     then $(logInfo) $ "Resetting test branch to " <> ref
     else error "Set TEST_MODE to allow resetting data"
 
-  Entity _id user <- ensureUser testUser
-  branch          <- ensureUserBranch user
-  version         <- resetRef branch $ CommitRef $ Ref ref
+  user@(Entity _id _) <- ensureUser testUser
+  branch              <- ensureUserBranch user
+  sha                 <- resetBranch branch $ CommitRef $ Ref ref
 
-  $(logInfo) $ "Reset " <> (tshow branch) <> " to " <> (unVersion version)
+  $(logInfo) $ "Reset " <> (tshow branch) <> " to " <> sha
 
   maybe (return ()) (void . ensureToken _id) token
 
   return $ pure "TestResetResponse"
-    :<> pure (unVersion version)
+    :<> pure sha
     :<> pure token
 
 updateProperty :: MonadGraph m => G.UpdatePropertyInput -> Handler m G.Viewer

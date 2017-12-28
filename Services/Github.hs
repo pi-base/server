@@ -5,7 +5,7 @@ module Services.Github
 
 import Import
 import qualified Core (Error, explainError)
-import Data (parseViewer, fetchPullRequest)
+import Data (fetchPullRequest)
 import Types (View, Committish(..))
 
 import Control.Monad (unless)
@@ -19,6 +19,8 @@ import GitHub
 import qualified GitHub.Data.Id as GH
 import qualified GitHub.Endpoints.Issues.Comments as GH
 import qualified GitHub.Endpoints.Repos.Statuses  as GH
+
+parseViewer = error "parseViewer"
 
 webhookHandler :: FromJSON a => Handler a
 webhookHandler = do

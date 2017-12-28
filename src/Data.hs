@@ -1,13 +1,12 @@
 module Data
   ( initializeStore
   , storeMaster
-  , parseViewer
-  , viewerAtRef
+  -- , parseViewer
+  -- , viewerAtRef
   , fetchPullRequest
   , makeId
   , slugify
   , updateView
-  , bridgeLoader
   , viewDeductions
   ) where
 
@@ -21,6 +20,7 @@ import           Git
 import           System.Directory     (doesDirectoryExist)
 import           System.Process       (callCommand)
 
+import qualified Data.Loader as Loader
 import qualified Data.Parse as P
 import qualified Logic      as L
 import qualified View       as V
@@ -65,16 +65,16 @@ fetchPullRequest path = liftIO $ do
   putStrLn $ "Pulling updates for repo"
   callCommand $ "cd " ++ path ++ " && git fetch origin"
 
-viewerAtRef :: MonadStore m => Text -> m (Either [Error] View)
-viewerAtRef = parseViewer . CommitRef . Ref
-
-parseViewer :: MonadStore m
-            => Committish
-            -> m (Either [Error] View)
-parseViewer commish = do
-  eviewer <- P.viewer commish
-  -- validate
-  return eviewer
+-- viewerAtRef :: MonadStore m => Text -> m (Either [Error] View)
+-- viewerAtRef = parseViewer . CommitRef . Ref
+-- 
+-- parseViewer :: MonadStore m
+--             => Committish
+--             -> m (Either [Error] View)
+-- parseViewer commish = do
+--   eviewer <- P.viewer commish
+--   -- validate
+--   return eviewer
 
 makeId :: MonadIO m => Text -> m (Id a)
 makeId prefix = do
@@ -87,11 +87,11 @@ slugify t = t -- TODO
 updateView :: MonadStore m
            => Ref
            -> CommitMeta
-           -> TreeT LgRepo m (Either Error View)
+           -> (Loader.Loader -> TreeT LgRepo m (Either Error View))
            -> m (Either Error View)
 updateView ref meta updates = do
-  results <- useRef ref meta $ do
-    updates >>= \case
+  results <- useRef ref meta $ \loader -> do
+    (updates loader) >>= \case
       Left   err -> return $ Left err
       Right view -> do
         persistView view
@@ -112,35 +112,25 @@ viewPages v = map (Page.write Page.Theorem.page) theorems
     theorems = map (fmap propertyId) $ V.theorems v
     traits   = map (identifyTrait . fst) $ V.traits v
 
-bridgeLoader :: Monad m => CLoader m -> Loader m
-bridgeLoader CLoader{..} = Loader
-  { loaderImplications = do
-      theorems <- sourceToList $ clTheorems Nothing
-      return $ Right $ map (\t -> (theoremId t, theoremImplication t)) theorems
-  , loaderSpaceIds = do
-      spaces <- sourceToList $ clSpaces Nothing
-      return $ Right $ map spaceId spaces
-  , loaderSpace = \_id -> clTraits _id
-  }
-
-viewDeductions :: Monad m
-               => CLoader m -> L.Deductions -> m (Either Error View)
+viewDeductions :: MonadStore m
+               => Loader.Loader -> L.Deductions -> m (Either Error View)
 viewDeductions loader L.Deductions{..} = runExceptT $ do
   let (sids, pids) = foldr (\(s,p) (ss,ps) -> (S.insert s ss, S.insert p ps)) (mempty, mempty) $ M.keys deductionTraits
 
-  spaces <- lift $ sourceToList $ clSpaces loader $ Just sids
-  let _viewSpaces = indexBy spaceId spaces
+  error "viewDeductions"
+  -- spaces <- Loader.spaces loader
+  -- let _viewSpaces = indexBy spaceId spaces
 
-  let pids' = foldr (S.union . theoremProperties) pids deductionTheorems
-  properties <- lift $ sourceToList $ clProperties loader $ Just pids'
-  let _viewProperties = indexBy propertyId properties
+  -- let pids' = foldr (S.union . theoremProperties) pids deductionTheorems
+  -- properties <- Loader.properties loader
+  -- let _viewProperties = indexBy propertyId properties
 
-  let _viewTheorems = indexBy theoremId deductionTheorems
-      (_viewTraits, _viewProofs) = foldr addProof (mempty, mempty) $ M.toList deductionTraits
+  -- let _viewTheorems = indexBy theoremId deductionTheorems
+  --     (_viewTraits, _viewProofs) = foldr addProof (mempty, mempty) $ M.toList deductionTraits
 
-  let _viewVersion = Nothing
+  -- let _viewVersion = Nothing
 
-  return View{..}
+  -- return View{..}
 
 addProof :: (TraitId, (TVal, L.Evidence))
          -> (Map SpaceId (Map PropertyId (Trait SpaceId PropertyId)), Map (SpaceId, PropertyId) Proof)
