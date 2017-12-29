@@ -11,8 +11,6 @@ import Core
 import Page
 import qualified Page.Property as Property
 import qualified Page.Space    as Space
-import qualified Page.Trait    as Trait
-import qualified Page.Theorem  as Theorem
 
 instance Arbitrary Uid where
   arbitrary = arbitrary
@@ -50,15 +48,16 @@ invertable :: (Eq a, Show a, Arbitrary a)
            => Page a -> Test.QuickCheck.Property
 invertable page = property $ \obj -> (parse page $ write page obj) == Right obj
 
-spec :: Spec
-spec = describe "Parsing pages" $ do
-  it "property is invertable" $
-    invertable $ Property.page
+spec :: IO TestTree
+spec = testSpec "PageSpec" $ do
+  describe "Parsing pages" $ do
+    it "property is invertable" $
+      invertable $ Property.page
 
-  it "space is invertable" $
-    invertable $ Space.page
+    it "space is invertable" $
+      invertable $ Space.page
 
-  -- Also TODO - arbitrary instances should generate descriptions, but there are
-  --   _some_ rules on them (e.g. can't contain section dividers)
-  xit "trait is invertable"   $ property $ \x -> 1 == (x :: Int)
-  xit "theorem is invertable" $ property $ \x -> 1 == (x :: Int)
+    -- Also TODO - arbitrary instances should generate descriptions, but there are
+    --   _some_ rules on them (e.g. can't contain section dividers)
+    xit "trait is invertable"   $ property $ \x -> 1 == (x :: Int)
+    xit "theorem is invertable" $ property $ \x -> 1 == (x :: Int)

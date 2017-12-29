@@ -15,19 +15,21 @@ import Database.Persist.Sql  (SqlPersistM, SqlBackend, runSqlPersistMPool, rawEx
 import Foundation            as X
 import Model                 as X
 import Test.Hspec            as X
+import Test.Tasty            as X (TestTree)
+import Test.Tasty.Hspec      as X (testSpec)
 import Yesod.Default.Config2 (useEnv, loadYamlSettings)
 import Yesod.Auth            as X
 import Yesod.Test            as X
 
-import           Data.Aeson           (Value(..), decode)
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text            as T
-import qualified Data.Text.Lazy       as TL
-import qualified Data.HashMap.Strict  as HM
-import           Network.Wai.Test     (SResponse(..))
-import qualified Test.HUnit           as H
-import           Text.Show.Pretty     (ppShow)
-
+import           Data.Aeson                 (ToJSON(..), Value(..), decode)
+import           Data.Aeson.Encode.Pretty   (encodePretty)
+import qualified Data.ByteString.Lazy       as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBS8
+import qualified Data.Text                  as T
+import qualified Data.Text.Lazy             as TL
+import qualified Data.HashMap.Strict        as HM
+import           Network.Wai.Test           (SResponse(..))
+import qualified Test.HUnit                 as H
 
 -- Wiping the database
 import Database.Persist.Sqlite              (sqlDatabase, wrapConnection, createSqlPool)
@@ -115,7 +117,7 @@ createUser ident token = do
 
   now <- liftIO getCurrentTime
 
-  runDB $ insert Token
+  _ <- runDB $ insert Token
     { tokenUserId = userId
     , tokenIssuedAt = now
     , tokenExpiredAt = Nothing
@@ -140,3 +142,6 @@ shouldHaveKey :: Value -> Text -> YesodExample App ()
 shouldHaveKey (Object _map) key = liftIO $ H.assertBool msg (HM.member key _map)
   where msg = "Value does not contain key: " ++ T.unpack key
 shouldHaveKey _ _ = liftIO $ H.assertBool "Value is not an object" False
+
+traceJ :: (ToJSON a, Monad m) => a -> m ()
+traceJ = traceM . LBS8.unpack . encodePretty

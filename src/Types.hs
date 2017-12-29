@@ -45,16 +45,17 @@ data LogicError = Contradiction SpaceId PropertyId TVal TVal
 
 -- TODO: make sure error handling is consistent throughout the application
 --       and never stringly-typed
-data Error = CommitNotFound Committish
-           | LogicError     LogicError
-           | NotFound       Text
-           | NotATree       TreeFilePath
-           | NotUnique      Text Text
-           | ParseError     TreeFilePath String
-           | PersistError   String
-           | ReferenceError TreeFilePath [Uid]
-           | UnknownGitRef  Ref
-           | GeneralError   Text
+data Error = CommitNotFound  Committish
+           | LogicError      LogicError
+           | NotFound        Text
+           | NotATree        TreeFilePath
+           | NotUnique       Text Text
+           | ParseError      TreeFilePath String
+           | PermissionError Text
+           | PersistError    String
+           | ReferenceError  TreeFilePath [Uid]
+           | UnknownGitRef   Ref
+           | GeneralError    Text
            deriving Eq
 
 data Space = Space

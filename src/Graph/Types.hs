@@ -19,7 +19,7 @@ import           GraphQL.Value           (Name, pattern ValueEnum)
 import           GraphQL.Value.ToValue   (ToValue(..))
 import           GraphQL.Value.FromValue (FromValue(..))
 
-import Core (BranchAccess, Generic, Sha, Text)
+import Core (BranchAccess, Generic, Text)
 
 instance GraphQLEnum BranchAccess
 
@@ -99,6 +99,12 @@ type Viewer = Object "Viewer" '[]
    , Field "theorems"   (List Theorem)
    ]
 
+type ResetBranchResponse = Object "ResetBranchResponse" '[]
+  '[ Field "__typename" Text
+   , Field "branch"     Text
+   , Field "sha"        Text
+   ]
+
 type TestResetResponse = Object "TestResetResponse" '[]
   '[ Field "__typename" Text
    , Field "version"    Text
@@ -121,8 +127,9 @@ type Root = Object "QueryRoot" '[]
    , Argument "version" (Maybe Text) :> Field "viewer" Viewer
    , Field "me" User
    -- Mutations
-   , Argument "input" PatchInput     :> Field "patch"     PatchMutation
-   , Argument "input" TestResetInput :> Field "testReset" TestResetResponse
+   , Argument "input" PatchInput       :> Field "patch"       PatchMutation
+   , Argument "input" ResetBranchInput :> Field "resetBranch" ResetBranchResponse
+   , Argument "input" TestResetInput   :> Field "testReset"   TestResetResponse
    ]
 
 -- Inputs
@@ -178,6 +185,16 @@ instance FromValue TestResetInput
 instance HasAnnotatedInputType TestResetInput
 instance Defaultable TestResetInput where
   defaultFor _ = error "No default for TestResetInput"
+
+data ResetBranchInput = ResetBranchInput
+  { branch :: Text
+  , to     :: Text -- ref or sha
+  } deriving (Show, Generic)
+
+instance FromValue ResetBranchInput
+instance HasAnnotatedInputType ResetBranchInput
+instance Defaultable ResetBranchInput where
+  defaultFor _ = error "No default for ResetBranchInput"
 
 data UpdateSpaceInput = UpdateSpaceInput
   { uid :: Text

@@ -10,7 +10,6 @@ module Data
   , viewDeductions
   ) where
 
-import           Conduit              (sourceToList)
 import           Control.Monad.Logger (MonadLogger, logInfo)
 import qualified Data.Map             as M
 import qualified Data.Set             as S
@@ -21,7 +20,6 @@ import           System.Directory     (doesDirectoryExist)
 import           System.Process       (callCommand)
 
 import qualified Data.Loader as Loader
-import qualified Data.Parse as P
 import qualified Logic      as L
 import qualified View       as V
 
@@ -33,7 +31,6 @@ import Core
 import Data.Git    (openRepo, useRef, resolveCommittish)
 import Data.Store
 import Git.Libgit2 (runLgRepository)
-import Util        (indexBy)
 
 storeMaster :: MonadStore m
             => m (Either [Error] View)

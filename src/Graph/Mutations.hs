@@ -3,6 +3,7 @@ module Graph.Mutations
   , assertTrait
   , createProperty
   , createSpace
+  , resetBranch
   , testReset
   , updateProperty
   , updateSpace
@@ -17,7 +18,7 @@ import           GraphQL.Resolver
 
 import           Core
 import           Data            (makeId, slugify)
-import           Data.Branch     (ensureUserBranch, resetBranch)
+import qualified Data.Branch     as Branch
 import qualified Data.Property   as Property
 import qualified Data.Space      as Space
 import qualified Data.Theorem    as Theorem
@@ -93,6 +94,21 @@ createProperty G.CreatePropertyInput{..} = do
   (version, p) <- Property.put (userBranch user) commit property
   G.presentView $ View.build [] [p] [] [] version
 
+resetBranch :: MonadGraph m => G.ResetBranchInput -> Handler m G.ResetBranchResponse
+resetBranch G.ResetBranchInput{..} = do
+  user <- requireUser
+  Branch.find branch >>= \case
+    Nothing -> throw $ NotFound branch
+    Just branch' -> do
+      access <- Branch.access user branch'
+      unless (access == BranchAdmin || access == BranchWrite) $ do
+        throw $ PermissionError "Not allowed access on branch"
+      sha <- Branch.reset branch' $ CommitSha to
+
+      return $ pure "ResetBranchResponse"
+        :<> pure branch
+        :<> pure sha
+
 testReset :: MonadGraph m => G.TestResetInput -> Handler m G.TestResetResponse
 testReset G.TestResetInput{..} = do
   testing <- appTestMode <$> getSettings
@@ -101,8 +117,8 @@ testReset G.TestResetInput{..} = do
     else error "Set TEST_MODE to allow resetting data"
 
   user@(Entity _id _) <- ensureUser testUser
-  branch              <- ensureUserBranch user
-  sha                 <- resetBranch branch $ CommitRef $ Ref ref
+  branch              <- Branch.ensureUserBranch user
+  sha                 <- Branch.reset branch $ CommitRef $ Ref ref
 
   $(logInfo) $ "Reset " <> (tshow branch) <> " to " <> sha
 

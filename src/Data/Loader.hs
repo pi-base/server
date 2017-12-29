@@ -1,6 +1,6 @@
 module Data.Loader
   ( Loader
-  , mkLoader
+  , Loader.mkLoader
   , property
   , space
   , theorem
@@ -20,7 +20,8 @@ import           Conduit         (sourceToList)
 import qualified Data.Parse      as Parse
 import           Data.Git        (commitSha)
 import qualified Data.Map.Strict as M
-import           Types.Loader    as Loader
+import           Types.Loader    (Loader(Loader), Field(..))
+import qualified Types.Loader    as Loader
 
 instance Show Loader where
   show Loader{..} = "<Loader(" ++ show (commitSha commit) ++ ")>"
@@ -30,24 +31,34 @@ version = Version . commitSha . Loader.commit
 
 cache :: (MonadBase IO m, MonadBaseControl IO m, Ord x)
       => Field x a -> x -> m (Either e a) -> m (Either e a)
-cache Field{..} key action = modifyMVar ref $ \hash ->
-  case M.lookup key hash of
-    Just record -> return (hash, Right record)
+cache Field{..} key action = modifyMVar ref $ \index ->
+  case M.lookup key index of
+    Just record -> return (index, Right record)
     Nothing -> action >>= \case
-      Left     err -> return (hash, Left err)
-      Right record -> return (M.insert (indexer record) record hash, Right record)
+      Left     err -> return (index, Left err)
+      Right record -> return (M.insert (indexer record) record index, Right record)
 
 ethrow :: MonadStore m => m (Either Error a) -> m a
 ethrow action = action >>= either throwM return
 
+fetch :: MonadStore m
+      => (Loader -> Field (Id a) a)
+      -> (Commit LgRepo -> Id a -> m (Either Error a))
+      -> Loader
+      -> Id a 
+      -> m a
+fetch field parser loader _id = ethrow 
+  $ cache  (field loader)         _id 
+  $ parser (Loader.commit loader) _id
+
 space :: MonadStore m => Loader -> SpaceId -> m Space
-space Loader{..} _id = ethrow $ cache spaces _id $ Parse.space commit _id
+space = fetch Loader.spaces Parse.space
 
 property :: MonadStore m => Loader -> PropertyId -> m Property
-property Loader{..} _id = ethrow $ cache properties _id $ Parse.property commit _id
+property = fetch Loader.properties Parse.property
 
 theorem :: MonadStore m => Loader -> TheoremId -> m (Theorem PropertyId)
-theorem Loader{..} _id = ethrow $ cache theorems _id $ Parse.theorem commit _id
+theorem = fetch Loader.theorems Parse.theorem
 
 trait :: MonadStore m
       => Loader

@@ -10,11 +10,6 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text            as T
 import           Network.HTTP.Types.Method
 
-import Data.Git        (resetRef, userBranch, useRepo)
-import Handler.Helpers (attachToken)
-import Types           (Committish(..))
-import Util            (encodeText)
-
 initialVersion :: Text
 initialVersion = "63718fe2f72bf355e8c17b37bc6be7b631604aaa"
 
@@ -24,55 +19,24 @@ testToken = "test-token"
 testUser :: User
 testUser = User "test" "test" "test@example.com" "github-token-xxx"
 
-compact, metacompact, metrizable :: Text
-compact     = "P000016"
-metacompact = "P000031"
-metrizable  = "P000053"
-
-spec :: Spec
+spec :: IO TestTree
 spec = do
-  app@(foundation, _) <- runIO buildApp
+  app@(foundation, _) <- buildApp
 
   let setup :: IO (TestApp App)
-      setup = unsafeHandler foundation $ do
-        userId <- createGithubUser testUser
-        _ <- attachToken userId testToken
-        return app
+      setup = unsafeHandler foundation $ return app
 
   let reset :: IO ()
-      reset = void $ unsafeHandler foundation $
-        resetRef (userBranch testUser) (CommitSha initialVersion)
+      reset = void $ unsafeHandler foundation $ return ()
 
-  beforeAll setup $ before_ reset $ do
-    xdescribe "Queries" $ do
-      it "can fetch properties" $ do
-        d <- query "{ viewer { version, properties { uid, name } } }"
+  testSpec "Handler.GraphSpec" $ do
+    beforeAll setup $ before_ reset $ do
+      xdescribe "Queries" $ do
+        it "can view user info" $ do
+          d <- query "{ me { name } }"
 
-        assertEq "version" initialVersion $
-          d ^. key "viewer" . key "version" . _String
-        assertEq "property count" 100 $
-          length $ d ^.. key "viewer" . key "properties" . values . key "uid" . _String
-
-
-      it "can view user info" $ do
-        d <- query "{ me { name } }"
-
-        assertEq "user name" (userName testUser) $
-          d ^. key "me" . key "name" . _String
-
-
-    xdescribe "Mutations" $ do
-      it "can add a space" $ do
-        d <- mutation "createSpace" "{ version, spaces { uid, name, description } }"
-               [ "name"        .= ("New Space" :: Text)
-               , "description" .= ("New space description" :: Text)
-               ]
-
-        assertEq "space names" ["New Space"] $
-          d ^.. key "spaces" . values . key "name" . _String
-        assertNotEq "version" initialVersion $
-          d ^. key "version" . _String
-
+          assertEq "user name" (userName testUser) $
+            d ^. key "me" . key "name" . _String
 
 send :: [Aeson.Pair] -> YesodExample App ()
 send body = request $ do

@@ -192,6 +192,7 @@ test-suite test
     other-modules:     Handler.CommonSpec
                        Handler.GraphSpec
                        Handler.HomeSpec
+                       Graph.Common
                        GraphSpec
                        PageSpec
                        TestImport
@@ -215,6 +216,7 @@ test-suite test
                 TupleSections
                 RecordWildCards
                 CPP
+                LambdaCase
 
     build-depends: base
                  , pi-base-server

@@ -6,13 +6,12 @@ resolver: lts-8.24
 packages:
 - '.'
 - location:
-    git: https://github.com/jamesdabbs/github.git
-    commit: 73d154837d354810f7b374f556e81ca0c9728a65
+    git: https://github.com/phadej/github.git
+    commit: 5b6b4e8d7e44e165c3558a350c667b4c1c913c7b
   extra-dep: true
-# - '/data/src/pi-base/gitlib/gitlib-libgit2'
 - location:
-    git: https://github.com/jamesdabbs/gitlib.git
-    commit: 1abcd2d90131b03f7d9fb5b46545ab96e2b22199
+    git: https://github.com/jwiegley/gitlib.git
+    commit: 60d053ca4035f0010c945a30ddd337af2e913a29
   subdirs:
     - gitlib-libgit2
   extra-dep: true

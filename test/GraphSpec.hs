@@ -1,57 +1,25 @@
 module GraphSpec (spec) where
 
-import TestImport (App(..), buildApp)
 import Test.Tasty
 import Test.Tasty.Hspec
 
-import           Control.Monad.Logger     (MonadLogger(..), runStdoutLoggingT)
 import           Control.Lens             hiding ((.=))
 import           Data.Aeson               (Value(..), (.=), object)
-import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Aeson.Lens
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.Map                 as M
-import qualified Data.Text                as T
-import           Database.Persist.Sql     (ConnectionPool, Entity(..), runSqlPool, toSqlKey)
-import           Git.Libgit2              (HasLgRepo(..))
 
-import qualified Data.ByteString.Lazy.Char8 as BS
+import Graph.Common
 
 import Core
-import Data.Store    (storeRepo)
-import Graph.Queries (compileAll)
-import Graph.Root    (exec)
-import Graph.Types   (Query)
-
-data Config = Config
-  { pool   :: ConnectionPool
-  , store  :: Store
-  , user   :: User
-  }
-
-instance MonadDB (ReaderT Config IO) where
-  db action = do
-    conn <- asks pool
-    runSqlPool action $ conn
-instance HasLgRepo (ReaderT Config IO) where
-  getRepository = asks $ storeRepo . store
-instance MonadStore (ReaderT Config IO) where
-  getStore = asks store
-instance MonadGraph (ReaderT Config IO) where
-  -- TODO: probably should insert user into DB lazily
-  requireUser = do
-    u <- asks user
-    return $ Entity (toSqlKey (-1)) u
-instance MonadLogger IO where
-  monadLoggerLog _ _ _ _ = return () -- FIXME
-
+import Graph.Queries   (compileAll)
+import Graph.Root      (exec)
+import Graph.Types     (Query)
 
 testUser :: User
 testUser = User "test" "Test User" "test@example.com" "xxx"
 
-pp :: (ToJSON a, Monad m) => a -> m ()
-pp = traceM . BS.unpack . encodePretty
-
+v :: (Applicative f, AsValue t) => (Value -> f Value) -> t -> f t
 v = key "data" . key "viewer"
 
 compact, metacompact, metrizable :: Text
@@ -67,20 +35,13 @@ spec :: IO TestTree
 spec = do
   -- NEXT:
   -- * rework test auto-runner
-  -- * move most specs from Handler/GraphSpecs to here
   -- * re-enable and spec mutations
-  (App{..}, _) <- buildApp
   queries <- compileAll
+  config  <- getConfig >>= login testUser
 
   let
-    config = Config
-      { pool   = appConnPool
-      , store  = appStore
-      , user   = testUser
-      }
-
     run :: Query -> [(Text, Value)] -> IO Value
-    run q vars = runReaderT (exec q (Just $ HM.fromList vars)) config
+    run q vars = runGraph config $ exec q (Just $ HM.fromList vars)
 
     query :: FilePath -> [(Text, Value)] -> IO Value
     query name vars = do
@@ -94,7 +55,7 @@ spec = do
       result <- run compiled vars
       return . Object $ result ^. key "data" . _Object
 
-  testSpec "graph" $ do
+  testSpec "Graph" $ do
     describe "query compilation" $ do
       it "compiles all queries" $ do
         M.filter isLeft queries `shouldBe` mempty

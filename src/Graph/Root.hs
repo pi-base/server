@@ -53,6 +53,7 @@ rootHandler = pure $ pure "Query"
   :<> G.user
   -- Mutations
   :<> patchMutations
+  :<> resetBranch
   :<> testReset
 
 query :: QueryData -> Import.Handler Aeson.Value

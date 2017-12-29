@@ -17,8 +17,10 @@ Token
 Branch
   name Text
   ownerId UserId Maybe
+  deriving Typeable
 
 UserBranch
   userId UserId
   branchId BranchId
   role BranchAccess
+  deriving Typeable

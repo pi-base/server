@@ -129,13 +129,11 @@ instance Show p => Show (Theorem p) where
 instance Show Version where
   show = show . unVersion
 
-instance Show Branch where
-  show = show . branchName
-
 deriving instance Show Proof
 deriving instance Show View
 deriving instance Show LogicError
 deriving instance Show Error
+deriving instance Show Branch
 
 instance Exception Error
 instance Exception [Error]
