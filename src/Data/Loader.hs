@@ -13,6 +13,7 @@ module Data.Loader
   , Data.Loader.theorems
   , spaceTraits
   , implications
+  , view
   ) where
 
 import           Core
@@ -22,9 +23,10 @@ import           Data.Git        (commitSha)
 import qualified Data.Map.Strict as M
 import           Types.Loader    (Loader(Loader), Field(..))
 import qualified Types.Loader    as Loader
+import qualified View            as View
 
 instance Show Loader where
-  show Loader{..} = "<Loader(" ++ show (commitSha commit) ++ ")>"
+  show loader = "<Loader(" ++ show (commitSha $ Loader.commit loader) ++ ")>"
 
 version :: Loader -> Version
 version = Version . commitSha . Loader.commit
@@ -68,19 +70,19 @@ trait :: MonadStore m
 trait = error "trait"
 
 spaceIds :: MonadStore m => Loader -> m [SpaceId]
-spaceIds Loader{..} = sourceToList $ Parse.spaceIds commit
+spaceIds = sourceToList . Parse.spaceIds . Loader.commit
 
 propertyIds :: MonadStore m => Loader -> m [PropertyId]
-propertyIds Loader{..} = sourceToList $ Parse.propertyIds commit
+propertyIds = sourceToList . Parse.propertyIds . Loader.commit
 
 theoremIds :: MonadStore m => Loader -> m [TheoremId]
-theoremIds Loader{..} = sourceToList $ Parse.theoremIds commit
+theoremIds = sourceToList . Parse.theoremIds . Loader.commit
 
 implications :: MonadStore m => Loader -> m [(TheoremId, Implication PropertyId)]
 implications = error "implications"
 
 spaceTraits :: MonadStore m => Loader -> SpaceId -> m (Map PropertyId TVal)
-spaceTraits Loader{..} _id = error "traits"
+spaceTraits loader _id = error "traits"
 
 loadAll :: Monad m
         => (Loader -> m [a])
@@ -103,3 +105,11 @@ properties = loadAll propertyIds property
 
 theorems :: MonadStore m => Loader -> m [Theorem PropertyId]
 theorems = loadAll theoremIds theorem
+
+view :: MonadStore m => Loader -> m View
+view loader = View.build
+  <$> spaces loader
+  <*> properties loader
+  <*> pure [] -- FIXME
+  <*> pure [] -- FIXME
+  <*> pure (Version . commitSha $ Loader.commit loader)

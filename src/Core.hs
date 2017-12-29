@@ -129,6 +129,8 @@ instance Show p => Show (Theorem p) where
 instance Show Version where
   show = show . unVersion
 
+deriving instance (Eq s, Eq p) => Eq (Trait s p)
+
 deriving instance Show Proof
 deriving instance Show View
 deriving instance Show LogicError

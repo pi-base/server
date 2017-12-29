@@ -5,13 +5,13 @@ import TestImport
 spec :: IO TestTree
 spec = testSpec "Handler.HomeSpec" $ do
   withApp $
-    xdescribe "Homepage" $ do
+    describe "Homepage" $ do
       it "loads the index and checks it looks right" $ do
         get HomeR
 
-        statusIs 200
         json $ \j -> do
           j `shouldHaveKey` "version"
+        statusIs 200
 
       it "leaves the user table empty" $ do
         get HomeR

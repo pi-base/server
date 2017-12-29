@@ -36,9 +36,10 @@ import Git.Libgit2 (runLgRepository)
 storeMaster :: MonadStore m
             => m (Either [Error] View)
 storeMaster = do
-  base <- storeBaseRef <$> getStore
-  error "storeMaster"
-  -- storeCached . parseViewer $ CommitRef base
+  var <- storeLoader <$> getStore
+  withMVar var $ \loader -> do
+    view <- Loader.view loader
+    return $ Right view
 
 initializeRepo :: (MonadIO m, MonadLogger m) => FilePath -> m LgRepo
 initializeRepo path = do

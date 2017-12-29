@@ -10,60 +10,78 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text            as T
 import           Network.HTTP.Types.Method
 
+import Handler.Helpers (ensureUser, ensureToken)
+
 initialVersion :: Text
 initialVersion = "63718fe2f72bf355e8c17b37bc6be7b631604aaa"
 
-testToken :: IsString a => a
-testToken = "test-token"
-
 testUser :: User
-testUser = User "test" "test" "test@example.com" "github-token-xxx"
+testUser = User "graphtest" "Graph Test" "graphtest@example.com" "github-token-xxx"
 
 spec :: IO TestTree
 spec = do
   app@(foundation, _) <- buildApp
 
-  let setup :: IO (TestApp App)
-      setup = unsafeHandler foundation $ return app
+  let 
+    run :: Handler a -> IO a
+    run = unsafeHandler foundation
 
-  let reset :: IO ()
-      reset = void $ unsafeHandler foundation $ return ()
+    setup :: IO (TestApp App)
+    setup = run $ return app
+
+    reset :: IO ()
+    reset = run $ return ()
+
+    as :: User -> YesodExample App Text
+    as user = do
+      let token = "test:" <> userIdent user
+      -- TODO: there's probably a more direct way to run
+      -- a handler inside this monad
+      void . liftIO . run $ do
+        (Entity _id _) <- ensureUser user
+        ensureToken _id token
+      return token
 
   testSpec "Handler.GraphSpec" $ do
     beforeAll setup $ before_ reset $ do
-      xdescribe "Queries" $ do
+      describe "Queries" $ do
         it "can view user info" $ do
-          d <- query "{ me { name } }"
+          token <- as testUser
+
+          d <- query token "{ me { name } }"
 
           assertEq "user name" (userName testUser) $
             d ^. key "me" . key "name" . _String
 
-send :: [Aeson.Pair] -> YesodExample App ()
-send body = request $ do
+
+send :: Text -> [Aeson.Pair] -> YesodExample App ()
+send token body = request $ do
   setUrl           GraphR
   setMethod        methodPost
-  addRequestHeader ("Authorization", "Bearer " <> testToken)
+  addRequestHeader ("Authorization", "Bearer " <> encodeUtf8 token)
   setRequestBody . encode $ object body
 
-query :: Text -> YesodExample App LBS.ByteString
-query q = do
-  send [ "operationName" .= ("" :: Text)
-       , "query"         .= q
-       ]
+query :: Text -> Text -> YesodExample App LBS.ByteString
+query token q = do
+  send token 
+    [ "operationName" .= ("" :: Text)
+    , "query"         .= q
+    ]
   body <- checkResponse
   return $ encode $ body ^. key "data" . _Object
 
-mutation :: Text -> Text -> [Aeson.Pair] -> YesodExample App LBS.ByteString
-mutation name fields input = do
+mutation :: Text -> Text -> Text -> [Aeson.Pair] -> YesodExample App LBS.ByteString
+mutation token name fields input = do
   let q = T.unlines [ "mutation " <> name <> "($input: MutationInput!) {"
                     , "  " <> name <> "(input: $input) " <> fields
                     , "}"
                     ]
-  send [ "operationName" .= ("" :: Text)
-       , "query"         .= q
-       , "variables"     .= object
-         [ "input" .= object input ]
-       ]
+  send token
+    [ "operationName" .= ("" :: Text)
+    , "query"         .= q
+    , "variables"     .= object
+      [ "input" .= object input ]
+    ]
   body <- checkResponse
   return $ encode $ body ^. key "data" . key name . _Object
 
