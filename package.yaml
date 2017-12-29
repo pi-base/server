@@ -1,0 +1,157 @@
+name: pi-base-server
+version: '0.0.1'
+license: MIT
+default-extensions:
+  - CPP
+  - FlexibleContexts
+  - FlexibleInstances
+  - GeneralizedNewtypeDeriving
+  - LambdaCase
+  - NoImplicitPrelude
+  - OverloadedStrings
+  - RecordWildCards
+  - TypeFamilies
+library:
+  source-dirs:
+    - ./.
+    - src
+    - app
+  dependencies:
+    - base
+    - aeson
+    - aeson-pretty
+    - attoparsec
+    - bytestring
+    - case-insensitive
+    - classy-prelude
+    - classy-prelude-conduit
+    - classy-prelude-yesod
+    - conduit
+    - conduit-combinators
+    - conduit-extra
+    - containers
+    - cryptohash
+    - data-default
+    - directory
+    - either
+    - esqueleto
+    - exceptions
+    - fast-logger
+    - file-embed
+    - foreign-store
+    - github
+    - github-types
+    - github-webhook-handler
+    - gitlib
+    - gitlib-libgit2
+    - graphql-api
+    - hjsmin
+    - http-conduit
+    - lens
+    - lens-aeson
+    - lifted-base
+    - load-env
+    - monad-control
+    - monad-logger
+    - mtl
+    - persistent
+    - persistent-sqlite
+    - persistent-template
+    - process
+    - safe
+    - scientific
+    - shakespeare
+    - tagged
+    - template-haskell
+    - text
+    - time
+    - transformers
+    - unix
+    - unordered-containers
+    - uuid
+    - vector
+    - wai
+    - wai-cors
+    - wai-extra
+    - wai-logger
+    - warp
+    - yaml
+    - yesod
+    - yesod-auth
+    - yesod-auth-oauth2
+    - yesod-core
+    - yesod-form
+    - yesod-static
+  when:
+  - condition: (flag(dev)) || (flag(library-only))
+    then:
+      ghc-options:
+      - -Wall
+      - -fwarn-tabs
+      - -O0
+      cpp-options: -DDEVELOPMENT
+    else:
+      ghc-options:
+      - -Wall
+      - -fwarn-tabs
+      - -O2
+executables:
+  pi-base-server:
+    main: main.hs
+    source-dirs: app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - base
+    - pi-base-server
+    when:
+    - condition: flag(library-only)
+      buildable: false
+tests:
+  test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options: -Wall
+    dependencies:
+    - base
+    - pi-base-server
+    - aeson
+    - aeson-pretty
+    - bytestring
+    - classy-prelude
+    - classy-prelude-yesod
+    - containers
+    - gitlib-libgit2
+    - hspec
+    - http-types
+    - HUnit
+    - lens
+    - lens-aeson
+    - monad-logger
+    - persistent
+    - persistent-sqlite
+    - pretty-show
+    - QuickCheck
+    - resourcet
+    - shakespeare
+    - tasty
+    - tasty-hspec
+    - text
+    - transformers
+    - unordered-containers
+    - wai-extra
+    - yesod
+    - yesod-auth
+    - yesod-core
+    - yesod-test
+flags:
+  library-only:
+    description: Build for use with "yesod devel"
+    manual: false
+    default: false
+  dev:
+    description: Turn on development settings, like auto-reload templates.
+    manual: false
+    default: false

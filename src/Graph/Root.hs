@@ -1,6 +1,7 @@
 {-# LANGUAGE
     DataKinds
   , DeriveGeneric
+  , TemplateHaskell
   , TypeApplications
   , TypeOperators
 #-}

@@ -1,4 +1,9 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE 
+    FlexibleInstances 
+  , GADTs
+  , MultiParamTypeClasses
+  , TemplateHaskell
+#-}
 
 module Model where
 

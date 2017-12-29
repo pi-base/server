@@ -1,3 +1,7 @@
+{-# LANGUAGE 
+    MultiParamTypeClasses
+  , TemplateHaskell 
+#-}
 module Foundation where
 
 import Import.NoFoundation

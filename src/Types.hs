@@ -3,6 +3,7 @@
   , DeriveTraversable
   , FunctionalDependencies
   , Rank2Types
+  , TemplateHaskell
 #-}
 module Types
   ( module Types

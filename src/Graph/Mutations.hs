@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Graph.Mutations
   ( assertTheorem
   , assertTrait
