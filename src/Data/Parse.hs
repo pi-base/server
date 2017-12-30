@@ -3,6 +3,7 @@ module Data.Parse
   , propertyIds
   , space
   , spaceIds
+  , spaceTraitIds
   , theorem
   , theoremIds
   , trait
@@ -59,6 +60,12 @@ theoremIds commit = sourceCommitEntries commit "theorems"
 traitIds :: MonadStore m => Commit LgRepo -> ConduitM () (SpaceId, PropertyId) m ()
 traitIds commit = sourceCommitEntries commit "spaces"
                .| parsePath traitIdParser
+
+-- FIXME: this doesn't need to scan the whole "spaces" tree
+spaceTraitIds :: MonadStore m => SpaceId -> Commit LgRepo -> ConduitM () PropertyId m ()
+spaceTraitIds _id commit = traitIds commit
+                        .| filterC ((== _id) . fst)
+                        .| mapC snd
 
 load :: MonadStore m => Commit LgRepo -> Text -> Page a -> m (Either Error a)
 load commit path page = do

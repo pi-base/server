@@ -43,9 +43,6 @@ traits v = foldr acc [] $ flattened
           (Just s, Just p) -> ((set traitSpace s . set traitProperty p $ t), proof) : ts
           _ -> ts
 
-validate :: View -> [Error]
-validate v = [] -- TODO
-
 build :: [Space]
       -> [Property]
       -> [Trait Space Property]

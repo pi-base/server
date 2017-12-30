@@ -1,4 +1,4 @@
-mutation ResetBranch($input: ResetBranchInput!) {
+mutation resetBranch($input: ResetBranchInput!) {
   resetBranch(input: $input) {
     branch
     sha

@@ -2,6 +2,7 @@ module Data.Git
   ( Commit
   , LgRepo
   , branchExists
+  , branchRef
   , commitFromLabel
   , commitSha
   , createBranchFromBase
@@ -11,6 +12,7 @@ module Data.Git
   , resetBranch
   , resolveCommittish
   , updateRef
+  , updateBranch
   , useRef
   , useRepo
   , writePages
@@ -67,6 +69,20 @@ useRef ref meta handler = do
           return $ Right (Version $ commitSha commit, val)
     Nothing -> error "Can't find ref" -- FIXME
 
+-- TODO: replace useRef with this entirely
+updateBranch :: MonadStore m
+             => Branch
+             -> CommitMeta
+             -> (Loader -> TreeT LgRepo m a)
+             -> m (a, Sha)
+updateBranch branch meta handler = useRef ref meta handler' >>= \case
+  Left err -> throw err
+  Right (Version sha, a) -> return (a, sha)
+  where
+    ref = branchRef branch
+    handler' loader = Right <$> handler loader
+
+
 commitSha :: Commit LgRepo -> Sha
 commitSha cmt = case commitOid cmt of
   (Tagged oid) -> tshow oid
@@ -103,12 +119,12 @@ createRefFromBase ref = do
 commitFromLabel :: MonadStore m => Maybe Text -> m (Commit LgRepo)
 commitFromLabel Nothing = baseCommit
 commitFromLabel (Just label) = do
-  msha <- resolveCommittish $ CommitSha label
-  case msha of
-    Just sha -> return sha
+  mref <- resolveCommittish $ CommitRef $ Ref label
+  case mref of
+    Just ref -> return ref
     Nothing -> do
-      mref <- resolveCommittish $ CommitRef $ Ref label
-      maybe baseCommit return mref
+      msha <- resolveCommittish $ CommitSha label
+      maybe baseCommit return msha
 
 
 baseCommit :: MonadStore m => m (Commit LgRepo)

@@ -1,52 +1,78 @@
 module Data.Branch
   ( access
   , Data.Branch.all
-  , claimBranches
+  , claim
   , ensureUserBranch
   , Data.Branch.find
+  , headSha
   , reset
   , userBranches
   ) where
 
 import Data.Attoparsec.Text
 import Database.Esqueleto
+import Database.Persist (selectList)
 
 import           Core
 import qualified Data.Git as Git
+import qualified Data.Map.Strict as M
 import           Git
 
-find :: MonadStore m => Text -> m (Maybe Branch)
-find = error "find"
+import           Data.Helpers (findOrCreate)
+import           Model        (Unique(..))
 
-access :: MonadDB m => Entity User -> Branch -> m BranchAccess
-access = error "access"
+type Name = Text
+type OwnerName = Text
+
+find :: MonadDB m => Text -> m (Maybe Branch)
+find name = do
+  meb <- db . getBy $ UniqueBranchName name
+  return $ entityVal <$> meb
+
+access :: MonadDB m => Entity User -> Branch -> m (Maybe BranchAccess)
+access (Entity _id _) Branch{..} = return $ case branchOwnerId of
+  Nothing -> Just BranchRead
+  Just ownerId -> if ownerId == _id
+    then Just BranchAdmin
+    else Nothing
+
+all :: MonadDB m => m [Branch]
+all = do
+  entities <- db $ selectList [] []
+  return $ map entityVal entities
 
 userBranches :: (MonadDB m, MonadStore m) => Entity User -> m [BranchStatus]
-userBranches (Entity _id _) = do
-  -- pairs <- db $ select $
-  --   from $ \(ub, b) -> do
-  --   where_ (ub ^. UserBranchBranchId ==. b ^. BranchId)
-  --   where_ (ub ^. UserBranchUserId ==. val _id)
-  --   return (b, ub ^. UserBranchRole)
-
-  system <- mapM (\branch -> build branch BranchRead) =<< systemBranches
-  -- users  <- traverse (\(Entity _ branch, Value role) -> build branch role) pairs
-  return $ system -- <> users
+userBranches (Entity _id _) = all >>= foldM f []
   where
-    -- build :: Branch -> BranchAccess -> m BranchStatus
+    f :: MonadStore m => [BranchStatus] -> Branch -> m [BranchStatus]
+    f acc branch = case branchOwnerId branch of
+      Nothing -> (: acc) <$> build branch BranchRead
+      Just ownerId -> if ownerId == _id
+        then (: acc) <$> build branch BranchAdmin
+        else return acc
+
+    build :: MonadStore m => Branch -> BranchAccess -> m BranchStatus
     build branch role = do
       sha <- Git.useRepo $ Git.headSha branch
       return $ BranchStatus branch sha role
 
-systemBranches :: (MonadDB m, MonadStore m) => m [Branch]
-systemBranches = return $ map (\n -> Branch n Nothing) [ "master" ]
+claim :: (MonadDB m, MonadStore m) => m [Entity Branch]
+claim = do
+  names    <- scanRepo
+  ownerMap <- buildOwnerMap . catMaybes $ map snd names
 
-claimBranches :: (MonadDB m, MonadStore m) => m [Branch]
-claimBranches = do
-  branches <- Data.Branch.all
-  -- forM_ branches $ \name ->
-  traceM $ show branches
-  return branches
+  forM names $ \(name, mownerName) -> do
+    let ownerId = mownerName >>= \ownerName -> M.lookup ownerName ownerMap
+        branch = Branch name ownerId
+    findOrCreate (UniqueBranchName . branchName) branch
+  where
+    buildOwnerMap :: MonadDB m => [OwnerName] -> m (M.Map OwnerName UserId)
+    buildOwnerMap names = do
+      ownerPairs <- db $ select $
+        from $ \users -> do
+        where_ $ users ^. UserIdent `in_` valList names
+        return (users ^. UserIdent, users ^. UserId)
+      return . M.fromList $ map (\(Value a, Value b) -> (a, b)) ownerPairs
 
 userBranch :: Entity User -> Branch
 userBranch (Entity _id User{..}) = Branch ("users/" <> userIdent) (Just _id)
@@ -62,26 +88,26 @@ ensureUserBranch user = do
 reset :: MonadStore m => Branch -> Committish -> m Sha
 reset = Git.resetBranch
 
-all :: MonadStore m => m [Branch]
-all = do
+scanRepo :: MonadStore m => m [(Name, Maybe OwnerName)]
+scanRepo = do
   refs <- Git.listReferences
-  return []
-  -- return $ foldr f [] refs
-  -- where
-  --   f :: RefName -> [Branch] -> [Branch]
-  --   f name acc = case parseOnly branchParser name of
-  --     Right b -> b : acc
-  --     _       -> acc
-
-branchParser :: Parser (Text, Maybe Text)
-branchParser = do
-  _ <- "refs/heads/"
-  userBranch <|> systemBranch
+  return $ foldr f [] refs
   where
-    userBranch = do
+    f :: RefName -> [(Name, Maybe OwnerName)] -> [(Name, Maybe OwnerName)]
+    f name acc = either (const acc) (: acc) $ parseOnly refParser name
+
+refParser :: Parser (Name, Maybe OwnerName)
+refParser = do
+  _ <- "refs/heads/"
+  user <|> system
+  where
+    user = do
       _ <- "users/"
       userName <- takeText
       return ("users/" <> userName, Just userName)
-    systemBranch = do
+    system = do
       name <- takeText
       return (name, Nothing)
+
+headSha :: MonadStore m => Branch -> m Sha
+headSha = Git.headSha

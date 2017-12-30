@@ -1,37 +1,32 @@
 module Data.Property
-  ( describe
-  , fetch
+  ( fetch
   , pending
   , put
   ) where
 
 import Core hiding (find)
 import Data        (makeId)
-import Data.Git    (writePages, updateRef)
+import Data.Git    (writePages, updateBranch)
 
 import qualified Page
 import Page.Property (page)
 
-describe :: (MonadStore m, MonadThrow m) => Maybe Committish -> Property -> m Text
-describe mc p = propertyDescription <$> case mc of
-  Nothing -> return p
-  Just c  -> fetch c $ propertyId p
-
-find :: MonadStore m => Committish -> PropertyId -> m (Maybe Property)
+find :: MonadStore m => Branch -> PropertyId -> m (Maybe Property)
 find = error "find"
 
-fetch :: (MonadStore m, MonadThrow m) => Committish -> PropertyId -> m Property
+fetch :: (MonadStore m, MonadThrow m) => Branch -> PropertyId -> m Property
 fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return
 
 pending :: PropertyId
 pending = Id ""
 
 put :: (MonadStore m, MonadThrow m)
-    => Ref -> CommitMeta -> Property -> m (Version, Property)
-put ref meta prop' = do
+    => Branch -> CommitMeta -> Property -> m (Property, Sha)
+put branch meta prop' = do
   prop <- assignId prop'
-  version <- updateRef ref meta $ writePages [Page.write page prop]
-  return (version, prop)
+  updateBranch branch meta $ \_ -> do
+    writePages [Page.write page prop]
+    return prop
 
 assignId :: MonadIO m => Property -> m Property
 assignId p = if propertyId p == pending

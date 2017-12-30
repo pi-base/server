@@ -13,7 +13,6 @@ default-extensions:
   - TypeFamilies
 library:
   source-dirs:
-    - ./.
     - src
     - app
   dependencies:

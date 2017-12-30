@@ -8,20 +8,22 @@ module Util
   , indexBy
   , insertNested
   , mapRightC
+  , pj
   , traceC
-  , unionN
   , traverseDir
+  , unionN
   ) where
 
 import ClassyPrelude hiding (groupBy)
 
-import           Conduit            hiding (throwM)
-import           Data.Aeson         (ToJSON, encode)
-import qualified Data.Map           as M
-import qualified Data.Set           as S
-import qualified Data.Text.Lazy     as TL
-import           System.Directory   (listDirectory)
-import           System.Posix.Files (getFileStatus, isDirectory)
+import           Conduit                  hiding (throwM)
+import           Data.Aeson               (ToJSON, encode)
+import           Data.Aeson.Encode.Pretty (encodePretty)
+import qualified Data.Map                 as M
+import qualified Data.Set                 as S
+import qualified Data.Text.Lazy           as TL
+import           System.Directory         (listDirectory)
+import           System.Posix.Files       (getFileStatus, isDirectory)
 
 groupBy :: Ord b => (a -> b) -> [a] -> M.Map b [a]
 groupBy f = foldl' add M.empty
@@ -61,6 +63,9 @@ fetch k m = case M.lookup k m of
 
 encodeText :: ToJSON a => a -> Text
 encodeText = TL.toStrict . decodeUtf8 . encode
+
+pj :: ToJSON a => a -> Text
+pj = TL.toStrict . decodeUtf8 . encodePretty
 
 insertNested :: (Ord a, Ord b) => a -> b -> v -> Map a (Map b v) -> Map a (Map b v)
 insertNested a b v = M.alter add a

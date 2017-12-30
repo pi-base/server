@@ -24,7 +24,7 @@ parse PageData{..} = do
 
 write :: Space -> PageData
 write Space{..} = PageData
-  { pagePath = encodeUtf8 $ "spaces/" <> spaceSlug <> "/README.md"
+  { pagePath = encodeUtf8 $ "spaces/" <> unId spaceId <> "/README.md"
   , pageFrontmatter = HM.fromList
     [ "uid"  .= spaceId
     , "slug" .= spaceSlug

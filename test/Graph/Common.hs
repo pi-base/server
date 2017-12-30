@@ -3,20 +3,21 @@ module Graph.Common
   , getConfig
   , login
   , runGraph
+  , traceJ
   ) where
 
-import TestImport (App(..), buildApp)
+import TestImport (App(..), buildApp, traceJ)
 
-import           Control.Monad.Logger     (MonadLogger(..))
+import           Control.Monad.Logger     (MonadLogger(..), runStdoutLoggingT)
 import           Database.Persist.Sql     (ConnectionPool, Entity(..), runSqlPool)
 import           Git.Libgit2              (HasLgRepo(..))
 import           System.IO.Unsafe         (unsafePerformIO)
 
-import Core
-import Data.Branch     (claimBranches, ensureUserBranch)
-import Data.Store      (storeRepo)
-import Handler.Helpers (ensureUser)
-import Settings        (AppSettings(..))
+import           Core
+import qualified Data.Branch     as Branch
+import           Data.Store      (storeRepo)
+import           Handler.Helpers (ensureUser)
+import           Settings        (AppSettings(..))
 
 data Config = Config
   { pool     :: ConnectionPool
@@ -63,10 +64,10 @@ login :: User -> Config -> IO Config
 login user config = do
   currentUser <- runGraph config $ do
     entity <- ensureUser user
-    _      <- ensureUserBranch entity
-    _      <- claimBranches
+    _      <- Branch.ensureUserBranch entity
+    _      <- Branch.claim
     return entity
   return $ config { user = Just currentUser }
 
 runGraph :: Config -> ReaderT Config IO a -> IO a
-runGraph = flip runReaderT
+runGraph conf action = runReaderT action conf

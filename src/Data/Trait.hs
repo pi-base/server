@@ -7,15 +7,12 @@ import           Data  (updateView, viewDeductions)
 import qualified Logic as L
 
 put :: (MonadStore m, MonadThrow m)
-    => Ref
+    => Branch
     -> CommitMeta
     -> Trait SpaceId PropertyId
-    -> m (Either [Error] View)
-put ref meta trait = do
-  result <- updateView ref meta $ \loader -> do
-    (lift $ L.runLogicT loader $ L.assertTrait trait) >>= \case
-      Left err -> return . Left $ LogicError err
-      Right updates -> lift $ viewDeductions loader updates
+    -> m View
+put branch meta trait = updateView branch meta $ \loader -> do
+  result <- L.runLogicT loader $ L.assertTrait trait
   case result of
-    Left err -> return $ Left [ err ]
-    Right v  -> return $ Right v
+    Left      err -> throw $ LogicError err
+    Right updates -> viewDeductions loader $ updates

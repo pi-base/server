@@ -5,13 +5,11 @@ module Graph.Mutations
   , createProperty
   , createSpace
   , resetBranch
-  , testReset
   , updateProperty
   , updateSpace
   , updateTheorem
   ) where
 
-import           Control.Monad.Logger (logInfo)
 import           Data.Aeson           (decode)
 import qualified Data.Text.Lazy       as TL
 import           Database.Persist     (Entity(..))
@@ -20,19 +18,18 @@ import           GraphQL.Resolver
 import           Core
 import           Data            (makeId, slugify)
 import qualified Data.Branch     as Branch
+import qualified Data.Git        as Git
 import qualified Data.Property   as Property
 import qualified Data.Space      as Space
 import qualified Data.Theorem    as Theorem
 import qualified Data.Trait      as Trait
 import qualified Graph.Types     as G
 import qualified Graph.Queries   as G
-import           Handler.Helpers (ensureUser, ensureToken)
-import           Settings        (appTestMode)
 import qualified View            as View
 
-assertTrait :: MonadGraph m => G.AssertTraitInput -> Handler m G.Viewer
-assertTrait G.AssertTraitInput{..} = do
-  (Entity _ user) <- requireUser
+assertTrait :: MonadGraph m => G.PatchInput -> G.AssertTraitInput -> Handler m G.Viewer
+assertTrait patch G.AssertTraitInput{..} = do
+  (user, branch) <- checkPatch patch
 
   let trait = Trait
         { _traitSpace       = Id spaceId
@@ -42,13 +39,13 @@ assertTrait G.AssertTraitInput{..} = do
         }
 
       commit = CommitMeta user $ "Add " <> tshow trait
+  view <- Trait.put branch commit trait
+  G.presentView view
 
-  view <- Trait.put (userBranch user) commit trait
-  either throw G.presentView view
-
-assertTheorem :: MonadGraph m => G.AssertTheoremInput -> Handler m G.Viewer
-assertTheorem G.AssertTheoremInput{..} = do
-  (Entity _ user) <- requireUser
+assertTheorem :: (MonadGraph m, MonadLogger m)
+              => G.PatchInput -> G.AssertTheoremInput -> Handler m G.Viewer
+assertTheorem patch G.AssertTheoremInput{..} = do
+  (user, branch) <- checkPatch patch
 
   a <- parseFormula antecedent
   c <- parseFormula consequent
@@ -59,13 +56,15 @@ assertTheorem G.AssertTheoremInput{..} = do
     <*> pure Nothing
     <*> pure description
 
-  let commit = CommitMeta user $ "Add " <> tshow theorem
+  let meta = CommitMeta user $ "Add " <> tshow theorem
+  traceM "Saving"
+  view <- Theorem.put branch meta theorem
+  traceM "Presenting"
+  G.presentView view
 
-  Theorem.put (userBranch user) commit theorem >>= either throw G.presentView
-
-createSpace :: MonadGraph m => G.CreateSpaceInput -> Handler m G.Viewer
-createSpace G.CreateSpaceInput{..} = do
-  (Entity _ user) <- requireUser
+createSpace :: MonadGraph m => G.PatchInput -> G.CreateSpaceInput -> Handler m G.Viewer
+createSpace patch G.CreateSpaceInput{..} = do
+  (user, branch) <- checkPatch patch
 
   let space = Space
         { spaceId          = Space.pending
@@ -77,12 +76,12 @@ createSpace G.CreateSpaceInput{..} = do
         }
       commit = CommitMeta user $ "Add " <> name
 
-  (version, s) <- Space.put (userBranch user) commit space
-  G.presentView $ View.build [s] [] [] [] version
+  (s, sha) <- Space.put branch commit space
+  G.presentView $ View.build [s] [] [] [] $ Version sha
 
-createProperty :: MonadGraph m => G.CreatePropertyInput -> Handler m G.Viewer
-createProperty G.CreatePropertyInput{..} = do
-  (Entity _id user) <- requireUser
+createProperty :: MonadGraph m => G.PatchInput -> G.CreatePropertyInput -> Handler m G.Viewer
+createProperty patch G.CreatePropertyInput{..} = do
+  (user, branch) <- checkPatch patch
 
   let property = Property
         { propertyId          = Property.pending
@@ -92,8 +91,8 @@ createProperty G.CreatePropertyInput{..} = do
         , propertyAliases     = []
         }
       commit = CommitMeta user $ "Add " <> name
-  (version, p) <- Property.put (userBranch user) commit property
-  G.presentView $ View.build [] [p] [] [] version
+  (p, sha) <- Property.put branch commit property
+  G.presentView $ View.build [] [p] [] [] $ Version sha
 
 resetBranch :: MonadGraph m => G.ResetBranchInput -> Handler m G.ResetBranchResponse
 resetBranch G.ResetBranchInput{..} = do
@@ -102,76 +101,65 @@ resetBranch G.ResetBranchInput{..} = do
     Nothing -> throw $ NotFound branch
     Just branch' -> do
       access <- Branch.access user branch'
-      unless (access == BranchAdmin || access == BranchWrite) $ do
+      unless (access == Just BranchAdmin) $ do
         throw $ PermissionError "Not allowed access on branch"
-      sha <- Branch.reset branch' $ CommitSha to
+      -- TODO: handle case where `to` is not found
+      commit <- Git.commitFromLabel $ Just to
+      sha <- Branch.reset branch' $ CommitSha $ Git.commitSha commit
 
       return $ pure "ResetBranchResponse"
         :<> pure branch
         :<> pure sha
 
-testReset :: MonadGraph m => G.TestResetInput -> Handler m G.TestResetResponse
-testReset G.TestResetInput{..} = do
-  testing <- appTestMode <$> getSettings
-  if testing
-    then $(logInfo) $ "Resetting test branch to " <> ref
-    else error "Set TEST_MODE to allow resetting data"
+updateProperty :: MonadGraph m => G.PatchInput -> G.UpdatePropertyInput -> Handler m G.Viewer
+updateProperty patch G.UpdatePropertyInput{..} = do
+  (user, branch) <- checkPatch patch
 
-  user@(Entity _id _) <- ensureUser testUser
-  branch              <- Branch.ensureUserBranch user
-  sha                 <- Branch.reset branch $ CommitRef $ Ref ref
-
-  $(logInfo) $ "Reset " <> (tshow branch) <> " to " <> sha
-
-  maybe (return ()) (void . ensureToken _id) token
-
-  return $ pure "TestResetResponse"
-    :<> pure sha
-    :<> pure token
-
-updateProperty :: MonadGraph m => G.UpdatePropertyInput -> Handler m G.Viewer
-updateProperty G.UpdatePropertyInput{..} = do
-  (Entity _id user) <- requireUser
-
-  let ref = userBranch user
-  old <- Property.fetch (CommitRef ref) $ Id uid
+  old <- Property.fetch branch $ Id uid
   let updated = old { propertyDescription = description }
       commit  = CommitMeta user $ "Update " <> propertyName updated
-  (version, p) <- Property.put ref commit updated
-  G.presentView $ View.build [] [p] [] [] version
+  (p, sha) <- Property.put branch commit updated
+  G.presentView $ View.build [] [p] [] [] $ Version sha
 
-updateSpace :: MonadGraph m => G.UpdateSpaceInput -> Handler m G.Viewer
-updateSpace G.UpdateSpaceInput{..} = do
-  (Entity _id user) <- requireUser
+updateSpace :: MonadGraph m => G.PatchInput -> G.UpdateSpaceInput -> Handler m G.Viewer
+updateSpace patch G.UpdateSpaceInput{..} = do
+  (user, branch) <- checkPatch patch
 
-  let ref = userBranch user
-  old <- Space.fetch (CommitRef ref) $ Id uid
+  old <- Space.fetch branch $ Id uid
   let updated = old { spaceDescription = description }
-      commit  = CommitMeta user $ "Update " <> spaceName updated
-  (version, s) <- Space.put ref commit updated
-  G.presentView $ View.build [s] [] [] [] version
+      meta    = CommitMeta user $ "Update " <> spaceName updated
+  (s, sha) <- Space.put branch meta updated
+  G.presentView $ View.build [s] [] [] [] $ Version sha
 
-updateTheorem :: MonadGraph m => G.UpdateTheoremInput -> Handler m G.Viewer
-updateTheorem G.UpdateTheoremInput{..} = do
-  error "updateTheorem"
-  -- (Entity _id user) <- requireToken
-  -- let ref = userBranch user
-  -- old <- T.fetch (CommitRef ref) $ TheoremId uid
-  -- let updated = old { theoremDescription = description }
-  --     commit  = CommitMeta user $ "Update " <> theoremName updated
-  -- (version, t) <- T.put ref commit updated
-  -- G.viewR $ V.build [] [] [] [t] version
+updateTheorem :: (MonadGraph m, MonadLogger m)
+              => G.PatchInput -> G.UpdateTheoremInput -> Handler m G.Viewer
+updateTheorem patch G.UpdateTheoremInput{..} = do
+  (user, branch) <- checkPatch patch
+
+  old <- Theorem.fetch branch $ Id uid
+  let updated = old { theoremDescription = description }
+      meta    = CommitMeta user $ "Update " <> theoremName updated
+  Theorem.put branch meta (propertyId <$> updated) >>= G.presentView
 
 -- Helpers
+checkPatch :: MonadGraph m => G.PatchInput -> m (User, Branch)
+checkPatch G.PatchInput{..} = do
+  user <- requireUser
+  mb   <- Branch.find branch
+  case mb of
+    Nothing -> throw $ NotFound $ "Branch " <> branch
+    Just b -> do
+      access <- Branch.access user b
+      unless (access == Just BranchAdmin || access == Just BranchWrite) $
+        throw $ PermissionError "Cannot write to this branch"
 
--- FIXME: this is defined too many places ...
-userBranch :: User -> Ref
-userBranch u = Ref $ "users/" <> userIdent u
+      currentSha <- Branch.headSha b
+      unless (sha == currentSha) $
+        throw $ ConflictError $ Conflict currentSha sha
+
+      return $ (entityVal user, b)
 
 parseFormula :: MonadGraph m => Text -> m (Formula PropertyId)
 parseFormula text = case decode $ encodeUtf8 $ TL.fromStrict text of
   Nothing -> throw $ ParseError "formula" (show text)
   Just f  -> return $ Id <$> f
-
-testUser :: User
-testUser = User "tester" "tester" "test@pi-base.org" "xxx"

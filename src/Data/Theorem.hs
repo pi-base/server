@@ -1,6 +1,6 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Data.Theorem
-  ( describe
-  , fetch
+  ( fetch
   , pending
   , put
   ) where
@@ -9,31 +9,31 @@ import           Core  hiding (find)
 import           Data  (makeId, updateView, viewDeductions)
 import qualified Logic as L
 
-describe :: (MonadStore m, MonadThrow m) => Maybe Committish -> Theorem p -> m Text
-describe mc t = case mc of
-  Nothing -> return $ theoremDescription t
-  Just c  -> fmap theoremDescription . fetch c $ theoremId t
-
-find :: MonadStore m => Committish -> TheoremId -> m (Maybe (Theorem Property))
+find :: MonadStore m => Branch -> TheoremId -> m (Maybe (Theorem Property))
 find = error "find"
 
-fetch :: (MonadStore m, MonadThrow m) => Committish -> TheoremId -> m (Theorem Property)
-fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return
+fetch :: (MonadStore m, MonadThrow m) => Branch -> TheoremId -> m (Theorem Property)
+fetch branch _id = find branch _id >>= maybe (throwM . NotFound $ unId _id) return
 
 pending :: TheoremId
 pending = Id ""
 
-put :: (MonadStore m, MonadThrow m) => Ref -> CommitMeta -> Theorem PropertyId -> m (Either [Error] View)
-put ref meta theorem' = do
+put :: (MonadStore m, MonadLogger m) 
+    => Branch 
+    -> CommitMeta 
+    -> Theorem PropertyId 
+    -> m View
+put branch meta theorem' = do
   theorem <- assignId theorem'
-
-  result <- updateView ref meta $ \loader -> do
-    (lift $ L.runLogicT loader $ L.assertTheorem theorem) >>= \case
-      Left err -> return . Left $ LogicError err
-      Right updates -> lift $ viewDeductions loader updates
-  case result of
-    Left err -> return $ Left [ err ]
-    Right v  -> return $ Right v
+  updateView branch meta $ \loader -> do
+    $(logDebug) $ "Asserting " <> tshow (theoremImplication theorem)
+    result <- L.runLogicT loader $ L.assertTheorem theorem
+    $(logDebug) $ "Assertion yielded: " <> tshow result
+    case result of
+      Left      err -> throw $ LogicError err
+      Right updates -> do
+        view <- viewDeductions loader updates
+        return view
 
 assignId :: MonadIO m => Theorem p -> m (Theorem p)
 assignId t = if theoremId t == pending

@@ -1,4 +1,4 @@
-query Branches {
+query branches {
   branches {
     name
     sha

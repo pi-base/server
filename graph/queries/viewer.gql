@@ -1,4 +1,4 @@
-query Viewer($version: String) {
+query viewer($version: String) {
   viewer(version: $version) {
     version
     spaces {

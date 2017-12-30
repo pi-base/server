@@ -14,6 +14,8 @@ import qualified Data.Text as T
 import qualified Data.UUID as UUID
 import qualified Data.UUID.V4 as UUID
 
+import Data.Helpers (findOrCreate)
+
 generateToken :: MonadDB m => UserId -> m Token
 generateToken userId = do
   uuid <- liftIO UUID.nextRandom
@@ -60,18 +62,3 @@ ensureToken :: MonadDB m => UserId -> Text -> m (Entity Token)
 ensureToken _id token = do
   now <- liftIO getCurrentTime
   findOrCreate (UniqueToken . tokenUuid) $ Token _id now Nothing token
-
-findOrCreate :: ( MonadDB m
-                , PersistEntity record
-                , PersistEntityBackend record ~ SqlBackend
-                )
-             => (record -> Unique record)
-             -> record
-             -> m (Entity record)
-findOrCreate by obj = do
-  mfound <- db . getBy $ by obj
-  case mfound of
-    Just entity -> return entity
-    Nothing -> do
-      _id <- db $ insert obj
-      return $ Entity _id obj

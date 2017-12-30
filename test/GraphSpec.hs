@@ -6,54 +6,51 @@ import Test.Tasty.Hspec
 import           Control.Lens             hiding ((.=))
 import           Data.Aeson               (Value(..), (.=), object)
 import           Data.Aeson.Lens
-import qualified Data.HashMap.Strict      as HM
 import qualified Data.Map                 as M
+import qualified Data.Monoid
 
 import Graph.Common
 
-import Core
-import Graph.Queries   (compileAll)
-import Graph.Root      (exec)
-import Graph.Types     (Query)
-
-testUser :: User
-testUser = User "test" "Test User" "test@example.com" "xxx"
-
-v :: (Applicative f, AsValue t) => (Value -> f Value) -> t -> f t
-v = key "data" . key "viewer"
-
-compact, metacompact, metrizable :: Text
-compact     = "P000016"
-metacompact = "P000031"
-metrizable  = "P000053"
-
-isLeft :: Either a b -> Bool
-isLeft (Left _) = True
-isLeft _ = False
+import           Core
+import qualified Data.Branch   as Branch
+import           Graph.Queries (compileAll)
+import           Graph.Root    (asJSON, execute)
+import           Graph.Types   (Query)
+import           Util          (encodeText)
 
 spec :: IO TestTree
 spec = do
-  -- NEXT:
-  -- * rework test auto-runner
-  -- * re-enable and spec mutations
   queries <- compileAll
   config  <- getConfig >>= login testUser
 
   let
-    run :: Query -> [(Text, Value)] -> IO Value
-    run q vars = runGraph config $ exec q (Just $ HM.fromList vars)
+    run :: Query -> String -> [(Text, Value)] -> IO Value
+    run q name vars = runGraph config $ asJSON (execute q) request
+      where
+        request = object 
+          [ "operationName" .= name
+          , "variables" .= object vars
+          , "query" .= ("" :: Text) -- overridden with compiled query
+          ]
 
     query :: FilePath -> [(Text, Value)] -> IO Value
     query name vars = do
       let (Just (Right compiled)) = M.lookup ("graph" </> "queries" </> name <> ".gql") queries
-      result <- run compiled vars
+      result <- run compiled name vars
       return . Object $ result ^. key "data" . _Object
 
     mutation :: FilePath -> [(Text, Value)] -> IO Value
     mutation name vars = do
       let (Just (Right compiled)) = M.lookup ("graph" </> "mutations" </> name <> ".gql") queries
-      result <- run compiled vars
+      result <- run compiled name vars
       return . Object $ result ^. key "data" . _Object
+
+    initial :: Sha
+    initial = "b91cbfb12122fc4fc5379f7a9f68cc42c487aa81"
+
+    resetBranch :: Text -> Sha -> IO ()
+    resetBranch name sha = void $ runGraph config $ do
+      Branch.reset (Branch name Nothing) (CommitSha sha)
 
   testSpec "Graph" $ do
     describe "query compilation" $ do
@@ -65,7 +62,30 @@ spec = do
         user <- query "me" mempty
 
         user ^.  key "me" . key "name" . _String `shouldBe` "Test User"
-        user ^.. key "me" . key "branches" . values . key "name" . _String `shouldBe` ["master", "users/test"]
+
+        let branches = buildMap (key "name" . _String) (key "access" . _String) $ user ^.. key "me" . key "branches" . values . _Value
+
+        M.lookup "users/test" branches `shouldBe` Just "admin"
+        M.lookup "master" branches `shouldBe` Just "read"
+
+    describe "branches" $ do
+      it "can reset user owned branches" $ do
+        result <- mutation "resetBranch" $
+                    [ "input" .= object
+                      [ "branch" .= ("users/test" :: Text)
+                      , "to"     .= ("master" :: Text)
+                      ]
+                    ]
+        result ^. key "resetBranch" . key "branch" . _String `shouldBe` "users/test"
+
+      it "cannot reset system branches" $ do
+        let action = mutation "resetBranch" $
+              [ "input" .= object
+                [ "branch" .= ("master" :: Text)
+                , "to"     .= ("users/test" :: Text)
+                ]
+              ]
+        action `shouldThrow` (== PermissionError "Not allowed access on branch")
 
     describe "viewer" $ do
       it "can run queries directly" $ do
@@ -81,71 +101,123 @@ spec = do
         length theoremIds `shouldBe` 226
 
       it "can add a space" $ do
+        resetBranch "users/test" initial
+
         result <- mutation "createSpace" $
                     [ "patch" .= object
-                      [ "branch" .= ("test" :: Text)
-                      , "sha"    .= ("123" :: Text)
+                      [ "branch" .= ("users/test" :: Text)
+                      , "sha"    .= initial
                       ]
-                    , "input" .= object
+                    , "space" .= object
                       [ "name"        .= ("New Space" :: Text)
                       , "description" .= ("Desc" :: Text)
                       ]
                     ]
 
-        let names = result ^.. key "patch" . key "createSpace" . key "spaces" . values . key "name" . _String
+        let names = result ^.. key "createSpace" . key "spaces" . values . key "name" . _String
         names `shouldBe` ["New Space"]
 
       it "can assert a trait" $ do
+        resetBranch "users/test" initial
+
         s <- mutation "createSpace" $
-               [ "name"        .= ("S" :: Text)
-               , "description" .= ("" :: Text)
+               [ "patch" .= object
+                 [ "branch" .= ("users/test" :: Text)
+                 , "sha"    .= initial
+                 ]
+               , "space" .= object
+                 [ "name"        .= ("New Space" :: Text)
+                 , "description" .= ("Desc" :: Text)
+                 ]
                ]
 
-        let sid = s ^. v . key "spaces" . nth 0 . key "uid" . _String
+        let sid = s ^. key "createSpace" . key "spaces" . nth 0 . key "uid" . _String
+        length sid `shouldBe` 37
+
+        let v1 = s ^. key "createSpace" . key "version" . _String
+        length v1 `shouldBe` 40
 
         -- S |= compact
         t1 <- mutation "assertTrait" $
-                [ "spaceId"     .= sid
-                , "propertyId"  .= compact
-                , "value"       .= True
-                , "description" .= ("" :: Text)
+                [ "patch" .= object
+                  [ "branch" .= ("users/test" :: Text)
+                  , "sha"    .= v1
+                  ]
+                , "trait" .= object
+                  [ "spaceId"     .= sid
+                  , "propertyId"  .= compact
+                  , "value"       .= True
+                  , "description" .= ("" :: Text)
+                  ]
                 ]
 
-        t1 ^.. v . key "spaces" . values . key "name" . _String `shouldBe` ["S"]
+        let s1 = Object $ t1 ^. key "assertTrait" . key "spaces" . nth 0 . _Object
+        s1 ^. key "uid" . _String `shouldBe` sid
 
-        -- > 3 traits
-        -- all traits true
-        -- TODO: traits include compact = true and countably compact = true
-        t1 ^.. v . key "spaces" . nth 0 . key "traits" . values . key "value" . _Bool
-          `shouldBe` (take 19 $ repeat True)
+        let ps1 = traitMap $ s1 ^.. key "traits" . values . _Value
+        M.lookup compact ps1 `shouldBe` Just True
+        M.lookup paracompact ps1 `shouldBe` Just True
+        -- FIXME: M.lookup metacompact ps1 `shouldBe` Just True
+        M.lookup metrizable ps1 `shouldBe` Nothing
+
+        let v2  = t1 ^. key "assertTrait" . key "version" . _String
 
         -- S |= ~metrizable
         t2 <- mutation "assertTrait" $
-                [ "spaceId"     .= sid
-                , "propertyId"  .= metrizable
-                , "value"       .= False
-                , "description" .= ("" :: Text)
+                [ "patch" .= object
+                  [ "branch" .= ("users/test" :: Text)
+                  , "sha"    .= v2
+                  ]
+                , "trait" .= object
+                  [ "spaceId"     .= sid
+                  , "propertyId"  .= metrizable
+                  , "value"       .= False
+                  , "description" .= ("" :: Text)
+                  ]
                 ]
 
-        t2 ^.. v . key "spaces" . values . key "name" . _String `shouldBe` ["S"]
-        -- TODO: assertion about derived traits
+        let s2 = Object $ t2 ^. key "assertTrait" . key "spaces" . nth 0 . _Object
+        let ps2 = traitMap $ s2 ^.. key "traits" . values . _Value
+
+        M.lookup metrizable ps2 `shouldBe` Just False
+        M.lookup locallyMetrizable ps2 `shouldBe` Just False
 
       xit "can assert a theorem" $ do
-        "this test" `shouldBe` "done"
-      --   p <- mutation "createProperty" "{ properties { uid } }"
-      --          [ "name"        .= ("P" :: Text)
-      --          , "description" .= ("" :: Text)
-      --          ]
+        resetBranch "users/test" initial
 
-      --   let pid = p ^. key "properties" . nth 0 . key "uid" . _String
-      --       q = "{ version, spaces { name, traits { property { name } value } }, theorems { uid, if, then, description } }"
+        p <- mutation "createProperty"
+                [ "patch" .= object
+                  [ "branch" .= ("users/test" :: Text)
+                  , "sha"    .= initial
+                  ]
+                , "property" .= object
+                  [ "name"        .= ("P" :: Text)
+                  , "description" .= ("" :: Text)
+                  ]
+                ]
 
-      --   -- compact => P
-      --   t1 <- mutation "assertTheorem" q
-      --           [ "antecedent"  .= (encodeText $ object [ compact .= True ])
-      --           , "consequent"  .= (encodeText $ object [ pid .= True ])
-      --           , "description" .= ("New theorem" :: Text)
-      --           ]
+        let pid = p ^. key "createProperty" . key "properties" . nth 0 . key "uid" . _String
+            v1  = p ^. key "createProperty" . key "version" . _String
+
+        pending
+
+        -- compact => P
+        traceM "Sending"
+        t1 <- mutation "assertTheorem"
+                [ "patch" .= object
+                  [ "branch" .= ("users/test" :: Text)
+                  , "sha"    .= v1
+                  ]
+                , "theorem" .= object
+                  [ "antecedent"  .= (encodeText $ object [ compact .= True ])
+                  , "consequent"  .= (encodeText $ object [ pid .= True ])
+                  , "description" .= ("New theorem" :: Text)
+                  ]
+                ]
+        let v2 = t1 ^. key "assertTheorem" . key "version" . _String
+
+        traceM "First"
+        traceJ t1
 
       --   assertNotEq "version" initialVersion $
       --     t1 ^. key "version" . _String
@@ -161,14 +233,54 @@ spec = do
       --         -- trait value is true
       --   -- also assert P => paracompact?
 
-      --   -- P => metacompact
-      --   t2 <- mutation "assertTheorem" q
-      --           [ "antecedent"  .= (encodeText $ object [ pid .= True ])
-      --           , "consequent"  .= (encodeText $ object [ metacompact .= True ])
-      --           , "description" .= ("New theorem" :: Text)
-      --           ]
+        -- P => metacompact
+        t2 <- mutation "assertTheorem"
+                [ "patch" .= object
+                  [ "branch" .= ("users/test" :: Text)
+                  , "sha"    .= v2
+                  ]
+                , "theorem" .= object
+                  [ "antecedent"  .= (encodeText $ object [ pid .= True ])
+                  , "consequent"  .= (encodeText $ object [ metacompact .= True ])
+                  , "description" .= ("New theorem" :: Text)
+                  ]
+                ]
+
+        traceM "Second"
+        traceJ t2
 
       --   assertNotEq "version" initialVersion $
       --     t2 ^. key "version" . _String
       --   assertEq "description" ["New theorem"] $
-      --     t2 ^.. key "theorems" . values . key "description" . _String
+     --     t2 ^.. key "theorems" . values . key "description" . _String
+
+testUser :: User
+testUser = User "test" "Test User" "test@example.com" "xxx"
+
+compact, paracompact, metacompact, metrizable, locallyMetrizable :: Text
+compact           = "P000016"
+paracompact       = "P000030"
+metacompact       = "P000031"
+metrizable        = "P000053"
+locallyMetrizable = "P000082"
+
+isLeft :: Either a b -> Bool
+isLeft (Left _) = True
+isLeft _ = False
+
+buildMap :: Ord k
+         => Getting k Value k
+         -> Getting (Data.Monoid.First v) Value v
+         -> [Value]
+         -> Map k v
+buildMap k v = foldr f mempty
+  where
+    f obj acc =
+      let k' = obj ^. k
+          v' = obj ^? v
+      in case v' of
+        Nothing  -> acc
+        Just v'' -> M.insert k' v'' acc
+
+traitMap :: [Value] -> Map Text Bool
+traitMap = buildMap (key "property" . key "uid" . _String) (key "value" . _Bool)

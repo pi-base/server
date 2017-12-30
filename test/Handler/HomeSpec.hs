@@ -12,10 +12,3 @@ spec = testSpec "Handler.HomeSpec" $ do
         json $ \j -> do
           j `shouldHaveKey` "version"
         statusIs 200
-
-      it "leaves the user table empty" $ do
-        get HomeR
-
-        statusIs 200
-        users <- runDB $ selectList ([] :: [Filter User]) []
-        assertEq "user table empty" 0 $ length users

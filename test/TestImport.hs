@@ -22,7 +22,6 @@ import Yesod.Auth            as X
 import Yesod.Test            as X
 
 import           Data.Aeson                 (ToJSON(..), Value(..), decode)
-import           Data.Aeson.Encode.Pretty   (encodePretty)
 import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.Text                  as T
@@ -38,6 +37,8 @@ import Control.Monad.Logger                 (runLoggingT)
 import Settings                             (appDatabaseConf)
 import Yesod.Core                           (messageLoggerSource)
 
+import Util (pj)
+
 runDB :: SqlPersistM a -> YesodExample App a
 runDB query = do
     pool <- fmap appConnPool getTestYesod
@@ -50,7 +51,7 @@ buildApp = do
       []
       useEnv
   foundation <- makeFoundation settings
-  wipeDB foundation
+  -- wipeDB foundation
   logWare <- liftIO $ makeLogWare foundation
   return (foundation, logWare)
 
@@ -144,4 +145,4 @@ shouldHaveKey (Object _map) key = liftIO $ H.assertBool msg (HM.member key _map)
 shouldHaveKey _ _ = liftIO $ H.assertBool "Value is not an object" False
 
 traceJ :: (ToJSON a, Monad m) => a -> m ()
-traceJ = traceM . LBS8.unpack . encodePretty
+traceJ = traceM . T.unpack . pj

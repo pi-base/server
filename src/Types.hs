@@ -43,10 +43,14 @@ data LogicError = Contradiction SpaceId PropertyId TVal TVal
                 | Counterexamples [SpaceId]
                 | LoadFailure Error
                 deriving Eq
+                
+data Conflict = Conflict { expectedSha :: Sha, actualSha :: Sha }
+  deriving (Show, Eq)
 
 -- TODO: make sure error handling is consistent throughout the application
 --       and never stringly-typed
 data Error = CommitNotFound  Committish
+           | ConflictError   Conflict
            | LogicError      LogicError
            | NotFound        Text
            | NotATree        TreeFilePath
@@ -54,6 +58,7 @@ data Error = CommitNotFound  Committish
            | ParseError      TreeFilePath String
            | PermissionError Text
            | PersistError    String
+           | QueryError      Text
            | ReferenceError  TreeFilePath [Uid]
            | UnknownGitRef   Ref
            | GeneralError    Text

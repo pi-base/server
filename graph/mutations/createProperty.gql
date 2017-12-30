@@ -1,0 +1,9 @@
+mutation createProperty($patch: PatchInput!, $property: PropertyInput!) {
+  createProperty(patch: $patch, property: $property) {
+    version
+    properties {
+      uid
+      name
+    }
+  }
+}

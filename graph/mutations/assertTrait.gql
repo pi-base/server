@@ -1,7 +1,8 @@
-mutation AssertTrait($input: AssertTraitInput!) {
-  assertTrait(input: $input) {
+mutation assertTrait($patch: PatchInput!, $trait: AssertTraitInput!) {
+  assertTrait(patch: $patch, trait: $trait) {
     version
     spaces {
+      uid
       traits {
         property {
           uid

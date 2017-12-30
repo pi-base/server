@@ -23,7 +23,7 @@ parse PageData{..} = do
 
 write :: Property -> PageData
 write Property{..} = PageData
-  { pagePath = encodeUtf8 $ "properties/" <> propertyName
+  { pagePath = encodeUtf8 $ "properties/" <> unId propertyId <> ".md"
   , pageFrontmatter = HM.fromList
     [ "uid"     .= propertyId
     , "slug"    .= propertySlug

@@ -2,11 +2,10 @@
 module Data
   ( initializeStore
   , storeMaster
-  -- , parseViewer
-  -- , viewerAtRef
   , fetchPullRequest
   , makeId
   , slugify
+  , updateBranch
   , updateView
   , viewDeductions
   ) where
@@ -29,9 +28,10 @@ import qualified Page.Theorem
 import qualified Page.Trait
 
 import Core
-import Data.Git    (openRepo, useRef, resolveCommittish)
+import Data.Git    (openRepo, updateBranch, resolveCommittish)
 import Data.Store
 import Git.Libgit2 (runLgRepository)
+import Util        (indexBy)
 
 storeMaster :: MonadStore m
             => m (Either [Error] View)
@@ -64,17 +64,6 @@ fetchPullRequest path = liftIO $ do
   putStrLn $ "Pulling updates for repo"
   callCommand $ "cd " ++ path ++ " && git fetch origin"
 
--- viewerAtRef :: MonadStore m => Text -> m (Either [Error] View)
--- viewerAtRef = parseViewer . CommitRef . Ref
--- 
--- parseViewer :: MonadStore m
---             => Committish
---             -> m (Either [Error] View)
--- parseViewer commish = do
---   eviewer <- P.viewer commish
---   -- validate
---   return eviewer
-
 makeId :: MonadIO m => Text -> m (Id a)
 makeId prefix = do
   uuid <- liftIO UUID.nextRandom
@@ -83,24 +72,8 @@ makeId prefix = do
 slugify :: Text -> Text
 slugify t = t -- TODO
 
-updateView :: MonadStore m
-           => Ref
-           -> CommitMeta
-           -> (Loader.Loader -> TreeT LgRepo m (Either Error View))
-           -> m (Either Error View)
-updateView ref meta updates = do
-  results <- useRef ref meta $ \loader -> do
-    (updates loader) >>= \case
-      Left   err -> return $ Left err
-      Right view -> do
-        persistView view
-        return $ Right view
-  case results of
-    Left e -> return $ Left e
-    Right (version, view') -> return . Right $ view' { _viewVersion = Just version }
-
-persistView :: MonadStore m => View -> TreeT LgRepo m ()
-persistView v = forM_ (viewPages v) $ \(path, contents) -> do
+writeView :: MonadStore m => View -> TreeT LgRepo m ()
+writeView v = forM_ (viewPages v) $ \(path, contents) -> do
   blob <- lift $ createBlobUtf8 contents
   putBlob path blob
 
@@ -112,24 +85,35 @@ viewPages v = map (Page.write Page.Theorem.page) theorems
     traits   = map (identifyTrait . fst) $ V.traits v
 
 viewDeductions :: MonadStore m
-               => Loader.Loader -> L.Deductions -> m (Either Error View)
-viewDeductions loader L.Deductions{..} = runExceptT $ do
+               => Loader.Loader -> L.Deductions -> m View
+viewDeductions loader L.Deductions{..} = do
   let (sids, pids) = foldr (\(s,p) (ss,ps) -> (S.insert s ss, S.insert p ps)) (mempty, mempty) $ M.keys deductionTraits
 
-  error "viewDeductions"
-  -- spaces <- Loader.spaces loader
-  -- let _viewSpaces = indexBy spaceId spaces
+  spaces <- forM (S.toList sids) $ Loader.space loader
+  let _viewSpaces = indexBy spaceId spaces
 
-  -- let pids' = foldr (S.union . theoremProperties) pids deductionTheorems
-  -- properties <- Loader.properties loader
-  -- let _viewProperties = indexBy propertyId properties
+  let pids' = foldr (S.union . theoremProperties) pids deductionTheorems
+  properties <- forM (S.toList pids') $ Loader.property loader
+  let _viewProperties = indexBy propertyId properties
 
-  -- let _viewTheorems = indexBy theoremId deductionTheorems
-  --     (_viewTraits, _viewProofs) = foldr addProof (mempty, mempty) $ M.toList deductionTraits
+  let _viewTheorems = indexBy theoremId deductionTheorems
+      (_viewTraits, _viewProofs) = foldr addProof (mempty, mempty) $ M.toList deductionTraits
 
-  -- let _viewVersion = Nothing
+  let _viewVersion = Nothing
 
-  -- return View{..}
+  return View{..}
+
+updateView :: MonadStore m
+           => Branch
+           -> CommitMeta
+           -> (Loader.Loader -> m View)
+           -> m View
+updateView branch meta getView = do
+  (view', sha) <- updateBranch branch meta $ \loader -> do
+    v <- lift $ getView loader
+    writeView v
+    return v
+  return $ view' { _viewVersion = Just $ Version sha }
 
 addProof :: (TraitId, (TVal, L.Evidence))
          -> (Map SpaceId (Map PropertyId (Trait SpaceId PropertyId)), Map (SpaceId, PropertyId) Proof)

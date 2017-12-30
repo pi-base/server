@@ -5,9 +5,10 @@ module Core
   ( module Core
   ) where
 
-import ClassyPrelude                    as Core hiding (Handler)
+import ClassyPrelude                    as Core hiding (Handler, all, index)
 import Control.Applicative              as Core ((<|>))
 import Control.Monad.IO.Class           as Core (MonadIO, liftIO)
+import Control.Monad.Logger             as Core (MonadLogger, logDebug, logInfo, logError)
 import Control.Monad.Reader             as Core (MonadReader(..), ReaderT, asks, runReaderT)
 import Control.Monad.Trans              as Core (lift)
 import Control.Monad.Trans.Control      as Core (MonadBaseControl)
