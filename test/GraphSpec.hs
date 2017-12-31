@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 module GraphSpec (spec) where
 
 import Test.Tasty
@@ -12,20 +13,20 @@ import qualified Data.Monoid
 import Graph.Common
 
 import           Core
-import qualified Data.Branch   as Branch
-import           Graph.Queries (compileAll)
-import           Graph.Root    (asJSON, execute)
-import           Graph.Types   (Query)
-import           Util          (encodeText)
+import qualified Data.Branch         as Branch
+import qualified Graph.Queries.Cache as Cache
+import qualified Graph.Root          as Root
+import           Util                (encodeText)
 
 spec :: IO TestTree
 spec = do
-  queries <- compileAll
+  schema  <- either (throw . SchemaInvalid) return Root.schema
+  queries <- Cache.mkCache schema "graph/queries"
   config  <- getConfig >>= login testUser
 
   let
-    run :: Query -> String -> [(Text, Value)] -> IO Value
-    run q name vars = runGraph config $ asJSON (execute q) request
+    run :: String -> [(Text, Value)] -> IO Value
+    run name vars = runGraph config $ Root.asJSON (Root.execute queries) request
       where
         request = object 
           [ "operationName" .= name
@@ -35,15 +36,12 @@ spec = do
 
     query :: FilePath -> [(Text, Value)] -> IO Value
     query name vars = do
-      let (Just (Right compiled)) = M.lookup ("graph" </> "queries" </> name <> ".gql") queries
-      result <- run compiled name vars
+      result <- run name vars
       return . Object $ result ^. key "data" . _Object
 
+    -- We might want to distinguish these in the future
     mutation :: FilePath -> [(Text, Value)] -> IO Value
-    mutation name vars = do
-      let (Just (Right compiled)) = M.lookup ("graph" </> "mutations" </> name <> ".gql") queries
-      result <- run compiled name vars
-      return . Object $ result ^. key "data" . _Object
+    mutation = query
 
     initial :: Sha
     initial = "b91cbfb12122fc4fc5379f7a9f68cc42c487aa81"
@@ -55,7 +53,8 @@ spec = do
   testSpec "Graph" $ do
     describe "query compilation" $ do
       it "compiles all queries" $ do
-        M.filter isLeft queries `shouldBe` mempty
+        errors <- Cache.loadAll queries
+        errors `shouldBe` mempty
 
     describe "user" $ do
       it "can fetch user information" $ do
@@ -263,10 +262,6 @@ paracompact       = "P000030"
 metacompact       = "P000031"
 metrizable        = "P000053"
 locallyMetrizable = "P000082"
-
-isLeft :: Either a b -> Bool
-isLeft (Left _) = True
-isLeft _ = False
 
 buildMap :: Ord k
          => Getting k Value k

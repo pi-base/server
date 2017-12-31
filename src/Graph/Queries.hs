@@ -4,8 +4,7 @@
   , TypeOperators
 #-}
 module Graph.Queries
-  ( compileAll
-  , presentView
+  ( presentView
   , user
   , viewer
   ) where
@@ -23,23 +22,10 @@ import           Data.Loader  (Loader)
 import qualified Data.Loader  as Loader
 import qualified Data.Map     as M
 import           Data.Store   (storeLoader)
-import           Data.Text.IO (readFile)
 import           Formula      (Formula)
 import qualified Graph.Types  as G
 import           Model        (User(..))
 import           Types        (BranchAccess(..))
-import           Util         (traverseDir)
-
-compileAll :: IO (Map FilePath (Either QueryError G.Query))
-compileAll = do
-  let
-    Right schema = makeSchema @G.Root
-    f acc path = do
-        contents <- readFile path
-        return $ M.insert path (compileQuery schema contents) acc
-  queries   <- traverseDir f "graph/queries" mempty
-  mutations <- traverseDir f "graph/mutations" mempty
-  return $ queries <> mutations
 
 user :: MonadGraph m => Handler m G.User
 user = do

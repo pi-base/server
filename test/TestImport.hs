@@ -23,7 +23,6 @@ import Yesod.Test            as X
 
 import           Data.Aeson                 (ToJSON(..), Value(..), decode)
 import qualified Data.ByteString.Lazy       as LBS
-import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.Text                  as T
 import qualified Data.Text.Lazy             as TL
 import qualified Data.HashMap.Strict        as HM

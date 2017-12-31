@@ -9,7 +9,7 @@ import GraphQL.Value.FromValue as Graph.Import (FromValue(..))
 
 import Import as Graph.Import hiding (Handler, Enum, Field, Response, Value)
 
-import Core            as Graph.Import (MonadDB(..), MonadGraph(..))
+import Core            as Graph.Import (MonadDB(..), MonadGraph(..), Error(GraphError), GraphError(..))
 import Data            as Graph.Import (slugify)
 import Handler.Helpers as Graph.Import
 

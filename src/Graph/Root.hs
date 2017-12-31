@@ -7,25 +7,26 @@
 #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Graph.Root
-  ( asJSON
+  ( Root
+  , handler
+  , schema
+  , asJSON
   , interpret
   , execute
   ) where
 
 import Graph.Import
 
-import Data.Aeson                  as Aeson
-import GraphQL.Value.ToValue       (ToValue(..), toValue)
-import GraphQL.Internal.Validation (QueryDocument, VariableValue)
+import Data.Aeson            as Aeson
+import GraphQL.Value.ToValue (ToValue(..), toValue)
 
-import Core (Error(..))
+import           Graph.Mutations
+import qualified Graph.Queries.Cache as Cache
+import           Graph.Queries       as G
+import           Graph.Types         as G
 
-import Graph.Mutations
-import Graph.Queries   as G
-import Graph.Types     as G
-
-root :: (MonadGraph m, MonadLogger m) => Handler m Root
-root = pure $ pure "Query"
+handler :: (MonadGraph m, MonadLogger m) => Handler m Root
+handler = pure $ pure "Query"
   :<> G.viewer
   :<> G.user
   -- Mutations
@@ -38,18 +39,22 @@ root = pure $ pure "Query"
   :<> assertTheorem
   :<> resetBranch
 
+schema :: Either QueryError Schema
+schema = makeSchema @Root
+
 asJSON :: MonadThrow m 
      => (QueryData -> m Response) -> Aeson.Value -> m Aeson.Value
-asJSON handler request = case fromJSON request of
-  Aeson.Error  err -> throw $ QueryError $ pack err
-  Aeson.Success qd -> (Aeson.toJSON . toValue) <$> handler qd
+asJSON executor request = case fromJSON request of
+  Aeson.Error  err -> throw $ QuerySerializationError err
+  Aeson.Success qd -> (Aeson.toJSON . toValue) <$> executor qd
 
 interpret :: (MonadGraph m, MonadLogger m) => QueryData -> m Response
-interpret QueryData{..} = interpretQuery @Root root query (unOp operation) (unVar variables)
+interpret QueryData{..} = interpretQuery @Root handler query (unOp operation) (unVar variables)
 
--- TODO: maintain a name => compiled query document map and fetch by name
 execute :: (MonadGraph m, MonadLogger m) 
-        => QueryDocument VariableValue -> QueryData -> m Response
-execute compiled QueryData{..} = case unOp operation of
-  Just name -> executeQuery @Root root compiled (Just name) (unVar variables)
-  Nothing   -> throw $ GeneralError "query name required"
+        => Cache.Cache -> QueryData -> m Response
+execute cache QueryData{..} = case unOp operation of
+  Nothing -> throw $ GraphError QueryNameRequired
+  Just name -> Cache.query cache name >>= \case
+    Nothing -> throw $ GraphError $ QueryNotFound name
+    Just compiled -> executeQuery @Root handler compiled (Just name) (unVar variables)

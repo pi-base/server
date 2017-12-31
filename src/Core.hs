@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Core
   ( module Core
   ) where
@@ -30,29 +27,11 @@ import Model        as Core
 import Types        as Core
 import Types.Store  as Core (Store)
 
-import Control.Lens hiding ((.=))
-import Data.Aeson (ToJSON(..), object, (.=))
-import qualified Data.Map.Strict as SM
-import qualified Data.Set        as S
-import qualified Data.Text       as T
+import           Control.Lens hiding ((.=))
+import qualified Data.Set     as S
+import qualified Data.Text    as T
 
 import qualified Formula as F
-
-explainError :: Error -> Text
-explainError (NotATree path) = decodeUtf8 path <> ": could not find directory"
-explainError (ParseError path msg) = decodeUtf8 path <> ": error while parsing - " <> T.pack msg
-explainError (ReferenceError path ids) = decodeUtf8 path <> ": invalid reference - " <> tshow ids
-explainError (NotUnique field value) = field <> " is not unique: " <> value
-explainError (CommitNotFound c) = "Could not find commit at " <> tshow c
-explainError e = tshow e
-
-instance ToJSON Error where
-  toJSON err = object
-    [ "error" .= object
-      [ "type"    .= show err
-      , "message" .= explainError err
-      ]
-    ]
 
 implicationProperties :: Ord p => Implication p -> S.Set p
 implicationProperties (Implication a c) = F.properties a `S.union` F.properties c
@@ -110,45 +89,3 @@ hydrateTheorem props theorem =
       (Left as, _) -> Left as
       (_, Left bs) -> Left bs
       (Right a', Right c') -> Right $ theorem { theoremImplication = Implication a' c' }
-
--- TODO: move instances to Class.hs
-instance Show (Id a) where
-  show = T.unpack . unId
-
-instance Show Space where
-  show Space{..} = T.unpack $ "<" <> unId spaceId <> "|" <> spaceName <> ">"
-
-instance Show Property where
-  show Property{..} = T.unpack $ "<" <> unId propertyId <> "|" <> propertyName <> ">"
-
-instance Show p => Show (Implication p) where
-  show (Implication a c) = show a ++ " => " ++ show c
-
-instance Show p => Show (Theorem p) where
-  show Theorem{..} = "<" ++ show theoremId ++ "|" ++ show theoremImplication ++ ">"
-
-instance Show Version where
-  show = show . unVersion
-
-deriving instance (Eq s, Eq p) => Eq (Trait s p)
-
-deriving instance Show Proof
-deriving instance Show View
-deriving instance Show LogicError
-deriving instance Show Error
-deriving instance Show Branch
-
-instance Exception Error
-instance Exception [Error]
-
-instance Monoid View where
-  mappend a b = View
-    { _viewProperties = mappend (_viewProperties a) (_viewProperties b)
-    , _viewSpaces     = mappend (_viewSpaces a)     (_viewSpaces b)
-    , _viewTheorems   = mappend (_viewTheorems a)   (_viewTheorems b)
-    , _viewProofs     = mappend (_viewProofs a)     (_viewProofs b)
-    , _viewTraits     = SM.unionWith mappend (_viewTraits a) (_viewTraits b)
-    , _viewVersion    = Nothing
-    }
-
-  mempty = View mempty mempty mempty mempty mempty Nothing

@@ -15,8 +15,10 @@ import Control.Lens (Prism', makeLenses)
 
 import Git (TreeFilePath)
 
-import qualified Data.Aeson          as Aeson (Object)
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson                  as Aeson (Object)
+import qualified Data.HashMap.Strict         as HM
+import qualified GraphQL                     as GraphQL (QueryError)
+import qualified GraphQL.Internal.Syntax.AST as GraphQL (Name)
 
 import Types.Base as X
 
@@ -43,6 +45,12 @@ data LogicError = Contradiction SpaceId PropertyId TVal TVal
                 | Counterexamples [SpaceId]
                 | LoadFailure Error
                 deriving Eq
+
+data GraphError = QueryNotFound GraphQL.Name
+                | QueryNameRequired
+                | QuerySerializationError String
+                | SchemaInvalid GraphQL.QueryError
+                deriving (Eq, Show)
                 
 data Conflict = Conflict { expectedSha :: Sha, actualSha :: Sha }
   deriving (Show, Eq)
@@ -58,7 +66,7 @@ data Error = CommitNotFound  Committish
            | ParseError      TreeFilePath String
            | PermissionError Text
            | PersistError    String
-           | QueryError      Text
+           | GraphError      GraphError
            | ReferenceError  TreeFilePath [Uid]
            | UnknownGitRef   Ref
            | GeneralError    Text
