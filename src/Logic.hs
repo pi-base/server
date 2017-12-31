@@ -63,7 +63,6 @@ loadEachSpace f = do
   loader   <- getLoader
   spaceIds <- load $ Loader.spaceIds loader
   forM_ spaceIds $ \sid -> void $ do
-    traceM $ "Loading space: " ++ show sid
     props <- load $ Loader.spaceTraits loader sid
     f (sid, props)
 
@@ -82,15 +81,10 @@ assertTheorem :: MonadStore m => Theorem PropertyId -> LogicT m ()
 assertTheorem t = do
   let tid  = theoremId t
       impl = theoremImplication t
-  traceM "Theorems"
   proverTheorems        %= M.insert tid impl
-  traceM "Related"
   proverRelatedTheorems %= flip addRelatedTheorem (tid, impl)
-  traceM "Deductions"
   proverDeductions      %= recordTheorem t
-  traceM "Spaces"
   loadEachSpace $ \(space, props) -> do
-    traceM $ "Applying " ++ show space
     applyTheorem (theoremId t) (theoremImplication t) space props
 
 checkAll :: MonadStore m => LogicT m ()
@@ -102,12 +96,8 @@ checkAll = do
 runLogicT :: MonadStore m => Loader.Loader -> LogicT m a -> m (Either LogicError Deductions)
 runLogicT loader handler = do
   theorems <- Loader.implications loader
-  traceM $ show theorems
   let rwst = runExceptT $ unLogicT handler
-  traceM "Initializing prover"
   (result, prover, ()) <- runRWST rwst loader $ initializeProver theorems
-  traceM "Got result"
-  traceM $ show $ _proverDeductions prover
   case result of
     Left err -> return $ Left err
     Right _  -> return . Right $ _proverDeductions prover
@@ -156,7 +146,6 @@ evaluate ts (Or sf) =
 
 applyTheorem :: Monad m => TheoremId -> Implication PropertyId -> SpaceId -> Properties -> LogicT m Properties
 applyTheorem tid (Implication ant con) sid props =
-  trace ("Applying: " ++ show (Implication ant con)) $
   case evaluate props ant of
     (No, _)         -> return props
     (Yes, evidence) -> force con evidence props

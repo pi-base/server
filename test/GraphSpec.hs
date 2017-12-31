@@ -8,6 +8,7 @@ import TestImport (App, TestApp)
 import           Control.Lens             hiding ((.=))
 import           Data.Aeson               (Value(..), (.=), object)
 import           Data.Aeson.Lens
+import           Data.List                (nub)
 import qualified Data.Map                 as M
 import qualified Data.Monoid
 
@@ -23,7 +24,7 @@ spec :: IO (TestApp App) -> IO TestTree
 spec getApp = do
   schema  <- either (throw . SchemaInvalid) return Root.schema
   queries <- Cache.mkCache schema "graph/queries"
-  config  <- mkConfig <$> getApp
+  config  <- getApp >>= return . mkConfig >>= login testUser
 
   let
     run :: String -> [(Text, Value)] -> IO Value
@@ -200,7 +201,6 @@ spec getApp = do
             v1  = p ^. key "createProperty" . key "version" . _String
 
         -- compact => P
-        traceM "Sending"
         t1 <- mutation "assertTheorem"
                 [ "patch" .= object
                   [ "branch" .= ("users/test" :: Text)
@@ -212,24 +212,17 @@ spec getApp = do
                   , "description" .= ("New theorem" :: Text)
                   ]
                 ]
+
+        let spaces1 = t1 ^.. key "assertTheorem" . key "spaces" . values . _Value
+        length spaces1 `shouldBe` 42
+
+        let (trait1: rest1) = nub $ t1 ^.. key "assertTheorem" . key "spaces" . values . key "traits" . values . _Value
+        length rest1 `shouldBe` 0
+        trait1 ^. key "property" . key "uid" . _String `shouldBe` pid
+        trait1 ^? key "value" . _Bool `shouldBe` Just True
+
         let v2 = t1 ^. key "assertTheorem" . key "version" . _String
-
-        traceM "First"
-        traceJ t1
-
-      --   assertNotEq "version" initialVersion $
-      --     t1 ^. key "version" . _Stringb
-      --   assertEq "description" ["New theorem"] $
-      --     t1 ^.. key "theorems" . values . key "description" . _String
-
-      --   -- TODO
-      --   -- assert that there are spaces in the response
-      --   -- for each space
-      --      -- name present
-      --      -- traits.count = 1
-      --         -- trait property is P
-      --         -- trait value is true
-      --   -- also assert P => paracompact?
+        v2 `shouldNotBe` v1
 
         -- P => metacompact
         t2 <- mutation "assertTheorem"
@@ -244,13 +237,14 @@ spec getApp = do
                   ]
                 ]
 
-        traceM "Last"
-        traceJ t2
+        let v3 = t2 ^. key "assertTheorem" . key "version" . _String
+        v3 `shouldNotBe` v2
 
-      --   assertNotEq "version" initialVersion $
-      --     t2 ^. key "version" . _String
-      --   assertEq "description" ["New theorem"] $
-     --     t2 ^.. key "theorems" . values . key "description" . _String
+        let spaces2 = t2 ^.. key "assertTheorem" . key "spaces" . values . _Value
+        length spaces2 `shouldBe` 48
+
+        let traits2 = nub $ t2 ^.. key "assertTheorem" . key "spaces" . values . key "traits" . values . _Value
+        length traits2 `shouldBe` 2 -- TODO: that is, metacompact = true & p = false
 
 testUser :: User
 testUser = User "test" "Test User" "test@example.com" "xxx"

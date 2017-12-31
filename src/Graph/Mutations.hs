@@ -57,9 +57,7 @@ assertTheorem patch G.AssertTheoremInput{..} = do
     <*> pure description
 
   let meta = CommitMeta user $ "Add " <> tshow theorem
-  traceM "Saving"
   view <- Theorem.put branch meta theorem
-  traceM "Presenting"
   G.presentView view
 
 createSpace :: MonadGraph m => G.PatchInput -> G.CreateSpaceInput -> Handler m G.Viewer

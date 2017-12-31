@@ -11,7 +11,6 @@ import TestImport (App(..), TestApp, buildApp, traceJ)
 import           Control.Monad.Logger     (MonadLogger(..), runStdoutLoggingT)
 import           Database.Persist.Sql     (ConnectionPool, Entity(..), runSqlPool)
 import           Git.Libgit2              (HasLgRepo(..))
-import           System.IO.Unsafe         (unsafePerformIO)
 
 import           Core
 import qualified Data.Branch     as Branch
