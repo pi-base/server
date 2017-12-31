@@ -3,6 +3,7 @@ module GraphSpec (spec) where
 
 import Test.Tasty
 import Test.Tasty.Hspec
+import TestImport (App, TestApp)
 
 import           Control.Lens             hiding ((.=))
 import           Data.Aeson               (Value(..), (.=), object)
@@ -18,11 +19,11 @@ import qualified Graph.Queries.Cache as Cache
 import qualified Graph.Root          as Root
 import           Util                (encodeText)
 
-spec :: IO TestTree
-spec = do
+spec :: IO (TestApp App) -> IO TestTree
+spec getApp = do
   schema  <- either (throw . SchemaInvalid) return Root.schema
   queries <- Cache.mkCache schema "graph/queries"
-  config  <- getConfig >>= login testUser
+  config  <- mkConfig <$> getApp
 
   let
     run :: String -> [(Text, Value)] -> IO Value
@@ -181,7 +182,7 @@ spec = do
         M.lookup metrizable ps2 `shouldBe` Just False
         M.lookup locallyMetrizable ps2 `shouldBe` Just False
 
-      xit "can assert a theorem" $ do
+      it "can assert a theorem" $ do
         resetBranch "users/test" initial
 
         p <- mutation "createProperty"
@@ -197,8 +198,6 @@ spec = do
 
         let pid = p ^. key "createProperty" . key "properties" . nth 0 . key "uid" . _String
             v1  = p ^. key "createProperty" . key "version" . _String
-
-        pending
 
         -- compact => P
         traceM "Sending"
@@ -219,7 +218,7 @@ spec = do
         traceJ t1
 
       --   assertNotEq "version" initialVersion $
-      --     t1 ^. key "version" . _String
+      --     t1 ^. key "version" . _Stringb
       --   assertEq "description" ["New theorem"] $
       --     t1 ^.. key "theorems" . values . key "description" . _String
 
@@ -245,7 +244,7 @@ spec = do
                   ]
                 ]
 
-        traceM "Second"
+        traceM "Last"
         traceJ t2
 
       --   assertNotEq "version" initialVersion $

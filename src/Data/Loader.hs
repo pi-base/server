@@ -70,7 +70,9 @@ trait :: MonadStore m
       -> SpaceId
       -> PropertyId
       -> m (Trait SpaceId PropertyId)
-trait loader sid pid = fetch Loader.traits parser loader (sid, pid)
+trait loader sid pid = do
+  traceM $ "Loading trait " ++ show (sid, pid)
+  fetch Loader.traits parser loader (sid, pid)
   where
     parser :: MonadStore m => Commit LgRepo -> (SpaceId, PropertyId) -> m (Either Error (Trait SpaceId PropertyId))
     parser c (s, p) = Parse.trait c s p

@@ -2,6 +2,7 @@ module Core
   ( module Core
   ) where
 
+-- TODO: replace ClassyPrelude with Protolude
 import ClassyPrelude                    as Core hiding (Handler, all, index)
 import Control.Applicative              as Core ((<|>))
 import Control.Monad.IO.Class           as Core (MonadIO, liftIO)

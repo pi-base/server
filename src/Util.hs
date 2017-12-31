@@ -8,6 +8,7 @@ module Util
   , indexBy
   , insertNested
   , mapRightC
+  , memoized
   , pj
   , traceC
   , traverseDir
@@ -92,3 +93,11 @@ traverseDir f top = go [top]
           go (rest <> map (\d -> path </> d) children) acc
         else f acc path >>= go rest
     go [] acc = return acc
+
+memoized :: IORef (Maybe a) -> IO a -> IO a
+memoized ref action = readIORef ref >>= \case
+  Just val -> return val
+  Nothing -> do
+    val <- action
+    writeIORef ref $ Just val
+    return val

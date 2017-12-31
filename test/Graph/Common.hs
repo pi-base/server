@@ -1,12 +1,12 @@
 module Graph.Common 
   ( Config(..)
-  , getConfig
+  , mkConfig
   , login
   , runGraph
   , traceJ
   ) where
 
-import TestImport (App(..), buildApp, traceJ)
+import TestImport (App(..), TestApp, buildApp, traceJ)
 
 import           Control.Monad.Logger     (MonadLogger(..), runStdoutLoggingT)
 import           Database.Persist.Sql     (ConnectionPool, Entity(..), runSqlPool)
@@ -38,27 +38,13 @@ instance MonadGraph (ReaderT Config IO) where
 instance MonadLogger IO where
   monadLoggerLog _ _ _ _ = return () -- FIXME
 
-configMemo :: IORef (Maybe Config)
-configMemo = unsafePerformIO $ newIORef Nothing
-
-memoize :: IORef (Maybe a) -> IO a -> IO a
-memoize ref action = readIORef ref >>= \case
-  Just val -> return val
-  Nothing -> do
-    val <- action
-    writeIORef ref $ Just val
-    return val
-
-getConfig :: IO Config
-getConfig = memoize configMemo $ do
-  (App{..}, _) <- buildApp
-
-  return Config
-    { pool     = appConnPool
-    , settings = appSettings
-    , store    = appStore
-    , user     = Nothing
-    }
+mkConfig :: TestApp App -> Config
+mkConfig (App{..}, _) = Config
+  { pool     = appConnPool
+  , settings = appSettings
+  , store    = appStore
+  , user     = Nothing
+  }
 
 login :: User -> Config -> IO Config
 login user config = do

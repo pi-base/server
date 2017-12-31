@@ -2,9 +2,9 @@ module Handler.CommonSpec (spec) where
 
 import TestImport
 
-spec :: IO TestTree
-spec = testSpec "Handler.Common" $ do
-  withApp $ do
+spec :: IO (TestApp App) -> IO TestTree
+spec getApp = testSpec "Handler.Common" $ do
+  before getApp $ do
     describe "robots.txt" $ do
       it "gives a 200" $ do
         get RobotsR

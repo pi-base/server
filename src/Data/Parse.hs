@@ -46,25 +46,24 @@ trait commit sid pid = load commit path Page.Trait.page
   where path = "spaces/" <> unId sid <> "/properties/" <> unId pid <> ".md"
 
 propertyIds :: MonadStore m => Commit LgRepo -> ConduitM () PropertyId m ()
-propertyIds commit = sourceCommitEntries commit "properties"
+propertyIds commit = sourceCommitEntries commit ["properties"]
                   .| parsePath propertyIdParser
 
 spaceIds :: MonadStore m => Commit LgRepo -> ConduitM () SpaceId m ()
-spaceIds commit = sourceCommitEntries commit "spaces"
+spaceIds commit = sourceCommitEntries commit ["spaces"]
                .| parsePath spaceIdParser
 
 theoremIds :: MonadStore m => Commit LgRepo -> ConduitM () TheoremId m ()
-theoremIds commit = sourceCommitEntries commit "theorems"
+theoremIds commit = sourceCommitEntries commit ["theorems"]
                  .| parsePath theoremIdParser
 
 traitIds :: MonadStore m => Commit LgRepo -> ConduitM () (SpaceId, PropertyId) m ()
-traitIds commit = sourceCommitEntries commit "spaces"
+traitIds commit = sourceCommitEntries commit ["spaces"]
                .| parsePath traitIdParser
 
--- FIXME: this doesn't need to scan the whole "spaces" tree
 spaceTraitIds :: MonadStore m => SpaceId -> Commit LgRepo -> ConduitM () PropertyId m ()
-spaceTraitIds _id commit = traitIds commit
-                        .| filterC ((== _id) . fst)
+spaceTraitIds _id commit = sourceCommitEntries commit ["spaces", encodeUtf8 (unId _id), "properties"]
+                        .| parsePath traitIdParser
                         .| mapC snd
 
 load :: MonadStore m => Commit LgRepo -> Text -> Page a -> m (Either Error a)
@@ -107,7 +106,7 @@ traitIdParser = do
 
 sourceCommitEntries :: MonadGit r m
                     => Commit r
-                    -> TreeFilePath
+                    -> [TreeFilePath]
                     -> ConduitM i (TreeFilePath, TreeEntry r) m ()
 sourceCommitEntries commit path = do
   edir <- lift $ do
@@ -115,7 +114,8 @@ sourceCommitEntries commit path = do
     getDir tree path
   case edir of
     Left    _ -> return ()
-    Right dir -> sourceTreeEntries dir .| mapC (\(p,t) -> (path <> "/" <> p, t))
+    Right dir -> sourceTreeEntries dir 
+      .| mapC (\(p,t) -> (intercalate "/" (path ++ [p]), t))
 
 blobs :: MonadGit r m => ConduitM (TreeFilePath, TreeEntry r) (TreeFilePath, Text) m ()
 blobs = awaitForever $ \(path, entry) -> case entry of

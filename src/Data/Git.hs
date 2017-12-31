@@ -90,10 +90,16 @@ commitSha cmt = case commitOid cmt of
 commitVersion :: Commit LgRepo -> Version
 commitVersion = Version . commitSha
 
-getDir :: (MonadGit r m) => Tree r -> TreeFilePath -> m (Either Error (Tree r))
-getDir tree path = treeEntry tree path >>= \case
+cd :: (MonadGit r m) => Tree r -> TreeFilePath -> m (Either Error (Tree r))
+cd tree path = treeEntry tree path >>= \case
   Just (TreeEntry _id) -> lookupTree _id >>= return . Right
   _ -> return . Left $ NotATree path
+
+getDir :: MonadGit r m => Tree r -> [TreeFilePath] -> m (Either Error (Tree r))
+getDir tree = foldM cd' $ Right tree
+  where
+    cd' :: MonadGit r m => Either Error (Tree r) -> TreeFilePath -> m (Either Error (Tree r))
+    cd' etree path = either (return . Left) (flip cd path) etree
 
 branchRef :: Branch -> Ref
 branchRef = Ref . branchName

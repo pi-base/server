@@ -18,9 +18,9 @@ initialVersion = "63718fe2f72bf355e8c17b37bc6be7b631604aaa"
 testUser :: User
 testUser = User "graphtest" "Graph Test" "graphtest@example.com" "github-token-xxx"
 
-spec :: IO TestTree
-spec = do
-  app@(foundation, _) <- buildApp
+spec :: IO (TestApp App) -> IO TestTree
+spec getApp = do
+  app@(foundation, _) <- getApp
 
   let 
     run :: Handler a -> IO a

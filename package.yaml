@@ -122,6 +122,7 @@ tests:
     - classy-prelude
     - classy-prelude-yesod
     - containers
+    - conduit-combinators
     - gitlib-libgit2
     - hspec
     - http-types

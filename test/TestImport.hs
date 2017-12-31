@@ -36,7 +36,8 @@ import Control.Monad.Logger                 (runLoggingT)
 import Settings                             (appDatabaseConf)
 import Yesod.Core                           (messageLoggerSource)
 
-import Util (pj)
+import Util             (memoized, pj)
+import System.IO.Unsafe (unsafePerformIO)
 
 runDB :: SqlPersistM a -> YesodExample App a
 runDB query = do
@@ -50,7 +51,7 @@ buildApp = do
       []
       useEnv
   foundation <- makeFoundation settings
-  -- wipeDB foundation
+  wipeDB foundation
   logWare <- liftIO $ makeLogWare foundation
   return (foundation, logWare)
 
