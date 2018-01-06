@@ -1,4 +1,4 @@
-mutation createSpace($patch: PatchInput!, $space: CreateSpaceInput!) {
+mutation CreateSpace($patch: PatchInput!, $space: CreateSpaceInput!) {
   createSpace(patch: $patch, space: $space) {
     version
     spaces {

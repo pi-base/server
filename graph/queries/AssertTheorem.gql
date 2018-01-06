@@ -1,4 +1,4 @@
-mutation assertTheorem($patch: PatchInput!, $theorem: AssertTheoremInput!) {
+mutation AssertTheorem($patch: PatchInput!, $theorem: AssertTheoremInput!) {
   assertTheorem(patch: $patch, theorem: $theorem) {
     version
     spaces {

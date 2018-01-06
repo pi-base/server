@@ -7,16 +7,12 @@ import           Data.Aeson
 import           Data.Aeson.Lens
 import qualified Data.Aeson.Types     as Aeson
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text            as T
 import           Network.HTTP.Types.Method
 
 import Handler.Helpers (ensureUser, ensureToken)
 
-initialVersion :: Text
-initialVersion = "63718fe2f72bf355e8c17b37bc6be7b631604aaa"
-
 testUser :: User
-testUser = User "graphtest" "Graph Test" "graphtest@example.com" "github-token-xxx"
+testUser = User "github:5678" "graphtest" "graphtest@example.com" "github-token-xxx"
 
 spec :: IO (TestApp App) -> IO TestTree
 spec getApp = do
@@ -69,21 +65,6 @@ query token q = do
     ]
   body <- checkResponse
   return $ encode $ body ^. key "data" . _Object
-
-mutation :: Text -> Text -> Text -> [Aeson.Pair] -> YesodExample App LBS.ByteString
-mutation token name fields input = do
-  let q = T.unlines [ "mutation " <> name <> "($input: MutationInput!) {"
-                    , "  " <> name <> "(input: $input) " <> fields
-                    , "}"
-                    ]
-  send token
-    [ "operationName" .= ("" :: Text)
-    , "query"         .= q
-    , "variables"     .= object
-      [ "input" .= object input ]
-    ]
-  body <- checkResponse
-  return $ encode $ body ^. key "data" . key name . _Object
 
 checkResponse :: StateT (YesodExampleData site) IO LBS.ByteString
 checkResponse = do

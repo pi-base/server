@@ -1,15 +1,18 @@
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE 
+    RankNTypes
+  , TypeApplications
+#-}
 module GraphSpec (spec) where
 
 import Test.Tasty
 import Test.Tasty.Hspec
-import TestImport (App, TestApp)
+import TestImport (App, TestApp, slow)
 
-import           Control.Lens             hiding ((.=))
-import           Data.Aeson               (Value(..), (.=), object)
+import           Control.Lens       hiding ((.=))
+import           Data.Aeson         (Value(..), (.=), object)
 import           Data.Aeson.Lens
-import           Data.List                (nub)
-import qualified Data.Map                 as M
+import           Data.List          (nub)
+import qualified Data.Map           as M
 import qualified Data.Monoid
 
 import Graph.Common
@@ -60,9 +63,9 @@ spec getApp = do
 
     describe "user" $ do
       it "can fetch user information" $ do
-        user <- query "me" mempty
+        user <- query "Me" mempty
 
-        user ^.  key "me" . key "name" . _String `shouldBe` "Test User"
+        user ^.  key "me" . key "name" . _String `shouldBe` "test"
 
         let branches = buildMap (key "name" . _String) (key "access" . _String) $ user ^.. key "me" . key "branches" . values . _Value
 
@@ -71,7 +74,7 @@ spec getApp = do
 
     describe "branches" $ do
       it "can reset user owned branches" $ do
-        result <- mutation "resetBranch" $
+        result <- mutation "ResetBranch" $
                     [ "input" .= object
                       [ "branch" .= ("users/test" :: Text)
                       , "to"     .= ("master" :: Text)
@@ -80,7 +83,7 @@ spec getApp = do
         result ^. key "resetBranch" . key "branch" . _String `shouldBe` "users/test"
 
       it "cannot reset system branches" $ do
-        let action = mutation "resetBranch" $
+        let action = mutation "ResetBranch" $
               [ "input" .= object
                 [ "branch" .= ("master" :: Text)
                 , "to"     .= ("users/test" :: Text)
@@ -90,21 +93,21 @@ spec getApp = do
 
     describe "viewer" $ do
       it "can run queries directly" $ do
-        result <- query "viewer" mempty
+        result <- query "Viewer" $ [ "version" .= initial ]
 
         let spaceIds = result ^.. key "viewer" . key "spaces" . values . key "uid" . _String
-        length spaceIds `shouldBe` 160
+        length spaceIds `shouldSatisfy` (>= 143)
 
         let propIds = result ^.. key "viewer" . key "properties" . values . key "uid" . _String
-        length propIds `shouldBe` 100
+        length propIds `shouldSatisfy` (>= 100)
 
         let theoremIds = result ^.. key "viewer" . key "theorems" . values . key "uid" . _String
-        length theoremIds `shouldBe` 226
+        length theoremIds `shouldSatisfy` (>= 225)
 
       it "can add a space" $ do
         resetBranch "users/test" initial
 
-        result <- mutation "createSpace" $
+        result <- mutation "CreateSpace" $
                     [ "patch" .= object
                       [ "branch" .= ("users/test" :: Text)
                       , "sha"    .= initial
@@ -121,7 +124,7 @@ spec getApp = do
       it "can assert a trait" $ do
         resetBranch "users/test" initial
 
-        s <- mutation "createSpace" $
+        s <- mutation "CreateSpace" $
                [ "patch" .= object
                  [ "branch" .= ("users/test" :: Text)
                  , "sha"    .= initial
@@ -139,7 +142,7 @@ spec getApp = do
         length v1 `shouldBe` 40
 
         -- S |= compact
-        t1 <- mutation "assertTrait" $
+        t1 <- mutation "AssertTrait" $
                 [ "patch" .= object
                   [ "branch" .= ("users/test" :: Text)
                   , "sha"    .= v1
@@ -164,7 +167,7 @@ spec getApp = do
         let v2  = t1 ^. key "assertTrait" . key "version" . _String
 
         -- S |= ~metrizable
-        t2 <- mutation "assertTrait" $
+        t2 <- mutation "AssertTrait" $
                 [ "patch" .= object
                   [ "branch" .= ("users/test" :: Text)
                   , "sha"    .= v2
@@ -183,10 +186,10 @@ spec getApp = do
         M.lookup metrizable ps2 `shouldBe` Just False
         M.lookup locallyMetrizable ps2 `shouldBe` Just False
 
-      it "can assert a theorem" $ do
+      slow "can assert a theorem" $ do
         resetBranch "users/test" initial
 
-        p <- mutation "createProperty"
+        p <- mutation "CreateProperty"
                 [ "patch" .= object
                   [ "branch" .= ("users/test" :: Text)
                   , "sha"    .= initial
@@ -201,7 +204,7 @@ spec getApp = do
             v1  = p ^. key "createProperty" . key "version" . _String
 
         -- compact => P
-        t1 <- mutation "assertTheorem"
+        t1 <- mutation "AssertTheorem"
                 [ "patch" .= object
                   [ "branch" .= ("users/test" :: Text)
                   , "sha"    .= v1
@@ -225,7 +228,7 @@ spec getApp = do
         v2 `shouldNotBe` v1
 
         -- P => metacompact
-        t2 <- mutation "assertTheorem"
+        t2 <- mutation "AssertTheorem"
                 [ "patch" .= object
                   [ "branch" .= ("users/test" :: Text)
                   , "sha"    .= v2
@@ -247,7 +250,7 @@ spec getApp = do
         length traits2 `shouldBe` 2 -- TODO: that is, metacompact = true & p = false
 
 testUser :: User
-testUser = User "test" "Test User" "test@example.com" "xxx"
+testUser = User "github:1234" "test" "test@example.com" "xxx"
 
 compact, paracompact, metacompact, metrizable, locallyMetrizable :: Text
 compact           = "P000016"

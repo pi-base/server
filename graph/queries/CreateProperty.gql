@@ -1,4 +1,4 @@
-mutation createProperty($patch: PatchInput!, $property: PropertyInput!) {
+mutation CreateProperty($patch: PatchInput!, $property: CreatePropertyInput!) {
   createProperty(patch: $patch, property: $property) {
     version
     properties {

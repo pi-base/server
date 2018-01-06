@@ -65,12 +65,12 @@ load :: (MonadBase IO m, MonadIO m)
      -> FilePath 
      -> m (Either QueryError Query)
 load Cache{..} name path = do
-    contents <- liftIO . readFile $ path
-    case compileQuery schema contents of
-      Left    err -> return $ Left err
-      Right query -> do
-        modifyIORef' queries $ M.insert name query
-        return $ Right query
+  contents <- liftIO . readFile $ path
+  case compileQuery schema contents of
+    Left err -> return $ Left err
+    Right q  -> do
+      modifyIORef' queries $ M.insert name q
+      return $ Right q
 
 parseName :: FilePath -> String -> Maybe Name
 parseName root str = do

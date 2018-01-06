@@ -95,11 +95,6 @@ instance HasAnnotatedInputType AssertTheoremInput
 instance Defaultable AssertTheoremInput where
   defaultFor _ = error "No default for AssertTheoremInput"
 
-instance FromValue TestResetInput
-instance HasAnnotatedInputType TestResetInput
-instance Defaultable TestResetInput where
-  defaultFor _ = error "No default for TestResetInput"
-
 instance FromValue ResetBranchInput
 instance HasAnnotatedInputType ResetBranchInput
 instance Defaultable ResetBranchInput where

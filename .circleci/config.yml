@@ -6,5 +6,31 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Test
+          name: Clone data repo
+          command: |
+            git clone --mirror https://github.com/pi-base/data.git /data/repo/.git
+            cd /data/repo
+            git config --bool core.bare false
+            git checkout master
+
+      - restore_cache:
+          keys:
+            - v1-stack-deps-{{ checksum "package.yaml" }}
+            - v1-stack-deps-
+      - run:
+          name: Build deps
+          command: stack build --only-dependencies
+      - run:
+          name: Build test deps
+          command: stack build --test --only-dependencies
+      - save_cache:
+          key: v1-stack-deps-{{ checksum "package.yaml" }}
+          paths: 
+            - ~/.stack
+            - .stack-work
+      - run:
+          name: Run tests
           command: stack test
+    environment:
+      CI:        true
+      REPO_PATH: /data/repo

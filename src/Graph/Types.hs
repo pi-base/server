@@ -100,16 +100,6 @@ type ResetBranchResponse = Object "ResetBranchResponse" '[]
    , Field "sha"        Text
    ]
 
-type TestResetResponse = Object "TestResetResponse" '[]
-  '[ Field "__typename" Text
-   , Field "version"    Text
-   , Field "token"      (Maybe Text)
-   ]
-
-type PatchMutation = Object "PatchMutation" '[]
-  '[ Field "__typename" Text
-   ]
-
 type Root = Object "QueryRoot" '[]
   '[ Field "__typename" Text
    , Argument "version" (Maybe Text) :> Field "viewer" Viewer
@@ -129,7 +119,7 @@ type Root = Object "QueryRoot" '[]
      :> Field "updateProperty" Viewer
    , Argument "patch" PatchInput 
      :> Argument "theorem" UpdateTheoremInput  
-     :> Field "updateTheorem"  Viewer
+     :> Field "updateTheoem"  Viewer
    , Argument "patch" PatchInput 
      :> Argument "trait" AssertTraitInput
      :> Field "assertTrait" Viewer
@@ -161,11 +151,6 @@ data AssertTheoremInput = AssertTheoremInput
   { antecedent  :: Text
   , consequent  :: Text
   , description :: Text
-  } deriving (Show, Generic)
-
-data TestResetInput = TestResetInput
-  { token :: Maybe Text
-  , ref :: Text
   } deriving (Show, Generic)
 
 data ResetBranchInput = ResetBranchInput

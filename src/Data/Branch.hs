@@ -70,12 +70,12 @@ claim = do
     buildOwnerMap names = do
       ownerPairs <- db $ select $
         from $ \users -> do
-        where_ $ users ^. UserIdent `in_` valList names
-        return (users ^. UserIdent, users ^. UserId)
+        where_ $ users ^. UserName `in_` valList names
+        return (users ^. UserName, users ^. UserId)
       return . M.fromList $ map (\(Value a, Value b) -> (a, b)) ownerPairs
 
 userBranch :: Entity User -> Branch
-userBranch (Entity _id User{..}) = Branch ("users/" <> userIdent) (Just _id)
+userBranch (Entity _id User{..}) = Branch ("users/" <> userName) (Just _id)
 
 ensureUserBranch :: (MonadDB m, MonadStore m) => Entity User -> m Branch
 ensureUserBranch user = do

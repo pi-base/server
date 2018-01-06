@@ -1,7 +1,0 @@
-query branches {
-  branches {
-    name
-    sha
-    access
-  }
-}

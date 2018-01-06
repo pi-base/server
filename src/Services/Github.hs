@@ -20,8 +20,6 @@ import qualified GitHub.Data.Id as GH
 import qualified GitHub.Endpoints.Issues.Comments as GH
 import qualified GitHub.Endpoints.Repos.Statuses  as GH
 
-parseViewer = error "parseViewer"
-
 webhookHandler :: FromJSON a => Handler a
 webhookHandler = do
   body <- rawRequestBody $$ runCatchC foldC
@@ -39,7 +37,7 @@ checkPullRequest pre = do
 
   foundation <- getYesod
   fetchPullRequest (appRepoPath $ appSettings foundation)
-  result <- parseViewer $ CommitSha sha
+  result <- error "parseViewer" $ CommitSha sha
   either (prStatusError _id _sha) (prStatusOk _id _sha) result
   return result
 

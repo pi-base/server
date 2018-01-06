@@ -21,13 +21,16 @@ import Yesod.Default.Config2 (useEnv, loadYamlSettings)
 import Yesod.Auth            as X
 import Yesod.Test            as X
 
-import           Data.Aeson                 (ToJSON(..), Value(..), decode)
-import qualified Data.ByteString.Lazy       as LBS
-import qualified Data.Text                  as T
-import qualified Data.Text.Lazy             as TL
-import qualified Data.HashMap.Strict        as HM
-import           Network.Wai.Test           (SResponse(..))
-import qualified Test.HUnit                 as H
+import           Data.Aeson           (ToJSON(..), Value(..), decode)
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Text            as T
+import qualified Data.Text.Lazy       as TL
+import qualified Data.HashMap.Strict  as HM
+import           Network.Wai.Test     (SResponse(..))
+import           System.Environment   (lookupEnv)
+import qualified Test.HUnit           as H
+import           Test.Hspec.Core.Spec (SpecM)
+
 
 -- Wiping the database
 import Database.Persist.Sqlite              (sqlDatabase, wrapConnection, createSqlPool)
@@ -36,8 +39,7 @@ import Control.Monad.Logger                 (runLoggingT)
 import Settings                             (appDatabaseConf)
 import Yesod.Core                           (messageLoggerSource)
 
-import Util             (memoized, pj)
-import System.IO.Unsafe (unsafePerformIO)
+import Util (pj)
 
 runDB :: SqlPersistM a -> YesodExample App a
 runDB query = do
@@ -146,3 +148,13 @@ shouldHaveKey _ _ = liftIO $ H.assertBool "Value is not an object" False
 
 traceJ :: (ToJSON a, Monad m) => a -> m ()
 traceJ = traceM . T.unpack . pj
+
+slow :: (Arg a ~ (), Example a) 
+     => String
+     -> a
+     -> SpecM (Arg a) ()
+slow title action = do
+  ci <- runIO $ lookupEnv "CI"
+  if (ci == Just "true")
+    then it title action
+    else it title $ pendingWith "set CI=true to run slow tests"

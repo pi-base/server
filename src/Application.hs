@@ -36,9 +36,10 @@ import System.Exit                          (die)
 import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
                                              toLogStr)
 
-import Data       (initializeStore)
-import Data.Store (Store)
-import Types      (Ref(..))
+import           Data       (initializeStore)
+import qualified Data.Branch
+import           Data.Store (Store)
+import           Types      (Ref(..))
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
@@ -188,6 +189,10 @@ appMain = do
 
     -- Generate the foundation from the settings
     foundation <- makeFoundation settings
+
+    -- Run boot-time "handlers"
+    _ <- unsafeHandler foundation $
+      Data.Branch.claim
 
     -- Generate a WAI Application from the foundation
     app <- makeApplication foundation

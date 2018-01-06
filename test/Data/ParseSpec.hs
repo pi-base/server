@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Data.ParseSpec (spec) where
 
 import TestImport

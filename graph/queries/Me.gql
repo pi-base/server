@@ -1,4 +1,4 @@
-query me {
+query Me {
   me {
     name
     branches {

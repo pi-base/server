@@ -6,7 +6,7 @@ module Graph.Common
   , traceJ
   ) where
 
-import TestImport (App(..), TestApp, buildApp, traceJ)
+import TestImport (App(..), TestApp, traceJ)
 
 import           Control.Monad.Logger     (MonadLogger(..), runStdoutLoggingT)
 import           Database.Persist.Sql     (ConnectionPool, Entity(..), runSqlPool)

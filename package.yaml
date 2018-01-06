@@ -1,5 +1,5 @@
 name: pi-base-server
-version: '0.0.1'
+version: '0.0.2'
 license: MIT
 default-extensions:
   - CPP
@@ -125,6 +125,7 @@ tests:
     - conduit-combinators
     - gitlib-libgit2
     - hspec
+    - hspec-core
     - http-types
     - HUnit
     - lens
