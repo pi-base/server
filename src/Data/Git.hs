@@ -8,6 +8,7 @@ module Data.Git
   , createBranchFromBase
   , getDir
   , headSha
+  , lookupCommittish
   , openRepo
   , resetBranch
   , resolveCommittish

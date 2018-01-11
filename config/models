@@ -4,7 +4,7 @@ User json
   email Text
   githubToken Text
   UniqueUser ident
-  deriving Typeable
+  deriving Typeable Show
 
 Token
   userId UserId
@@ -12,7 +12,7 @@ Token
   expiredAt UTCTime Maybe
   uuid Text
   UniqueToken uuid
-  deriving Typeable
+  deriving Typeable Show
 
 Branch
   name Text

@@ -8,11 +8,16 @@ import Core hiding (find)
 import Data        (makeId)
 import Data.Git    (writePages, updateBranch)
 
+import qualified Data.Branch as Branch
+import qualified Data.Parse as Parse
 import qualified Page
 import Page.Property (page)
 
 find :: MonadStore m => Branch -> PropertyId -> m (Maybe Property)
-find = error "find"
+find branch _id = do
+  commit <- Branch.commit branch
+  parsed <- Parse.property commit _id
+  return $ either (const Nothing) Just parsed
 
 fetch :: (MonadStore m, MonadThrow m) => Branch -> PropertyId -> m Property
 fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return

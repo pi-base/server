@@ -23,8 +23,8 @@ import qualified Data.Property   as Property
 import qualified Data.Space      as Space
 import qualified Data.Theorem    as Theorem
 import qualified Data.Trait      as Trait
-import qualified Graph.Types     as G
 import qualified Graph.Queries   as G
+import qualified Graph.Schema    as G
 import qualified View            as View
 
 assertTrait :: MonadGraph m => G.PatchInput -> G.AssertTraitInput -> Handler m G.Viewer
@@ -50,13 +50,13 @@ assertTheorem patch G.AssertTheoremInput{..} = do
   a <- parseFormula antecedent
   c <- parseFormula consequent
 
-  theorem <- Theorem
-    <$> makeId "t"
-    <*> pure (Implication a c)
-    <*> pure Nothing
-    <*> pure description
-
-  let meta = CommitMeta user $ "Add " <> tshow theorem
+  let theorem = Theorem
+        { theoremId = Id "FIXME"
+        , theoremImplication = (Implication a c)
+        , theoremConverse = Nothing
+        , theoremDescription = description
+        }
+      meta = CommitMeta user $ "Add " <> tshow theorem
   view <- Theorem.put branch meta theorem
   G.presentView view
 
@@ -65,7 +65,7 @@ createSpace patch G.CreateSpaceInput{..} = do
   (user, branch) <- checkPatch patch
 
   let space = Space
-        { spaceId          = Space.pending
+        { spaceId          = Id uid
         , spaceName        = name
         , spaceAliases     = []
         , spaceDescription = description
@@ -82,7 +82,7 @@ createProperty patch G.CreatePropertyInput{..} = do
   (user, branch) <- checkPatch patch
 
   let property = Property
-        { propertyId          = Property.pending
+        { propertyId          = Id uid
         , propertyName        = name
         , propertyDescription = description
         , propertySlug        = slugify name
@@ -140,6 +140,8 @@ updateTheorem patch G.UpdateTheoremInput{..} = do
   Theorem.put branch meta (propertyId <$> updated) >>= G.presentView
 
 -- Helpers
+
+-- TODO: should this return a loader for the branch?
 checkPatch :: MonadGraph m => G.PatchInput -> m (User, Branch)
 checkPatch G.PatchInput{..} = do
   user <- requireUser

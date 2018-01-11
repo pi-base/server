@@ -2,6 +2,7 @@ module Data.Branch
   ( access
   , Data.Branch.all
   , claim
+  , commit
   , ensureUserBranch
   , Data.Branch.find
   , headSha
@@ -73,6 +74,13 @@ claim = do
         where_ $ users ^. UserName `in_` valList names
         return (users ^. UserName, users ^. UserId)
       return . M.fromList $ map (\(Value a, Value b) -> (a, b)) ownerPairs
+
+commit :: MonadStore m => Branch -> m (Commit LgRepo)
+commit branch = do
+  head <- Git.useRepo . Git.resolveCommittish . CommitRef $ Ref $ branchName branch
+  case head of
+    Just c -> return c
+    Nothing -> throw $ UnknownGitRef $ Ref $ branchName branch
 
 userBranch :: Entity User -> Branch
 userBranch (Entity _id User{..}) = Branch ("users/" <> userName) (Just _id)

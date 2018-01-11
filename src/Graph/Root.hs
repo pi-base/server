@@ -23,7 +23,7 @@ import GraphQL.Value.ToValue (ToValue(..), toValue)
 import           Graph.Mutations
 import qualified Graph.Queries.Cache as Cache
 import           Graph.Queries       as G
-import           Graph.Types         as G
+import           Graph.Schema        as G
 
 handler :: (MonadGraph m, MonadLogger m) => Handler m Root
 handler = pure $ pure "Query"

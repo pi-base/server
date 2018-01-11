@@ -6,7 +6,7 @@
   , PatternSynonyms
   , TypeOperators
 #-}
-module Graph.Types where
+module Graph.Schema where
 
 import Prelude
 
@@ -19,7 +19,7 @@ import Core (Generic, Text)
 
 type Query = QueryDocument VariableValue
 
--- Define a newtypes so we can manage the FromJSON instances
+-- Define newtypes so we can manage the FromJSON instances
 newtype Operation = Operation { unOp :: Maybe Name }
   deriving (Eq, Ord, Show, Generic)
 newtype Variables = Variables { unVar :: VariableValues }
@@ -119,7 +119,7 @@ type Root = Object "QueryRoot" '[]
      :> Field "updateProperty" Viewer
    , Argument "patch" PatchInput 
      :> Argument "theorem" UpdateTheoremInput  
-     :> Field "updateTheoem"  Viewer
+     :> Field "updateTheorem"  Viewer
    , Argument "patch" PatchInput 
      :> Argument "trait" AssertTraitInput
      :> Field "assertTrait" Viewer
@@ -132,12 +132,14 @@ type Root = Object "QueryRoot" '[]
 -- Inputs
 
 data CreateSpaceInput = CreateSpaceInput
-  { name        :: Text
+  { uid         :: Text
+  , name        :: Text
   , description :: Text
   } deriving (Show, Generic)
 
 data CreatePropertyInput = CreatePropertyInput
-  { name        :: Text
+  { uid         :: Text
+  , name        :: Text
   , description :: Text
   } deriving (Show, Generic)
 
@@ -159,17 +161,17 @@ data ResetBranchInput = ResetBranchInput
   } deriving (Show, Generic)
 
 data UpdateSpaceInput = UpdateSpaceInput
-  { uid :: Text
+  { uid         :: Text
   , description :: Text
   } deriving (Show, Generic)
 
 data UpdatePropertyInput = UpdatePropertyInput
-  { uid :: Text
+  { uid         :: Text
   , description :: Text
   } deriving (Show, Generic)
 
 data UpdateTheoremInput = UpdateTheoremInput
-  { uid :: Text
+  { uid         :: Text
   , description :: Text
   } deriving (Show, Generic)
 

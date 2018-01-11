@@ -24,7 +24,7 @@ import           GraphQL.Value.FromValue     (FromValue(..))
 import           GraphQL.Value.ToValue       (ToValue(..))
 
 import Core
-import Graph.Types
+import Graph.Schema
 
 instance GraphQLEnum BranchAccess
 

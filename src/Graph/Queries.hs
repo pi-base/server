@@ -23,7 +23,7 @@ import qualified Data.Loader  as Loader
 import qualified Data.Map     as M
 import           Data.Store   (storeLoader)
 import           Formula      (Formula)
-import qualified Graph.Types  as G
+import qualified Graph.Schema as G
 import           Model        (User(..))
 import           Types        (BranchAccess(..))
 

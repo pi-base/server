@@ -7,7 +7,7 @@ module Graph.Queries.Cache
   ) where
 
 import Graph.Import hiding (Query, readFile)
-import Graph.Types  hiding (Error)
+import Graph.Schema hiding (Error)
 
 import           Data.Attoparsec.Text
 import           Data.Either.Combinators     (rightToMaybe)
