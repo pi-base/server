@@ -23,7 +23,7 @@ import qualified Data.Text.Encoding as TE
 
 import Class
 import Git.Libgit2 (HasLgRepo(..))
-import Data.Branch (ensureUserBranch)
+import Data.Branch (claim, ensureUserBranch)
 import Data.Store  (Store, storeRepo)
 
 -- | The foundation datatype for your application. This can be a good place to
@@ -84,6 +84,7 @@ createGithubUser user = do
   userId <- runDB $ insert user
   _ <- ensureUserBranch $ Entity userId user
   _ <- generateToken userId
+  _ <- claim
   return userId
 
 -- Please see the documentation for the Yesod typeclass. There are a number
