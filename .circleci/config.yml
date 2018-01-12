@@ -3,6 +3,9 @@ jobs:
   build:
     docker:
       - image: fpco/stack-build
+    environment:
+      CI:        true
+      REPO_PATH: /data/repo
     steps:
       - checkout
       - run:
@@ -13,6 +16,7 @@ jobs:
             git config --bool core.bare false
             git checkout master
 
+      # Build and cache installed dependencies based on package.yml
       - restore_cache:
           keys:
             - v1-stack-deps-{{ checksum "package.yaml" }}
@@ -28,9 +32,15 @@ jobs:
           paths: 
             - ~/.stack
             - .stack-work
+
+      # Run the tests
       - run:
           name: Run tests
           command: stack test
-    environment:
-      CI:        true
-      REPO_PATH: /data/repo
+
+      # Build the binary as an artifact
+      - run:
+          name: Build binary
+          command: stack build && mkdir /tmp/artifacts && cp $(stack path --local-install-root)/bin/pi-base-server /tmp/artifacts
+      - store_artifacts:
+          path: /tmp/artifacts

@@ -42,6 +42,10 @@ spec getApp = do
     query :: FilePath -> [(Text, Value)] -> IO Value
     query name vars = do
       result <- run name vars
+
+      let errors = result ^.. key "errors" . values . _Value
+      errors `shouldBe` []
+
       return . Object $ result ^. key "data" . _Object
 
     -- We might want to distinguish these in the future
@@ -113,7 +117,8 @@ spec getApp = do
                       , "sha"    .= initial
                       ]
                     , "space" .= object
-                      [ "name"        .= ("New Space" :: Text)
+                      [ "uid"         .= ("s1" :: Text)
+                      , "name"        .= ("New Space" :: Text)
                       , "description" .= ("Desc" :: Text)
                       ]
                     ]
@@ -130,13 +135,14 @@ spec getApp = do
                  , "sha"    .= initial
                  ]
                , "space" .= object
-                 [ "name"        .= ("New Space" :: Text)
+                 [ "uid"         .= ("s1" :: Text)
+                 , "name"        .= ("New Space" :: Text)
                  , "description" .= ("Desc" :: Text)
                  ]
                ]
 
         let sid = s ^. key "createSpace" . key "spaces" . nth 0 . key "uid" . _String
-        length sid `shouldBe` 37
+        sid `shouldBe` "s1"
 
         let v1 = s ^. key "createSpace" . key "version" . _String
         length v1 `shouldBe` 40
@@ -195,7 +201,8 @@ spec getApp = do
                   , "sha"    .= initial
                   ]
                 , "property" .= object
-                  [ "name"        .= ("P" :: Text)
+                  [ "uid"         .= ("p1" :: Text)
+                  , "name"        .= ("P" :: Text)
                   , "description" .= ("" :: Text)
                   ]
                 ]
