@@ -2,6 +2,8 @@
 
 A GraphQL server for querying and updating the [π-base data repository](https://github.com/pi-base/data)
 
+[![CircleCI](https://circleci.com/gh/pi-base/server.svg?style=svg)](https://circleci.com/gh/pi-base/server)
+
 ## Setup
 
 To run a server locally, `git clone` and `cd` in to the project and then
