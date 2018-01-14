@@ -9,7 +9,6 @@ import Core hiding (find)
 import Data        (findParsed, makeId, updateBranch)
 import Data.Git    (writePages)
 
-import qualified Data
 import qualified Data.Parse as Parse
 import qualified Page
 import Page.Space (page)

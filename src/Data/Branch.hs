@@ -14,7 +14,7 @@ import Data.Attoparsec.Text
 import Database.Esqueleto
 import Database.Persist (selectList)
 
-import           Core
+import           Core hiding (head)
 import qualified Data.Git as Git
 import qualified Data.Map.Strict as M
 import           Git

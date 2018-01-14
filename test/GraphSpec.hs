@@ -217,9 +217,10 @@ spec getApp = do
                   , "sha"    .= v1
                   ]
                 , "theorem" .= object
-                  [ "antecedent"  .= (encodeText $ object [ compact .= True ])
+                  [ "uid"         .= ("t1" :: Text)
+                  , "antecedent"  .= (encodeText $ object [ compact .= True ])
                   , "consequent"  .= (encodeText $ object [ pid .= True ])
-                  , "description" .= ("New theorem" :: Text)
+                  -- , "description" .= ("New theorem" :: Text)
                   ]
                 ]
 
@@ -241,9 +242,10 @@ spec getApp = do
                   , "sha"    .= v2
                   ]
                 , "theorem" .= object
-                  [ "antecedent"  .= (encodeText $ object [ pid .= True ])
+                  [ "uid"         .= ("t2" :: Text)
+                  , "antecedent"  .= (encodeText $ object [ pid .= True ])
                   , "consequent"  .= (encodeText $ object [ metacompact .= True ])
-                  , "description" .= ("New theorem" :: Text)
+                  -- , "description" .= ("New theorem" :: Text)
                   ]
                 ]
 

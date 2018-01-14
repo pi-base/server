@@ -38,14 +38,13 @@ extra-include-dirs:
 extra-lib-dirs:
 - /usr/local/opt/icu4c/lib
 
-# docker:
-#   enable: true
-#   base: fpco/stack-run
-#   mount:
-#     - '/data/src/pi-base/server/env/dev:/app/env'
-#     - '/data/src/pi-base/data:/data'
-#     - '/data/src/pi-base/gitlib:/data/src/pi-base/gitlib'
-#     - '/data/src/pi-base/graphql-api:/data/src/pi-base/graphql-api'
+docker:
+  enable: false
+  mount:
+    - '/data/src/pi-base/server/env/dev:/app/env'
+    - '/data/src/pi-base/data:/data'
+    - '/data/src/pi-base/gitlib:/data/src/pi-base/gitlib'
+    - '/data/src/pi-base/graphql-api:/data/src/pi-base/graphql-api'
 
 image:
   container:
