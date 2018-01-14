@@ -8,6 +8,7 @@ module Graph.Mutations
   , updateProperty
   , updateSpace
   , updateTheorem
+  , updateTrait
   ) where
 
 import           Data.Aeson           (decode)
@@ -31,15 +32,22 @@ assertTrait :: MonadGraph m => G.PatchInput -> G.AssertTraitInput -> Handler m G
 assertTrait patch G.AssertTraitInput{..} = do
   (user, branch) <- checkPatch patch
 
+  space    <- Space.fetch branch $ Id spaceId
+  property <- Property.fetch branch $ Id propertyId
   let trait = Trait
-        { _traitSpace       = Id spaceId
-        , _traitProperty    = Id propertyId
+        { _traitSpace       = space
+        , _traitProperty    = property
         , _traitValue       = value
         , _traitDescription = "FIXME"
         }
 
-      commit = CommitMeta user $ "Add " <> tshow trait
-  view <- Trait.put branch commit trait
+      trait' = trait 
+        { _traitSpace = Id spaceId
+        , _traitProperty = Id propertyId
+        }
+
+      commit = CommitMeta user $ "Add " <> traitName trait
+  view <- Trait.put branch commit trait'
   G.presentView view
 
 assertTheorem :: (MonadGraph m, MonadLogger m)
@@ -51,12 +59,13 @@ assertTheorem patch G.AssertTheoremInput{..} = do
   c <- parseFormula consequent
 
   let theorem = Theorem
-        { theoremId = Id "FIXME"
+        { theoremId = Id uid
         , theoremImplication = (Implication a c)
         , theoremConverse = Nothing
-        , theoremDescription = description
+        , theoremDescription = "FIXME"
         }
-      meta = CommitMeta user $ "Add " <> tshow theorem
+  theorem' <- mapM (Property.fetch branch) theorem
+  let meta = CommitMeta user $ "Add " <> theoremName theorem'
   view <- Theorem.put branch meta theorem
   G.presentView view
 
@@ -100,6 +109,7 @@ resetBranch G.ResetBranchInput{..} = do
     Just branch' -> do
       access <- Branch.access user branch'
       unless (access == Just BranchAdmin) $ do
+        -- TODO: add generic handler for e.g. PermissionError
         throw $ PermissionError "Not allowed access on branch"
       -- TODO: handle case where `to` is not found
       commit <- Git.commitFromLabel $ Just to
@@ -138,6 +148,20 @@ updateTheorem patch G.UpdateTheoremInput{..} = do
   let updated = old { theoremDescription = description }
       meta    = CommitMeta user $ "Update " <> theoremName updated
   Theorem.put branch meta (propertyId <$> updated) >>= G.presentView
+
+updateTrait :: (MonadGraph m, MonadLogger m)
+            => G.PatchInput -> G.UpdateTraitInput -> Handler m G.Viewer
+updateTrait patch G.UpdateTraitInput{..} = do
+  (user, branch) <- checkPatch patch
+
+  old <- Trait.fetch branch (Id spaceId) (Id propertyId)
+  let meta = CommitMeta user $ "Update " <> traitName old
+      updated = old 
+        { _traitDescription = description 
+        , _traitSpace       = Id spaceId
+        , _traitProperty    = Id propertyId
+        }
+  Trait.put branch meta updated >>= G.presentView
 
 -- Helpers
 

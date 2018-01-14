@@ -40,6 +40,7 @@ extra-lib-dirs:
 
 # docker:
 #   enable: true
+#   base: fpco/stack-run
 #   mount:
 #     - '/data/src/pi-base/server/env/dev:/app/env'
 #     - '/data/src/pi-base/data:/data'

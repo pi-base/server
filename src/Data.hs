@@ -3,6 +3,7 @@ module Data
   ( initializeStore
   , storeMaster
   , fetchPullRequest
+  , findParsed
   , makeId
   , slugify
   , updateBranch
@@ -28,6 +29,7 @@ import qualified Page.Theorem
 import qualified Page.Trait
 
 import Core
+import qualified Data.Branch as Branch
 import Data.Git    (openRepo, updateBranch, resolveCommittish)
 import Data.Store
 import Git.Libgit2 (runLgRepository)
@@ -127,3 +129,13 @@ addProof ((sid, pid), (value, evidence)) (traits, proofs) =
 
 insertNested :: (Ord k1, Ord k2) => k1 -> k2 -> v -> Map k1 (Map k2 v) -> Map k1 (Map k2 v)
 insertNested k1 k2 v = M.alter (Just . M.insert k2 v . maybe mempty id) k1
+
+findParsed :: MonadStore m
+           => (Commit LgRepo -> a -> m (Either e b))
+           -> Branch
+           -> a
+           -> m (Maybe b)
+findParsed parser branch _id = do
+  commit <- Branch.commit branch
+  parsed <- parser commit _id
+  return $ either (const Nothing) Just parsed

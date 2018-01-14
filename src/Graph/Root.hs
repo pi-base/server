@@ -35,6 +35,7 @@ handler = pure $ pure "Query"
   :<> updateSpace
   :<> updateProperty
   :<> updateTheorem
+  :<> updateTrait
   :<> assertTrait 
   :<> assertTheorem
   :<> resetBranch

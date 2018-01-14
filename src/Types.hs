@@ -95,14 +95,14 @@ data Formula p = Atom p TVal
                deriving (Eq, Functor, Foldable, Traversable)
 
 data Implication p = Implication (Formula p) (Formula p)
-  deriving (Eq, Functor)
+  deriving (Eq, Functor, Foldable, Traversable)
 
 data Theorem p = Theorem
   { theoremId          :: !TheoremId
   , theoremImplication :: !(Implication p)
   , theoremConverse    :: !(Maybe [TheoremId])
   , theoremDescription :: !Text
-  } deriving (Eq, Functor)
+  } deriving (Eq, Functor, Foldable, Traversable)
 
 data Trait s p = Trait
   { _traitSpace       :: !s

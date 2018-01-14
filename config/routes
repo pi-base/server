@@ -10,3 +10,4 @@
 
 /app     FrontendR GET
 /graphql GraphR    POST
+/users   UsersR    POST

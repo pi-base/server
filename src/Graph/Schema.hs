@@ -104,28 +104,40 @@ type Root = Object "QueryRoot" '[]
   '[ Field "__typename" Text
    , Argument "version" (Maybe Text) :> Field "viewer" Viewer
    , Field "me" User
+
    -- Mutations
    , Argument "patch" PatchInput 
      :> Argument "space" CreateSpaceInput
      :> Field "createSpace" Viewer
+
    , Argument "patch" PatchInput 
      :> Argument "property" CreatePropertyInput 
      :> Field "createProperty" Viewer
+
    , Argument "patch" PatchInput 
      :> Argument "space" UpdateSpaceInput
      :> Field "updateSpace" Viewer
+
    , Argument "patch" PatchInput 
      :> Argument "property" UpdatePropertyInput 
      :> Field "updateProperty" Viewer
+
    , Argument "patch" PatchInput 
      :> Argument "theorem" UpdateTheoremInput  
      :> Field "updateTheorem"  Viewer
+
+   , Argument "patch" PatchInput
+     :> Argument "trait" UpdateTraitInput
+     :> Field "updateTrait" Viewer
+
    , Argument "patch" PatchInput 
      :> Argument "trait" AssertTraitInput
      :> Field "assertTrait" Viewer
+
    , Argument "patch" PatchInput 
      :> Argument "theorem" AssertTheoremInput
      :> Field "assertTheorem" Viewer
+
    , Argument "input" ResetBranchInput :> Field "resetBranch" ResetBranchResponse
    ]
 
@@ -147,12 +159,14 @@ data AssertTraitInput = AssertTraitInput
   { spaceId     :: Text
   , propertyId  :: Text
   , value       :: Bool
+  -- , description :: Text
   } deriving (Show, Generic)
 
 data AssertTheoremInput = AssertTheoremInput
-  { antecedent  :: Text
+  { uid :: Text
+  , antecedent  :: Text
   , consequent  :: Text
-  , description :: Text
+  -- , description :: Text
   } deriving (Show, Generic)
 
 data ResetBranchInput = ResetBranchInput
@@ -172,6 +186,12 @@ data UpdatePropertyInput = UpdatePropertyInput
 
 data UpdateTheoremInput = UpdateTheoremInput
   { uid         :: Text
+  , description :: Text
+  } deriving (Show, Generic)
+
+data UpdateTraitInput = UpdateTraitInput
+  { spaceId     :: Text
+  , propertyId  :: Text
   , description :: Text
   } deriving (Show, Generic)
 

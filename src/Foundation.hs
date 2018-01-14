@@ -138,6 +138,7 @@ instance Yesod App where
     isAuthorized HooksR _    = return Authorized
     isAuthorized GraphR _    = return Authorized
     isAuthorized FrontendR _ = return Authorized
+    isAuthorized UsersR _    = return Authorized
     isAuthorized _ False     = return Authorized
     isAuthorized _ True      = return $ Unauthorized "page is read-only"
 

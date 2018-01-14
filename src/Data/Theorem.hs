@@ -6,11 +6,16 @@ module Data.Theorem
   ) where
 
 import           Core  hiding (find)
-import           Data  (makeId, updateView, viewDeductions)
+import           Data  (findParsed, makeId, updateView, viewDeductions)
+import qualified Data.Parse as Parse
+import qualified Data.Property
 import qualified Logic as L
 
 find :: MonadStore m => Branch -> TheoremId -> m (Maybe (Theorem Property))
-find = error "find"
+find branch _id = findParsed Parse.theorem branch _id >>= \case
+  Nothing -> return Nothing
+  Just theorem ->
+    mapM (Data.Property.find branch) theorem >>= return . sequence
 
 fetch :: (MonadStore m, MonadThrow m) => Branch -> TheoremId -> m (Theorem Property)
 fetch branch _id = find branch _id >>= maybe (throwM . NotFound $ unId _id) return

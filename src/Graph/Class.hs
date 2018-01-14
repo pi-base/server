@@ -115,7 +115,12 @@ instance HasAnnotatedInputType UpdateTheoremInput
 instance Defaultable UpdateTheoremInput where
   defaultFor _ = error "No default for UpdateTheoremInput"
 
+instance FromValue UpdateTraitInput
+instance HasAnnotatedInputType UpdateTraitInput
+instance Defaultable UpdateTraitInput where
+  defaultFor _ = error "No default for UpdateTraitInput"
+
 instance FromValue PatchInput
 instance HasAnnotatedInputType PatchInput
 instance Defaultable PatchInput where
-  defaultFor _ = error "No default for CreateSpaceInput"
+  defaultFor _ = error "No default for PatchInput"

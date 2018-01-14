@@ -6,7 +6,7 @@ User json
   UniqueUser ident
   deriving Typeable Show
 
-Token
+Token json
   userId UserId
   issuedAt UTCTime
   expiredAt UTCTime Maybe
