@@ -4,7 +4,7 @@ module Data.Trait
   ) where
 
 import           Core
-import           Data  (updateView, viewDeductions)
+import           Data  (required, updateView, viewDeductions)
 import qualified Data.Branch as Branch
 import qualified Data.Parse as Parse
 import qualified Data.Property
@@ -36,7 +36,7 @@ fetch :: MonadStore m
       -> PropertyId
       -> m (Trait Space Property)
 fetch branch sid pid =
-  Data.Trait.find branch sid pid >>= maybe (throwM . NotFound $ tshow (sid, pid)) return
+  Data.Trait.find branch sid pid >>= Data.required "Trait" (tshow (sid, pid))
 
 put :: (MonadStore m, MonadThrow m)
     => Branch

@@ -6,8 +6,8 @@ module Data.Property
   ) where
 
 import Core hiding (find)
-import Data        (findParsed, makeId)
-import Data.Git    (writePages, updateBranch)
+import Data        (findParsed, makeId, required, updateBranch)
+import Data.Git    (writePages)
 
 import qualified Data.Parse as Parse
 import qualified Page
@@ -17,7 +17,8 @@ find :: MonadStore m => Branch -> PropertyId -> m (Maybe Property)
 find = Data.findParsed Parse.property
 
 fetch :: (MonadStore m, MonadThrow m) => Branch -> PropertyId -> m Property
-fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return
+fetch sha _id =
+  find sha _id >>= Data.required "Property" (unId _id)
 
 pending :: PropertyId
 pending = Id ""

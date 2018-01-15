@@ -11,6 +11,7 @@ import qualified Control.Exception as Exception
 import Data.Aeson                  (Result (..), fromJSON, withObject, (.!=),
                                     (.:?))
 import Data.FileEmbed              (embedFile)
+import qualified Data.Text         as T
 import Data.Yaml                   (decodeEither')
 import Database.Persist.Sqlite     (SqliteConf)
 import Language.Haskell.TH.Syntax  (Exp, Name, Q)
@@ -40,12 +41,6 @@ data AppSettings = AppSettings
     -- ^ Get the IP address from the header when logging. Useful when sitting
     -- behind a reverse proxy.
 
-    , appDetailedRequestLogging :: Bool
-    -- ^ Use detailed request logging system
-    , appRequestLogging         :: Bool
-    -- ^ Should any requests be logged?
-    , appShouldLogAll           :: Bool
-    -- ^ Should all log messages be displayed?
     , appReloadTemplates        :: Bool
     -- ^ Use the reload version of templates
     , appMutableStatic          :: Bool
@@ -64,6 +59,7 @@ data AppSettings = AppSettings
 
     , appRepoPath               :: FilePath
     , appFrontendUrl            :: Text
+    , appLogLevel               :: LogLevel
 
     , appGitHubToken            :: GitHub.Auth
     , appGitHubOwner            :: GitHub.Name GitHub.Owner
@@ -90,8 +86,6 @@ instance FromJSON AppSettings where
         appPort                   <- o .: "port"
         appIpFromHeader           <- o .: "ip-from-header"
 
-        appDetailedRequestLogging <- o .:? "detailed-logging" .!= defaultDev
-        appShouldLogAll           <- o .:? "should-log-all"   .!= defaultDev
         appReloadTemplates        <- o .:? "reload-templates" .!= defaultDev
         appMutableStatic          <- o .:? "mutable-static"   .!= defaultDev
         appSkipCombining          <- o .:? "skip-combining"   .!= defaultDev
@@ -110,15 +104,23 @@ instance FromJSON AppSettings where
         appGitHubWebhookSecret <- o .: "github-webhook-secret"
         appGitHubToken         <- (GitHub.OAuth . fromString) <$> o .: "github-auth"
 
+        appLogLevel <- logLevel <$> o .: "log-level"
+
         appGitHubClientId     <- o .: "github-client-id"
         appGitHubClientSecret <- o .: "github-client-secret"
 
-        appRequestLogging <- o .: "log-requests"
         appDefaultBranch  <- o .: "default-branch"
 
         appTestMode <- o .: "test-mode"
 
         return AppSettings {..}
+
+logLevel :: String -> LogLevel
+logLevel "error" = LevelError
+logLevel "warn" = LevelWarn
+logLevel "info" = LevelInfo
+logLevel "debug" = LevelDebug
+logLevel other = LevelOther $ T.pack other
 
 -- | Settings for 'widgetFile', such as which template languages to support and
 -- default Hamlet settings.

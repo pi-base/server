@@ -21,16 +21,11 @@ import Database.Persist.Sqlite              (ConnectionPool, createSqlitePool, r
 import Import
 import Language.Haskell.TH.Syntax           (qLocation)
 import LoadEnv                              (loadEnvFrom)
-import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp             (Settings, defaultSettings,
                                              defaultShouldDisplayException,
                                              runSettings, setHost,
                                              setOnException, setPort, getPort)
 import Network.Wai.Middleware.Cors
-import Network.Wai.Middleware.RequestLogger (Destination (Logger),
-                                             IPAddrSource (..),
-                                             OutputFormat (..), destination,
-                                             mkRequestLogger, outputFormat)
 import System.Environment                   (lookupEnv)
 import System.Exit                          (die)
 import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
@@ -39,6 +34,7 @@ import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
 import           Data       (initializeStore)
 import qualified Data.Branch
 import           Data.Store (Store)
+import           Logging    (makeLogWare)
 import           Types      (Ref(..))
 
 -- Import all relevant handler modules here.
@@ -126,23 +122,6 @@ makeApplication foundation = do
     appPlain <- toWaiAppPlain foundation
     return $ cors (const $ Just corsPolicy) $ logWare $ defaultMiddlewaresNoLogging appPlain
 
-makeLogWare :: App -> IO Middleware
-makeLogWare foundation =
-  if appRequestLogging $ appSettings foundation
-    then
-      mkRequestLogger def
-          { outputFormat =
-              if appDetailedRequestLogging $ appSettings foundation
-                  then Detailed True
-                  else Apache
-                          (if appIpFromHeader $ appSettings foundation
-                              then FromFallback
-                              else FromSocket)
-          , destination = Logger $ loggerSet $ appLogger foundation
-          }
-    else return id
-
-
 -- | Warp settings for the given foundation value.
 warpSettings :: App -> Settings
 warpSettings foundation =
@@ -169,7 +148,7 @@ getApplicationDev = do
 
 getAppSettings :: IO AppSettings
 getAppSettings = do
-  loadEnvFrom "/app/env"
+  loadEnvFrom ".env"
   checkEnv
   loadYamlSettings [configSettingsYml] [] useEnv
 

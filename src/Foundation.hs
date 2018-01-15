@@ -103,8 +103,7 @@ instance Yesod App where
         120    -- timeout in minutes
         "config/client_session_key.aes"
 
-    errorHandler err = sendStatusJSON status500 $ object
-      [ "errors" .= [ object [ "message" .= show err ] ] ]
+    errorHandler = defaultErrorHandler
 
     -- Yesod Middleware allows you to run code before and after each handler function.
     -- The defaultYesodMiddleware adds the response header "Vary: Accept, Accept-Language" and performs authorization checks.
@@ -161,12 +160,7 @@ instance Yesod App where
         -- Generate a unique filename based on the content itself
         genFileName lbs = "autogen-" ++ base64md5 lbs
 
-    -- What messages should be logged. The following includes all messages when
-    -- in development, and warnings and errors in production.
-    shouldLog app _source level =
-        appShouldLogAll (appSettings app)
-            || level == LevelWarn
-            || level == LevelError
+    shouldLog app _source level = level >= appLogLevel (appSettings app)
 
     makeLogger = return . appLogger
 

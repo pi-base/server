@@ -77,19 +77,33 @@ instance Monoid View where
 
   mempty = View mempty mempty mempty mempty mempty Nothing
 
-explainError :: Error -> Text
-explainError (NotATree path) = decodeUtf8 path <> ": could not find directory"
-explainError (ParseError path msg) = decodeUtf8 path <> ": error while parsing - " <> T.pack msg
-explainError (ReferenceError path ids) = decodeUtf8 path <> ": invalid reference - " <> tshow ids
-explainError (NotUnique field value) = field <> " is not unique: " <> value
-explainError (CommitNotFound c) = "Could not find commit at " <> tshow c
--- FIXME: define these entirely
-explainError e = tshow e
-
 instance ToJSON Error where
-  toJSON err = object
-    [ "error" .= object
-      [ "type"    .= show err
-      , "message" .= explainError err
-      ]
+  toJSON e = object
+    [ "type" .= show e
+    , "message" .= explainError e
     ]
+
+explainError :: Error -> Text
+explainError (ConflictError Conflict{..}) = "Expected sha " <> expectedSha <> ", but found " <> actualSha
+explainError (LogicError e) = explainLogicError e
+explainError (PermissionError (BranchPermission access)) = tshow access <> " required"
+explainError (NotFound NotFoundError{..}) = "Failed to find " <> nfResource <> " " <> nfIdentifier
+explainError (NotATree path) = decodeUtf8 path <> " is not a tree"
+explainError (ParseError path msg) = "Failed to parse " <> decodeUtf8 path <> ": " <> T.pack msg
+explainError (GraphError e) = explainGraphError e
+explainError (UnknownGitRef ref) = "Unknown ref " <> tshow ref
+
+explainLogicError :: LogicError -> Text
+explainLogicError (Contradiction s p expected actual) = 
+  "Contradiction: expected (" <> tshow s <> ": " <> tshow p <> ") to have value " 
+  <> tshow expected <> ", not " <> tshow actual
+explainLogicError (Counterexamples sids) =
+  "Theorem has counterexamples: " <> tshow sids
+explainLogicError (LoadFailure e) =
+  "Failed to load dependencies: " <> tshow e
+
+explainGraphError :: GraphError -> Text
+explainGraphError (QueryNotFound name) = "Could not find a query named " <> tshow name
+explainGraphError QueryNameRequired = "Query name is required"
+explainGraphError (QuerySerializationError e) = "Failed to serialize query: " <> T.pack e
+explainGraphError (SchemaInvalid e) = "Schema invalid: " <> tshow e

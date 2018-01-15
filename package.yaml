@@ -19,6 +19,7 @@ library:
     - base
     - aeson
     - aeson-pretty
+    - ansi-terminal
     - attoparsec
     - bytestring
     - case-insensitive

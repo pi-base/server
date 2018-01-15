@@ -4,6 +4,7 @@ module Data
   , storeMaster
   , fetchPullRequest
   , findParsed
+  , required
   , makeId
   , slugify
   , updateBranch
@@ -139,3 +140,8 @@ findParsed parser branch _id = do
   commit <- Branch.commit branch
   parsed <- parser commit _id
   return $ either (const Nothing) Just parsed
+
+required :: MonadThrow m => Text -> Text -> Maybe a -> m a
+required resource identifier =
+  maybe (throwM . NotFound $ NotFoundError resource identifier) return
+          

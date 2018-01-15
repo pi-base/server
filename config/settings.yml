@@ -29,8 +29,7 @@ test-mode: "_env:TEST_MODE:false"
 # Uncomment to set an explicit approot
 #approot:        "_env:APPROOT:http://localhost:3000"
 
-log-requests:   "_env:LOG_REQUESTS:false"
-should-log-all: "_env:LOG_ALL:false"
+log-level: "_env:LOG_LEVEL:error"
 
 # Optional values with the following production defaults.
 # In development, they default to the inverse.

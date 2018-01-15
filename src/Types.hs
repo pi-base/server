@@ -55,21 +55,22 @@ data GraphError = QueryNotFound GraphQL.Name
 data Conflict = Conflict { expectedSha :: Sha, actualSha :: Sha }
   deriving (Show, Eq)
 
--- TODO: make sure error handling is consistent throughout the application
---       and never stringly-typed
-data Error = CommitNotFound  Committish
-           | ConflictError   Conflict
+data NotFoundError = NotFoundError
+  { nfResource   :: Text
+  , nfIdentifier :: Text
+  } deriving (Show, Eq)
+
+data PermissionError = BranchPermission BranchAccess
+  deriving (Show, Eq)
+
+data Error = ConflictError   Conflict
            | LogicError      LogicError
-           | NotFound        Text
+           | NotFound        NotFoundError
            | NotATree        TreeFilePath
-           | NotUnique       Text Text
            | ParseError      TreeFilePath String
-           | PermissionError Text
-           | PersistError    String
+           | PermissionError PermissionError
            | GraphError      GraphError
-           | ReferenceError  TreeFilePath [Uid]
            | UnknownGitRef   Ref
-           | GeneralError    Text
            deriving Eq
 
 data Space = Space

@@ -73,7 +73,7 @@ load commit path page = do
     Just (BlobEntry oid _) -> do
       blob <- catBlobUtf8 oid
       return $ Page.parse page (encodeUtf8 path, blob)
-    _ -> return . Left $ NotFound path
+    _ -> return . Left $ NotFound $ NotFoundError "Tree" path
 
 parsePath :: Monad m => Parser a -> ConduitM (TreeFilePath, b) a m ()
 parsePath parser = awaitForever $ \(path, _) -> case parseOnly parser (decodeUtf8 path) of

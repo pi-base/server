@@ -6,7 +6,7 @@ module Data.Space
   ) where
 
 import Core hiding (find)
-import Data        (findParsed, makeId, updateBranch)
+import Data        (findParsed, makeId, required, updateBranch)
 import Data.Git    (writePages)
 
 import qualified Data.Parse as Parse
@@ -17,7 +17,7 @@ find :: MonadStore m => Branch -> SpaceId -> m (Maybe Space)
 find = Data.findParsed Parse.space
 
 fetch :: (MonadStore m, MonadThrow m) => Branch -> SpaceId -> m Space
-fetch sha _id = find sha _id >>= maybe (throwM . NotFound $ unId _id) return
+fetch sha _id = find sha _id >>= Data.required "Space" (unId _id)
 
 pending :: SpaceId
 pending = Id ""

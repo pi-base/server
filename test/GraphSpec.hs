@@ -93,7 +93,7 @@ spec getApp = do
                 , "to"     .= ("users/test" :: Text)
                 ]
               ]
-        action `shouldThrow` (== PermissionError "Not allowed access on branch")
+        action `shouldThrow` (== (PermissionError $ BranchPermission BranchAdmin))
 
     describe "viewer" $ do
       it "can run queries directly" $ do

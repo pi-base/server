@@ -105,12 +105,11 @@ resetBranch :: MonadGraph m => G.ResetBranchInput -> Handler m G.ResetBranchResp
 resetBranch G.ResetBranchInput{..} = do
   user <- requireUser
   Branch.find branch >>= \case
-    Nothing -> throw $ NotFound branch
+    Nothing -> throw $ NotFound $ NotFoundError "Branch" branch
     Just branch' -> do
       access <- Branch.access user branch'
       unless (access == Just BranchAdmin) $ do
-        -- TODO: add generic handler for e.g. PermissionError
-        throw $ PermissionError "Not allowed access on branch"
+        throw $ PermissionError $ BranchPermission BranchAdmin
       -- TODO: handle case where `to` is not found
       commit <- Git.commitFromLabel $ Just to
       sha <- Branch.reset branch' $ CommitSha $ Git.commitSha commit
@@ -171,11 +170,11 @@ checkPatch G.PatchInput{..} = do
   user <- requireUser
   mb   <- Branch.find branch
   case mb of
-    Nothing -> throw $ NotFound $ "Branch " <> branch
+    Nothing -> throw $ NotFound $ NotFoundError "Branch" branch
     Just b -> do
       access <- Branch.access user b
       unless (access == Just BranchAdmin || access == Just BranchWrite) $
-        throw $ PermissionError "Cannot write to this branch"
+        throw $ PermissionError $ BranchPermission BranchWrite
 
       currentSha <- Branch.headSha b
       unless (sha == currentSha) $
