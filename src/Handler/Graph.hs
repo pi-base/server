@@ -19,9 +19,10 @@ postGraphR = flip catch handleError $ do
   return response
 
 handleError :: Core.Error -> Handler Value
-handleError e = sendStatusJSON (errorStatus e) $ object
-  [ "error" .= e
-  ]
+handleError e = do
+  let status = errorStatus e
+  when (status == status500) $ rollbarH e
+  sendStatusJSON status $ object [ "error" .= e ]
 
 errorStatus :: Core.Error -> Status
 errorStatus (Core.PermissionError _) = status403

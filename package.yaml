@@ -44,6 +44,7 @@ library:
     - github-webhook-handler
     - gitlib
     - gitlib-libgit2
+    - gitrev
     - graphql-api
     - hjsmin
     - http-conduit
@@ -58,6 +59,7 @@ library:
     - persistent-sqlite
     - persistent-template
     - process
+    - rollbar
     - safe
     - scientific
     - shakespeare

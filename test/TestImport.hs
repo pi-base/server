@@ -3,7 +3,7 @@ module TestImport
     , module X
     ) where
 
-import Application           (makeFoundation, makeLogWare)
+import Application           (makeFoundation)
 #if MIN_VERSION_classy_prelude(1, 0, 0)
 import ClassyPrelude         as X hiding (delete, deleteBy, Handler)
 #else
@@ -54,8 +54,7 @@ buildApp = do
       useEnv
   foundation <- makeFoundation settings
   wipeDB foundation
-  logWare <- liftIO $ makeLogWare foundation
-  return (foundation, logWare)
+  return (foundation, id)
 
 withApp :: SpecWith (TestApp App) -> Spec
 withApp = before buildApp

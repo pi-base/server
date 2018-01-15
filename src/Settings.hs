@@ -14,6 +14,7 @@ import Data.FileEmbed              (embedFile)
 import qualified Data.Text         as T
 import Data.Yaml                   (decodeEither')
 import Database.Persist.Sqlite     (SqliteConf)
+import Development.GitRev          (gitHash)
 import Language.Haskell.TH.Syntax  (Exp, Name, Q)
 import Network.Wai.Handler.Warp    (HostPreference)
 import Yesod.Default.Config2       (applyEnvValue, configSettingsYml)
@@ -21,6 +22,7 @@ import Yesod.Default.Util          (WidgetFileSettings, widgetFileNoReload,
                                     widgetFileReload)
 
 import qualified GitHub
+import qualified Rollbar
 
 -- | Runtime settings to configure this application. These settings can be
 -- loaded from various sources: defaults, environment variables, config files,
@@ -57,6 +59,9 @@ data AppSettings = AppSettings
     , appAuthDummyLogin         :: Bool
     -- ^ Indicate if auth dummy login should be enabled
 
+    , appRollbar                :: Rollbar.Settings
+
+    , appBuild                  :: Text
     , appRepoPath               :: FilePath
     , appFrontendUrl            :: Text
     , appLogLevel               :: LogLevel
@@ -112,6 +117,18 @@ instance FromJSON AppSettings where
         appDefaultBranch  <- o .: "default-branch"
 
         appTestMode <- o .: "test-mode"
+
+        let appBuild = $(gitHash)
+
+        rollbarToken <- o .:? "rollbar-token"
+        rollbarEnv   <- o .: "rollbar-environment"
+        rollbarHost  <- o .: "rollbar-host"
+        let appRollbar = Rollbar.Settings
+              { Rollbar.environment = Rollbar.Environment rollbarEnv
+              , Rollbar.token = Rollbar.ApiToken $ maybe "" id rollbarToken
+              , Rollbar.hostName = rollbarHost
+              , Rollbar.reportErrors = isJust rollbarToken
+              }
 
         return AppSettings {..}
 

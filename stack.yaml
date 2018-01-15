@@ -28,6 +28,7 @@ packages:
 extra-deps:
 - lens-aeson-1.0.1
 - load-env-0.1.1
+- rollbar-1.1.0
 
 flags: {}
 

@@ -14,7 +14,11 @@ getMaster = storeMaster >>=
 getHomeR :: Handler Value
 getHomeR = do
   master <- getMaster
-  return $ object [ "version" .= _viewVersion master ]
+  build <- getSetting appBuild
+  return $ object 
+    [ "version" .= _viewVersion master 
+    , "build" .= build
+    ]
 
 postHooksR :: Handler Value
 postHooksR = do

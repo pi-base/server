@@ -31,6 +31,10 @@ test-mode: "_env:TEST_MODE:false"
 
 log-level: "_env:LOG_LEVEL:error"
 
+rollbar-token: "_env:ROLLBAR_TOKEN"
+rollbar-environment: "_env:ROLLBAR_ENVIRONMENT:production"
+rollbar-host: "_env:ROLLBAR_HOST:unknown"
+
 # Optional values with the following production defaults.
 # In development, they default to the inverse.
 #

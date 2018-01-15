@@ -16,7 +16,7 @@ import Handler.Helpers as Graph.Import
 import qualified Core        (Error, explainError)
 import           Graph.Class ()
 
--- TODO: status should change depending on error type
+-- TODO: this should just be replaced with the throwable errors
 halt :: MonadHandler m => [Core.Error] -> m a
 halt errs = sendStatusJSON badRequest400 $ object [ "errors" .= map render errs ]
   where

@@ -12,7 +12,7 @@ import Text.Jasmine         (minifym)
 
 import Yesod.Auth.Dummy
 
-import Handler.Helpers (generateToken, maybeToken, requireToken)
+import Handler.Helpers (generateToken, maybeToken, requireToken, rollbar)
 
 import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
@@ -87,6 +87,23 @@ createGithubUser user = do
   _ <- claim
   return userId
 
+getSetting :: (AppSettings -> a) -> Handler a
+getSetting f = getYesod >>= return . f . appSettings
+
+development :: Bool
+development =
+#if DEVELOPMENT
+    True
+#else
+    False
+#endif
+
+rollbarH :: Show e => e -> Handler ()
+rollbarH err = forkHandler ($logErrorS "rollbarH" . tshow) $ do
+  settings <- appSettings <$> getYesod
+  muser    <- maybeAuth
+  rollbar settings muser err
+
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
 instance Yesod App where
@@ -103,7 +120,10 @@ instance Yesod App where
         120    -- timeout in minutes
         "config/client_session_key.aes"
 
-    errorHandler = defaultErrorHandler
+    errorHandler err@(InternalError e) = do
+      unless development $ rollbarH e
+      defaultErrorHandler err
+    errorHandler err = defaultErrorHandler err
 
     -- Yesod Middleware allows you to run code before and after each handler function.
     -- The defaultYesodMiddleware adds the response header "Vary: Accept, Accept-Language" and performs authorization checks.
