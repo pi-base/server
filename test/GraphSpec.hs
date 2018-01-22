@@ -6,7 +6,7 @@ module GraphSpec (spec) where
 
 import Test.Tasty
 import Test.Tasty.Hspec
-import TestImport (App, TestApp, slow)
+import TestImport hiding (request)
 
 import           Control.Lens       hiding ((.=))
 import           Data.Aeson         (Value(..), (.=), object)
@@ -30,25 +30,33 @@ spec getApp = do
   config  <- getApp >>= return . mkConfig >>= login testUser
 
   let
-    run :: String -> [(Text, Value)] -> IO Value
-    run name vars = runGraph config $ Root.asJSON (Root.execute queries) request
+    run :: String -> [(Text, Value)] -> IO (Either Error Value)
+    run name vars = runGraph config $ Root.asJSON (Root.compiled queries) request
       where
         request = object 
           [ "operationName" .= name
           , "variables" .= object vars
           , "query" .= ("" :: Text) -- overridden with compiled query
           ]
+    
+    query' :: FilePath -> [(Text, Value)] -> IO (Either Error Value)
+    query' name vars = run name vars >>= \case
+      Right result -> do
+        let errors = result ^.. key "errors" . values . _Value
+        errors `shouldBe` []
+        return . Right . Object $ result ^. key "data" . _Object
+      Left err -> return $ Left err
 
     query :: FilePath -> [(Text, Value)] -> IO Value
     query name vars = do
-      result <- run name vars
-
-      let errors = result ^.. key "errors" . values . _Value
-      errors `shouldBe` []
-
-      return . Object $ result ^. key "data" . _Object
+      result <- query' name vars
+      result `shouldSatisfy` isRight
+      return $ fromRight result
 
     -- We might want to distinguish these in the future
+    mutation' :: FilePath -> [(Text, Value)] -> IO (Either Error Value)
+    mutation' = query'
+
     mutation :: FilePath -> [(Text, Value)] -> IO Value
     mutation = query
 
@@ -87,13 +95,14 @@ spec getApp = do
         result ^. key "resetBranch" . key "branch" . _String `shouldBe` "users/test"
 
       it "cannot reset system branches" $ do
-        let action = mutation "ResetBranch" $
+        result <- mutation' "ResetBranch" $
               [ "input" .= object
                 [ "branch" .= ("master" :: Text)
                 , "to"     .= ("users/test" :: Text)
                 ]
               ]
-        action `shouldThrow` (== (PermissionError $ BranchPermission BranchAdmin))
+        let (Left (PermissionError (BranchPermission required))) = result
+        required `shouldBe` BranchAdmin
 
     describe "viewer" $ do
       it "can run queries directly" $ do
@@ -220,7 +229,7 @@ spec getApp = do
                   [ "uid"         .= ("t1" :: Text)
                   , "antecedent"  .= (encodeText $ object [ compact .= True ])
                   , "consequent"  .= (encodeText $ object [ pid .= True ])
-                  -- , "description" .= ("New theorem" :: Text)
+                  , "description" .= ("New theorem" :: Text)
                   ]
                 ]
 
@@ -245,7 +254,7 @@ spec getApp = do
                   [ "uid"         .= ("t2" :: Text)
                   , "antecedent"  .= (encodeText $ object [ pid .= True ])
                   , "consequent"  .= (encodeText $ object [ metacompact .= True ])
-                  -- , "description" .= ("New theorem" :: Text)
+                  , "description" .= ("New theorem" :: Text)
                   ]
                 ]
 
@@ -257,6 +266,67 @@ spec getApp = do
 
         let traits2 = nub $ t2 ^.. key "assertTheorem" . key "spaces" . values . key "traits" . values . _Value
         length traits2 `shouldBe` 2 -- TODO: that is, metacompact = true & p = false
+
+    describe "validation" $ do
+      it "handles missing fields" $ do
+        resetBranch "users/test" initial
+        result <- mutation' "CreateSpace" $
+                    [ "patch" .= object
+                      [ "branch" .= ("users/test" :: Text)
+                      , "sha"    .= initial
+                      ]
+                    , "space" .= object
+                      [ "description" .= ("Desc" :: Text)
+                      ]
+                    ]
+        let (Left (GraphError (ExecutionErrors errs))) = result
+        show errs `shouldInclude` "Could not coerce Name"
+
+      todo "handles validation errors" $ do
+        resetBranch "users/test" initial
+        r1 <- mutation "CreateSpace" $
+              [ "patch" .= object
+                [ "branch" .= ("users/test" :: Text)
+                , "sha"    .= initial
+                ]
+              , "space" .= object
+                [ "uid"         .= ("s1" :: Text)
+                , "name"        .= ("New Space" :: Text)
+                , "description" .= ("Desc" :: Text)
+                ]
+              ]
+        let v1 = r1 ^. key "createSpace" . key "version" . _String
+
+        r2 <- mutation' "CreateSpace" $
+              [ "patch" .= object
+                [ "branch" .= ("users/test" :: Text)
+                , "sha"    .= v1
+                ]
+              , "space" .= object
+                [ "uid"         .= ("s1" :: Text)
+                , "name"        .= ("New Space" :: Text)
+                , "description" .= ("Desc" :: Text)
+                ]
+              ]
+        let (Left (ValidationError msg)) = r2
+        msg `shouldBe` ValidationMessage "uid is taken"
+
+      it "handles branch mis-matches" $ do
+        resetBranch "users/test" initial
+        result <- mutation' "CreateSpace" $
+                    [ "patch" .= object
+                      [ "branch" .= ("users/test" :: Text)
+                      , "sha"    .= ("mismatch" :: Text)
+                      ]
+                    , "space" .= object
+                      [ "uid"         .= ("s1" :: Text)
+                      , "name"        .= ("New Space" :: Text)
+                      , "description" .= ("Desc" :: Text)
+                      ]
+                    ]
+        let (Left (ConflictError Conflict{..})) = result
+        actualSha `shouldBe` initial
+        expectedSha `shouldBe` "mismatch"
 
 testUser :: User
 testUser = User "github:1234" "test" "test@example.com" "xxx"

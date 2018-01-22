@@ -16,9 +16,12 @@ import           Data.Int                    (Int32)
 import qualified Data.Map                    as M
 import           Data.Scientific             (floatingOrInteger)
 import           Data.Text                   (Text)
+import qualified Data.Text.Lazy              as TL
 import           GraphQL.API
 import           GraphQL.Resolver
+import qualified GraphQL.Internal.OrderedMap as OM
 import           GraphQL.Internal.Syntax.AST (Variable(..))
+import           GraphQL.Internal.Schema
 import           GraphQL.Value
 import           GraphQL.Value.FromValue     (FromValue(..))
 import           GraphQL.Value.ToValue       (ToValue(..))
@@ -85,13 +88,37 @@ instance HasAnnotatedInputType CreatePropertyInput
 instance Defaultable CreatePropertyInput where
   defaultFor _ = error "No default for CreatePropertyInput"
 
-instance FromValue AssertTraitInput
-instance HasAnnotatedInputType AssertTraitInput
+instance FromValue AssertTraitInput where
+  fromValue (ValueObject o) = AssertTraitInput
+    <$> field "spaceId" o
+    <*> field "propertyId" o
+    <*> field "value" o
+    <*> field "description" o
+  fromValue v = wrongType "Object" v
+instance HasAnnotatedInputType AssertTraitInput where
+  getAnnotatedInputType = Right $ TypeNamed $ DefinedInputType $ InputTypeDefinitionObject $ InputObjectTypeDefinition "AssertTraitInput" $ NonEmptyList
+    [ InputObjectFieldDefinition "spaceId" (TypeNamed $ BuiltinInputType GID) Nothing
+    , InputObjectFieldDefinition "propertyId" (TypeNamed $ BuiltinInputType GID) Nothing
+    , InputObjectFieldDefinition "value" (TypeNamed $ BuiltinInputType GBool) Nothing
+    , InputObjectFieldDefinition "description" (TypeNamed $ BuiltinInputType GString) Nothing
+    ]
 instance Defaultable AssertTraitInput where
   defaultFor _ = error "No default for AssertTraitInput"
 
-instance FromValue AssertTheoremInput
-instance HasAnnotatedInputType AssertTheoremInput
+instance FromValue AssertTheoremInput where
+  fromValue (ValueObject o) = AssertTheoremInput
+    <$> field "uid" o
+    <*> field "antecedent" o
+    <*> field "consequent" o
+    <*> field "description" o
+  fromValue v = wrongType "Object" v
+instance HasAnnotatedInputType AssertTheoremInput where
+  getAnnotatedInputType = Right $ TypeNamed $ DefinedInputType $ InputTypeDefinitionObject $ InputObjectTypeDefinition "AssertTraitInput" $ NonEmptyList
+    [ InputObjectFieldDefinition "uid" (TypeNamed $ BuiltinInputType GID) Nothing
+    , InputObjectFieldDefinition "antecedent" (TypeNamed $ BuiltinInputType GString) Nothing
+    , InputObjectFieldDefinition "consequent" (TypeNamed $ BuiltinInputType GString) Nothing
+    , InputObjectFieldDefinition "description" (TypeNamed $ BuiltinInputType GString) Nothing
+    ]
 instance Defaultable AssertTheoremInput where
   defaultFor _ = error "No default for AssertTheoremInput"
 
@@ -124,3 +151,25 @@ instance FromValue PatchInput
 instance HasAnnotatedInputType PatchInput
 instance Defaultable PatchInput where
   defaultFor _ = error "No default for PatchInput"
+
+instance HasAnnotatedInputType (Id a) where
+  getAnnotatedInputType = Right $ TypeNamed $ BuiltinInputType GString
+instance FromValue (Id a) where
+  fromValue (ValueString (GraphQL.Value.String s)) = Right $ Id s
+  fromValue v = wrongType "String" v
+
+instance HasAnnotatedInputType (Formula PropertyId) where
+  getAnnotatedInputType = Right $ TypeNamed $ BuiltinInputType GString
+instance FromValue (Formula PropertyId) where
+  fromValue (ValueString (GraphQL.Value.String s)) = case eitherDecode $ encodeUtf8 $ TL.fromStrict s of
+    Left err -> Left $ "Could not parse forrmula: " <> tshow err
+    Right f  -> Right $ Id <$> f
+  fromValue v = wrongType "String" v
+
+wrongType :: Show a => Text -> a -> Either Text b
+wrongType expected value = Left $ "Wrong type, should be: `" <> expected <> "` but is: `" <> tshow value <> "`"
+
+field :: FromValue a => Name -> Object' ConstScalar -> Either Text a
+field name (Object' fieldMap) = case OM.lookup name fieldMap of
+  Nothing -> Left $ "Key not found: " <> tshow name
+  Just v  -> fromValue v

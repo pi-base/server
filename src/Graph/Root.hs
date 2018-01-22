@@ -1,6 +1,7 @@
 {-# LANGUAGE
     DataKinds
   , DeriveGeneric
+  , ExistentialQuantification
   , TemplateHaskell
   , TypeApplications
   , TypeOperators
@@ -11,15 +12,16 @@ module Graph.Root
   , handler
   , schema
   , asJSON
-  , interpret
-  , execute
+  , compiled
+  , interpreted
   ) where
 
 import Graph.Import
 
-import Data.Aeson            as Aeson
-import GraphQL.Value.ToValue (ToValue(..), toValue)
+import qualified Control.Monad.Catch     as Catch
+import           Data.Aeson              as Aeson
 
+import qualified Core
 import           Graph.Mutations
 import qualified Graph.Queries.Cache as Cache
 import           Graph.Queries       as G
@@ -43,19 +45,29 @@ handler = pure $ pure "Query"
 schema :: Either QueryError Schema
 schema = makeSchema @Root
 
-asJSON :: MonadThrow m 
-     => (QueryData -> m Response) -> Aeson.Value -> m Aeson.Value
+asJSON :: MonadCatch m 
+     => (QueryData -> m Response) -> Aeson.Value -> m (Either Core.Error Aeson.Value)
 asJSON executor request = case fromJSON request of
-  Aeson.Error  err -> throw $ QuerySerializationError err
-  Aeson.Success qd -> (Aeson.toJSON . toValue) <$> executor qd
+  Aeson.Error  err -> return . Left $ GraphError $ QuerySerializationError err
+  Aeson.Success qd -> (trapErrors $ executor qd) >>= \case
+    Left  e -> return $ Left e
+    Right (PreExecutionFailure errs) -> return $ Left $ GraphError $ ExecutionErrors errs
+    Right (ExecutionFailure    errs) -> return $ Left $ GraphError $ ExecutionErrors errs
+    Right (PartialSuccess _    errs) -> return $ Left $ GraphError $ ExecutionErrors errs
+    Right r -> return $ Right $ Aeson.toJSON r
 
-interpret :: (MonadGraph m, MonadLogger m) => QueryData -> m Response
-interpret QueryData{..} = interpretQuery @Root handler query (unOp operation) (unVar variables)
+trapErrors :: MonadCatch m => m a -> m (Either Core.Error a)
+trapErrors action = catches (fmap Right action) 
+  [ Catch.Handler (\e -> return $ Left (e :: Core.Error))
+  ]
 
-execute :: (MonadGraph m, MonadLogger m) 
-        => Cache.Cache -> QueryData -> m Response
-execute cache QueryData{..} = case unOp operation of
+interpreted :: (MonadGraph m, MonadLogger m) => QueryData -> m Response
+interpreted QueryData{..} = interpretQuery @Root handler query (unOp operation) (unVar variables)
+
+compiled :: (MonadGraph m, MonadLogger m) 
+         => Cache.Cache -> QueryData -> m Response
+compiled cache QueryData{..} = case unOp operation of
   Nothing -> throw $ GraphError QueryNameRequired
   Just name -> Cache.query cache name >>= \case
     Nothing -> throw $ GraphError $ QueryNotFound name
-    Just compiled -> executeQuery @Root handler compiled (Just name) (unVar variables)
+    Just q  -> executeQuery @Root handler q (Just name) (unVar variables)

@@ -1,5 +1,7 @@
 module Logging
   ( makeLogWare
+  , ansiColor
+  , module X
   ) where
 
 import Import
@@ -9,7 +11,7 @@ import qualified Data.ByteString.Char8 as BS8
 
 import Network.Wai
 import Network.Wai.Middleware.RequestLogger
-import System.Console.ANSI as Logging
+import System.Console.ANSI as X
 import System.Log.FastLogger (toLogStr)
 
 makeLogWare :: App -> IO Middleware

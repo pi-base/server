@@ -13,6 +13,7 @@ import Control.Monad.Trans.State as X (StateT)
 import Database.Persist      as X hiding (get)
 import Database.Persist.Sql  (SqlPersistM, SqlBackend, runSqlPersistMPool, rawExecute, rawSql, unSingle, connEscapeName)
 import Foundation            as X
+import Logging               as X
 import Model                 as X
 import Test.Hspec            as X
 import Test.Tasty            as X (TestTree)
@@ -156,4 +157,30 @@ slow title action = do
   ci <- runIO $ lookupEnv "CI"
   if (ci == Just "true")
     then it title action
-    else it title $ pendingWith "set CI=true to run slow tests"
+    else it title $ do
+           putStr $ (colorize Blue "CI") <> " - "
+           pass
+           
+
+-- xit / pending currently count as a failure on CI
+todo :: String -> t -> SpecWith ()
+todo msg _ = it msg $ do
+  putStr $ (colorize Yellow "TODO") <> " - "
+  pass
+
+pass :: Expectation
+pass = shouldBe () ()
+
+colorize :: Color -> Text -> Text
+colorize color text = decodeUtf8 $ mconcat $ ansiColor color $ encodeUtf8 text
+
+isRight :: Either a b -> Bool
+isRight (Right _) = True
+isRight _ = False
+
+fromRight :: Either a b -> b
+fromRight (Right b) = b
+fromRight _ = error "got left"
+
+shouldInclude :: Eq a => [a] -> [a] -> Expectation
+shouldInclude haystack needle = (needle `isInfixOf` haystack) `shouldBe` True

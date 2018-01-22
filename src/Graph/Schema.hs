@@ -15,7 +15,7 @@ import GraphQL.API
 import GraphQL.Internal.Validation (QueryDocument, VariableValue)
 import GraphQL.Value               (Name)
 
-import Core (Generic, Text)
+import Core (Generic, Text, SpaceId, PropertyId, TheoremId, Formula)
 
 type Query = QueryDocument VariableValue
 
@@ -144,29 +144,29 @@ type Root = Object "QueryRoot" '[]
 -- Inputs
 
 data CreateSpaceInput = CreateSpaceInput
-  { uid         :: Text
+  { uid         :: SpaceId
   , name        :: Text
   , description :: Text
   } deriving (Show, Generic)
 
 data CreatePropertyInput = CreatePropertyInput
-  { uid         :: Text
+  { uid         :: PropertyId
   , name        :: Text
   , description :: Text
   } deriving (Show, Generic)
 
 data AssertTraitInput = AssertTraitInput
-  { spaceId     :: Text
-  , propertyId  :: Text
+  { spaceId     :: SpaceId
+  , propertyId  :: PropertyId
   , value       :: Bool
-  -- , description :: Text
+  , description :: Text
   } deriving (Show, Generic)
 
 data AssertTheoremInput = AssertTheoremInput
-  { uid :: Text
-  , antecedent  :: Text
-  , consequent  :: Text
-  -- , description :: Text
+  { uid :: TheoremId
+  , antecedent  :: Formula PropertyId
+  , consequent  :: Formula PropertyId
+  , description :: Text
   } deriving (Show, Generic)
 
 data ResetBranchInput = ResetBranchInput
@@ -175,23 +175,23 @@ data ResetBranchInput = ResetBranchInput
   } deriving (Show, Generic)
 
 data UpdateSpaceInput = UpdateSpaceInput
-  { uid         :: Text
+  { uid         :: SpaceId
   , description :: Text
   } deriving (Show, Generic)
 
 data UpdatePropertyInput = UpdatePropertyInput
-  { uid         :: Text
+  { uid         :: PropertyId
   , description :: Text
   } deriving (Show, Generic)
 
 data UpdateTheoremInput = UpdateTheoremInput
-  { uid         :: Text
+  { uid         :: TheoremId
   , description :: Text
   } deriving (Show, Generic)
 
 data UpdateTraitInput = UpdateTraitInput
-  { spaceId     :: Text
-  , propertyId  :: Text
+  { spaceId     :: SpaceId
+  , propertyId  :: PropertyId
   , description :: Text
   } deriving (Show, Generic)
 

@@ -18,6 +18,7 @@ import Git (TreeFilePath)
 import qualified Data.Aeson                  as Aeson (Object)
 import qualified Data.HashMap.Strict         as HM
 import qualified GraphQL                     as GraphQL (QueryError)
+import qualified GraphQL.Internal.Output     as GraphQL (Errors)
 import qualified GraphQL.Internal.Syntax.AST as GraphQL (Name)
 
 import Types.Base as X
@@ -46,7 +47,8 @@ data LogicError = Contradiction SpaceId PropertyId TVal TVal
                 | LoadFailure Error
                 deriving Eq
 
-data GraphError = QueryNotFound GraphQL.Name
+data GraphError = ExecutionErrors GraphQL.Errors
+                | QueryNotFound GraphQL.Name
                 | QueryNameRequired
                 | QuerySerializationError String
                 | SchemaInvalid GraphQL.QueryError
@@ -63,6 +65,9 @@ data NotFoundError = NotFoundError
 data PermissionError = BranchPermission BranchAccess
   deriving (Show, Eq)
 
+data ValidationError = ValidationMessage Text -- TODO: specify structure
+  deriving (Show, Eq)
+
 data Error = ConflictError   Conflict
            | LogicError      LogicError
            | NotFound        NotFoundError
@@ -70,6 +75,7 @@ data Error = ConflictError   Conflict
            | ParseError      TreeFilePath String
            | PermissionError PermissionError
            | GraphError      GraphError
+           | ValidationError ValidationError
            | UnknownGitRef   Ref
            deriving Eq
 

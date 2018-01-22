@@ -91,6 +91,7 @@ explainError (NotFound NotFoundError{..}) = "Failed to find " <> nfResource <> "
 explainError (NotATree path) = decodeUtf8 path <> " is not a tree"
 explainError (ParseError path msg) = "Failed to parse " <> decodeUtf8 path <> ": " <> T.pack msg
 explainError (GraphError e) = explainGraphError e
+explainError (ValidationError (ValidationMessage msg)) = "Validation error: " <> msg
 explainError (UnknownGitRef ref) = "Unknown ref " <> tshow ref
 
 explainLogicError :: LogicError -> Text
@@ -103,6 +104,7 @@ explainLogicError (LoadFailure e) =
   "Failed to load dependencies: " <> tshow e
 
 explainGraphError :: GraphError -> Text
+explainGraphError (ExecutionErrors errs) = "Execution errors: " <> tshow errs
 explainGraphError (QueryNotFound name) = "Could not find a query named " <> tshow name
 explainGraphError QueryNameRequired = "Query name is required"
 explainGraphError (QuerySerializationError e) = "Failed to serialize query: " <> T.pack e

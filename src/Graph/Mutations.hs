@@ -11,8 +11,6 @@ module Graph.Mutations
   , updateTrait
   ) where
 
-import           Data.Aeson           (decode)
-import qualified Data.Text.Lazy       as TL
 import           Database.Persist     (Entity(..))
 import           GraphQL.Resolver
 
@@ -32,18 +30,18 @@ assertTrait :: MonadGraph m => G.PatchInput -> G.AssertTraitInput -> Handler m G
 assertTrait patch G.AssertTraitInput{..} = do
   (user, branch) <- checkPatch patch
 
-  space    <- Space.fetch branch $ Id spaceId
-  property <- Property.fetch branch $ Id propertyId
+  space    <- Space.fetch branch spaceId
+  property <- Property.fetch branch propertyId
   let trait = Trait
         { _traitSpace       = space
         , _traitProperty    = property
         , _traitValue       = value
-        , _traitDescription = "FIXME"
+        , _traitDescription = description
         }
 
       trait' = trait 
-        { _traitSpace = Id spaceId
-        , _traitProperty = Id propertyId
+        { _traitSpace = spaceId
+        , _traitProperty = propertyId
         }
 
       commit = CommitMeta user $ "Add " <> traitName trait
@@ -55,14 +53,11 @@ assertTheorem :: (MonadGraph m, MonadLogger m)
 assertTheorem patch G.AssertTheoremInput{..} = do
   (user, branch) <- checkPatch patch
 
-  a <- parseFormula antecedent
-  c <- parseFormula consequent
-
   let theorem = Theorem
-        { theoremId = Id uid
-        , theoremImplication = (Implication a c)
+        { theoremId = uid
+        , theoremImplication = (Implication antecedent consequent)
         , theoremConverse = Nothing
-        , theoremDescription = "FIXME"
+        , theoremDescription = description
         }
   theorem' <- mapM (Property.fetch branch) theorem
   let meta = CommitMeta user $ "Add " <> theoremName theorem'
@@ -74,7 +69,7 @@ createSpace patch G.CreateSpaceInput{..} = do
   (user, branch) <- checkPatch patch
 
   let space = Space
-        { spaceId          = Id uid
+        { spaceId          = uid
         , spaceName        = name
         , spaceAliases     = []
         , spaceDescription = description
@@ -91,7 +86,7 @@ createProperty patch G.CreatePropertyInput{..} = do
   (user, branch) <- checkPatch patch
 
   let property = Property
-        { propertyId          = Id uid
+        { propertyId          = uid
         , propertyName        = name
         , propertyDescription = description
         , propertySlug        = slugify name
@@ -122,7 +117,7 @@ updateProperty :: MonadGraph m => G.PatchInput -> G.UpdatePropertyInput -> Handl
 updateProperty patch G.UpdatePropertyInput{..} = do
   (user, branch) <- checkPatch patch
 
-  old <- Property.fetch branch $ Id uid
+  old <- Property.fetch branch uid
   let updated = old { propertyDescription = description }
       commit  = CommitMeta user $ "Update " <> propertyName updated
   (p, sha) <- Property.put branch commit updated
@@ -132,7 +127,7 @@ updateSpace :: MonadGraph m => G.PatchInput -> G.UpdateSpaceInput -> Handler m G
 updateSpace patch G.UpdateSpaceInput{..} = do
   (user, branch) <- checkPatch patch
 
-  old <- Space.fetch branch $ Id uid
+  old <- Space.fetch branch uid
   let updated = old { spaceDescription = description }
       meta    = CommitMeta user $ "Update " <> spaceName updated
   (s, sha) <- Space.put branch meta updated
@@ -143,7 +138,7 @@ updateTheorem :: (MonadGraph m, MonadLogger m)
 updateTheorem patch G.UpdateTheoremInput{..} = do
   (user, branch) <- checkPatch patch
 
-  old <- Theorem.fetch branch $ Id uid
+  old <- Theorem.fetch branch uid
   let updated = old { theoremDescription = description }
       meta    = CommitMeta user $ "Update " <> theoremName updated
   Theorem.put branch meta (propertyId <$> updated) >>= G.presentView
@@ -153,12 +148,12 @@ updateTrait :: (MonadGraph m, MonadLogger m)
 updateTrait patch G.UpdateTraitInput{..} = do
   (user, branch) <- checkPatch patch
 
-  old <- Trait.fetch branch (Id spaceId) (Id propertyId)
+  old <- Trait.fetch branch spaceId propertyId
   let meta = CommitMeta user $ "Update " <> traitName old
       updated = old 
         { _traitDescription = description 
-        , _traitSpace       = Id spaceId
-        , _traitProperty    = Id propertyId
+        , _traitSpace       = spaceId
+        , _traitProperty    = propertyId
         }
   Trait.put branch meta updated >>= G.presentView
 
@@ -178,11 +173,9 @@ checkPatch G.PatchInput{..} = do
 
       currentSha <- Branch.headSha b
       unless (sha == currentSha) $
-        throw $ ConflictError $ Conflict currentSha sha
+        throw $ ConflictError $ Conflict
+          { expectedSha = sha
+          , actualSha = currentSha
+          }
 
       return $ (entityVal user, b)
-
-parseFormula :: MonadGraph m => Text -> m (Formula PropertyId)
-parseFormula text = case decode $ encodeUtf8 $ TL.fromStrict text of
-  Nothing -> throw $ ParseError "formula" (show text)
-  Just f  -> return $ Id <$> f

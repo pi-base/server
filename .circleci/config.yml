@@ -38,9 +38,12 @@ jobs:
           name: Run tests
           command: stack test --coverage
 
-      # Build the binary as an artifact
+      # Build and store artifacts
       - run:
           name: Build binary
           command: stack build && mkdir /tmp/artifacts && cp $(stack path --local-install-root)/bin/pi-base-server /tmp/artifacts
+      - run:
+          name: Copy coverage reports
+          command: cp -r $(stack path --local-hpc-root) /tmp/artifacts
       - store_artifacts:
           path: /tmp/artifacts
