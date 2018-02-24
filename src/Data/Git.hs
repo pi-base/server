@@ -12,10 +12,7 @@ module Data.Git
   , openRepo
   , resetBranch
   , resolveCommittish
-  , updateRef
   , updateBranch
-  , useRef
-  , useRepo
   , writePages
   ) where
 
@@ -25,9 +22,9 @@ import Model (User(..))
 import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
-import Git.Libgit2  (LgRepo, openLgRepository, runLgRepository)
+import Git.Libgit2  (LgRepo, openLgRepository)
 import Types.Loader (Loader, mkLoader)
-import Types.Store  (storeRepo, storeBaseRef)
+import Types.Store  (storeBaseRef)
 
 openRepo :: FilePath -> IO LgRepo
 openRepo path = openLgRepository $ RepositoryOptions
@@ -37,59 +34,30 @@ openRepo path = openLgRepository $ RepositoryOptions
   , repoAutoCreate = False
   }
 
-useRepo :: MonadStore m
-        => ReaderT LgRepo m a
-        -> m a
-useRepo handler = do
-  repo <- storeRepo <$> getStore
-  runLgRepository repo handler
-
-useRef :: MonadStore m
-       => Ref
-       -> CommitMeta
-       -> (Loader -> TreeT LgRepo m (Either Error a))
-       -> m (Either Error (Version, a))
-useRef ref meta handler = do
-  repo <- storeRepo <$> getStore
-  mpt <- runLgRepository repo $
-    resolveReference (refHead ref) >>= \case
-      Nothing    -> return Nothing
-      Just found -> runLgRepository repo $ do
-        parent <- lookupCommit $ Tagged found
-        tree   <- lookupTree $ commitTree parent
-        return $ Just (parent, tree)
-  case mpt of
-    Just (parent, tree) -> do
-      loader <- mkLoader parent
-      (result, newTree) <- withTree tree $ handler loader
-      case result of
-        Left  err -> return $ Left err
-        Right val -> do
-          (author, committer, message) <- commitSignatures meta
-          commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
-          return $ Right (Version $ commitSha commit, val)
-    Nothing -> error "Can't find ref" -- FIXME
-
--- TODO: replace useRef with this entirely
 updateBranch :: MonadStore m
              => Branch
              -> CommitMeta
              -> (Loader -> TreeT LgRepo m a)
              -> m (a, Sha)
-updateBranch branch meta handler = useRef ref meta handler' >>= \case
-  Left err -> throw err
-  Right (Version sha, a) -> return (a, sha)
-  where
-    ref = branchRef branch
-    handler' loader = Right <$> handler loader
+updateBranch branch meta handler = do
+  let ref = branchRef branch
+  resolved <- fetchRef ref
+  parent   <- lookupCommit $ Tagged resolved
+  tree     <- lookupTree $ commitTree parent
+  loader   <- mkLoader parent
+  (result, newTree) <- withTree tree $ handler loader
+  (author, committer, message) <- commitSignatures meta
+  commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
+  return (result, commitSha commit)
 
+fetchRef :: MonadStore m => Ref -> m (Oid LgRepo)
+fetchRef ref = resolveReference (refHead ref) >>= \case
+  Nothing -> throwM $ UnknownGitRef ref
+  Just found -> return found
 
 commitSha :: Commit LgRepo -> Sha
 commitSha cmt = case commitOid cmt of
   (Tagged oid) -> tshow oid
-
-commitVersion :: Commit LgRepo -> Version
-commitVersion = Version . commitSha
 
 cd :: (MonadGit r m) => Tree r -> TreeFilePath -> m (Either Error (Tree r))
 cd tree path = treeEntry tree path >>= \case
@@ -110,18 +78,10 @@ branchExists branch = do
   existing <- resolveReference $ refHead $ branchRef branch
   return $ isJust existing
 
-createBranchFromBase :: MonadStore m => Branch -> Branch -> m ()
-createBranchFromBase new base = do
-  lookupReference (refHead $ branchRef base) >>= \case
-    Nothing -> throwM $ UnknownGitRef $ branchRef base
-    Just b  -> createReference (refHead $ branchRef new) b
-
-createRefFromBase :: MonadStore m => Ref -> m ()
-createRefFromBase ref = do
-  base <- storeBaseRef <$> getStore
-  lookupReference (refHead base) >>= \case
-    Nothing -> throwM $ UnknownGitRef base
-    Just b -> createReference (refHead ref) b
+createBranchFromBase :: MonadStore m => Branch -> Ref -> m ()
+createBranchFromBase new base = lookupReference (refHead base) >>= \case
+  Nothing -> throwM $ UnknownGitRef base
+  Just b  -> createReference (refHead $ branchRef new) b
 
 commitFromLabel :: MonadStore m => Maybe Text -> m (Commit LgRepo)
 commitFromLabel Nothing = baseCommit
@@ -133,7 +93,6 @@ commitFromLabel (Just label) = do
       msha <- resolveCommittish $ CommitSha label
       maybe baseCommit return msha
 
-
 baseCommit :: MonadStore m => m (Commit LgRepo)
 baseCommit = do
   base <- CommitRef . storeBaseRef <$> getStore
@@ -142,7 +101,7 @@ baseCommit = do
 
 resetBranch :: MonadStore m => Branch -> Committish -> m Sha
 resetBranch branch commish = lookupCommittish commish >>= \case
-  Nothing -> error "Could not find committish to reset"
+  Nothing -> notFound "committish" commish
   Just r -> do
     updateReference (refHead $ branchRef branch) (RefObj r)
     return $ renderOid r
@@ -171,33 +130,12 @@ writePages pages = forM_ pages $ \(path, contents) ->
 refHead :: Ref -> Text
 refHead (Ref name) = "refs/heads/" <> name
 
-updateRef' :: MonadStore m
-           => Ref -> CommitMeta -> TreeT LgRepo m a -> m (a, Version)
-updateRef' ref meta updates = do
-  resolveReference (refHead ref) >>= \case
-    Nothing -> do
-      createRefFromBase ref
-      updateRef' ref meta updates
-    Just found -> do
-      parent <- lookupCommit $ Tagged found
-      tree   <- lookupTree $ commitTree parent
-      (result, newTree) <- withTree tree updates
-      (author, committer, message) <- commitSignatures meta
-      commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
-      return (result, commitVersion commit)
-
-updateRef :: MonadStore m
-          => Ref -> CommitMeta -> TreeT LgRepo m a -> m Version
-updateRef ref meta updates = do
-  (_, version) <- updateRef' ref meta updates
-  return version
-
 headSha :: MonadGit LgRepo m => Branch -> m Sha
 headSha Branch{..} = do
   found <- lookupCommittish $ CommitRef $ Ref branchName
   case found of
     Just oid -> return $ tshow oid
-    Nothing -> error $ "Could not find branch " <> show branchName
+    Nothing -> notFound "branch" branchName
 
 lookupCommittish :: MonadGit LgRepo m => Committish -> m (Maybe (Oid LgRepo))
 lookupCommittish (CommitRef ref) = resolveReference $ refHead ref
@@ -211,3 +149,6 @@ resolveCommittish c = do
     Just oid -> do
       commit <- lookupCommit $ Tagged oid
       return $ Just commit
+
+notFound :: (MonadThrow m, Show a) => Text -> a -> m b
+notFound resource ident = throw $ NotFound $ NotFoundError resource $ tshow ident

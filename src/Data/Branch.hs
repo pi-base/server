@@ -19,7 +19,8 @@ import qualified Data.Git as Git
 import qualified Data.Map.Strict as M
 import           Git
 
-import           Data.Helpers (findOrCreate)
+import           Data.Helpers (findOrCreate, repsertBy)
+import           Data.Store   (storeBaseRef)
 import           Model        (Unique(..))
 
 type Name = Text
@@ -54,7 +55,7 @@ userBranches (Entity _id _) = all >>= foldM f []
 
     build :: MonadStore m => Branch -> BranchAccess -> m BranchStatus
     build branch role = do
-      sha <- Git.useRepo $ Git.headSha branch
+      sha <- Git.headSha branch
       return $ BranchStatus branch sha role
 
 claim :: (MonadDB m, MonadStore m) => m [Entity Branch]
@@ -77,7 +78,7 @@ claim = do
 
 commit :: MonadStore m => Branch -> m (Commit LgRepo)
 commit branch = do
-  head <- Git.useRepo . Git.resolveCommittish . CommitRef $ Ref $ branchName branch
+  head <- Git.resolveCommittish . CommitRef $ Ref $ branchName branch
   case head of
     Just c -> return c
     Nothing -> throw $ UnknownGitRef $ Ref $ branchName branch
@@ -88,9 +89,11 @@ userBranch (Entity _id User{..}) = Branch ("users/" <> userName) (Just _id)
 ensureUserBranch :: (MonadDB m, MonadStore m) => Entity User -> m Branch
 ensureUserBranch user = do
   let branch = userBranch user
-  let base   = Branch "development" Nothing -- FIXME
   found <- Git.branchExists branch
-  unless found $ Git.createBranchFromBase branch base
+  unless found $ do
+    base <- storeBaseRef <$> getStore
+    Git.createBranchFromBase branch base
+  _ <- repsertBy (UniqueBranchName . branchName) branch
   return branch
 
 reset :: MonadStore m => Branch -> Committish -> m Sha
