@@ -14,6 +14,7 @@ github-repo:  "_env:GITHUB_REPO:data"
 # Path to a copy of the pi-base/data repo on the local machine
 repo-path:      "_env:REPO_PATH:/data/repo"
 default-branch: "_env:DEFAULT_BRANCH:master"
+auto-push:      "_env:AUTO_PUSH:false"
 
 # Authorization to use for the webhook validator
 github-auth:           "_env:GITHUB_AUTH:"

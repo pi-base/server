@@ -1,24 +1,46 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Services.Github
   ( checkPullRequest
+  , createPullRequest
   , webhookHandler
   ) where
 
 import Import
-import qualified Core (Error, explainError)
-import Data (fetchPullRequest)
-import Types (View, Committish(..))
+import Core       hiding (Id, Commit)
+import Data.Store (storeBaseBranch, fetchBranches, pushBranches)
 
-import Control.Monad (unless)
-import Crypto.Hash
-import Data.Aeson (eitherDecode)
-import qualified Data.ByteString.Char8 as BC8
-import qualified Data.ByteString.Lazy  as LBS
-import Data.List (nub) -- FIXME: remove this
-import qualified Data.Text as T
-import GitHub
-import qualified GitHub.Data.Id as GH
+import           Crypto.Hash
+import           Data.Aeson                       (eitherDecode)
+import qualified Data.ByteString.Char8            as BC8
+import qualified Data.ByteString.Lazy             as LBS
+import           Data.List                        (nub) -- FIXME: remove this
+import qualified Data.Text                        as T
+import           GitHub                           as GH
+import qualified GitHub.Data.Id                   as GH
 import qualified GitHub.Endpoints.Issues.Comments as GH
 import qualified GitHub.Endpoints.Repos.Statuses  as GH
+import qualified GitHub.Endpoints.PullRequests    as GH
+
+createPullRequest :: (MonadStore m, MonadLogger m) 
+                  => AppSettings -> BranchName -> m (Either Text Text) -- FIXME
+createPullRequest AppSettings{..} branch = do
+  pushBranches -- should already happen on branch update, but just to be sure
+
+  base <- storeBaseBranch <$> getStore
+  let request = CreatePullRequest
+        { createPullRequestTitle = branch
+        , createPullRequestBody = ""
+        , createPullRequestHead = branch
+        , createPullRequestBase = base
+        }
+  epr <- liftIO $ GH.createPullRequest appGitHubToken appGitHubOwner appGitHubRepo request
+  case epr of
+    Left err -> do
+      $(logError) $ T.pack $ show err
+      return $ Left "Failed to open pull request" -- TODO: better error messaging (but don't leak token)
+    Right pr -> return $ Right . GH.getUrl $ GH.pullRequestUrl pr
+
+-- TODO: deprecate / cleanup below vvv
 
 webhookHandler :: FromJSON a => Handler a
 webhookHandler = do
@@ -35,8 +57,7 @@ checkPullRequest pre = do
     sha  = pullRequestCommitSha $ pullRequestHead pr
     _sha = GH.mkCommitName sha
 
-  foundation <- getYesod
-  fetchPullRequest (appRepoPath $ appSettings foundation)
+  fetchBranches
   result <- error "parseViewer" $ CommitSha sha
   either (prStatusError _id _sha) (prStatusOk _id _sha) result
   return result

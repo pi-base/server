@@ -1,25 +1,21 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Data
   ( initializeStore
-  , storeMaster
-  , fetchPullRequest
   , findParsed
   , required
   , makeId
   , slugify
-  , updateBranch
+  , Data.updateBranch
   , updateView
   , viewDeductions
   ) where
 
-import           Control.Monad.Logger (MonadLogger, logInfo)
+import           Control.Monad.Logger (MonadLogger)
 import qualified Data.Map             as M
 import qualified Data.Set             as S
 import qualified Data.UUID            as UUID
 import qualified Data.UUID.V4         as UUID
 import           Git
-import           System.Directory     (doesDirectoryExist)
-import           System.Process       (callCommand)
 
 import qualified Data.Loader as Loader
 import qualified Logic      as L
@@ -29,43 +25,11 @@ import qualified Page
 import qualified Page.Theorem
 import qualified Page.Trait
 
-import Core
+import           Core
 import qualified Data.Branch as Branch
-import Data.Git    (openRepo, updateBranch, resolveCommittish)
-import Data.Store
-import Git.Libgit2 (runLgRepository)
-import Util        (indexBy)
-
-storeMaster :: MonadStore m
-            => m (Either [Error] View)
-storeMaster = do
-  var <- storeLoader <$> getStore
-  withMVar var $ \loader -> do
-    view <- Loader.view loader
-    return $ Right view
-
-initializeRepo :: (MonadIO m, MonadLogger m) => FilePath -> m LgRepo
-initializeRepo path = do
-  $(logInfo) $ "Initializing repository at " ++ tshow path
-  exists <- liftIO $ doesDirectoryExist path
-  unless exists $ do
-    -- Clone initial repository along with all remote branches. See
-    -- https://stackoverflow.com/questions/67699
-    $(logInfo) $ "Cloning initial repository"
-    liftIO . callCommand $ "git clone --mirror https://github.com/pi-base/data.git " ++ path ++ "/.git && cd " ++ path ++ " && git config --bool core.bare false && git checkout master"
-  liftIO $ openRepo path
-
-initializeStore :: (MonadIO m, MonadBase IO m, MonadBaseControl IO m, MonadMask m, MonadLogger m)
-                => FilePath -> Ref -> m Store
-initializeStore path ref = do
-  repo <- initializeRepo path
-  (Just commit) <- runLgRepository repo $ resolveCommittish $ CommitRef ref
-  mkStore repo ref commit
-
-fetchPullRequest :: MonadIO m => FilePath -> m ()
-fetchPullRequest path = liftIO $ do
-  putStrLn $ "Pulling updates for repo"
-  callCommand $ "cd " ++ path ++ " && git fetch origin"
+import           Data.Git    as Git (updateBranch)
+import           Data.Store
+import           Util        (indexBy)
 
 makeId :: MonadIO m => Text -> m (Id a)
 makeId prefix = do
@@ -106,13 +70,25 @@ viewDeductions loader L.Deductions{..} = do
 
   return View{..}
 
-updateView :: MonadStore m
+          
+updateBranch :: (MonadStore m, MonadLogger m)
+             => Branch
+             -> CommitMeta
+             -> (Loader.Loader -> TreeT LgRepo m a)
+             -> m (a, Sha)
+updateBranch branch meta handler = do
+  result <- Git.updateBranch branch meta handler
+  sync   <- storeAutoSync <$> getStore
+  when sync $ background pushBranches
+  return result
+
+updateView :: (MonadStore m, MonadLogger m)
            => Branch
            -> CommitMeta
            -> (Loader.Loader -> m View)
            -> m View
 updateView branch meta getView = do
-  (view', sha) <- updateBranch branch meta $ \loader -> do
+  (view', sha) <- Data.updateBranch branch meta $ \loader -> do
     v <- lift $ getView loader
     writeView v
     return v
@@ -144,4 +120,7 @@ findParsed parser branch _id = do
 required :: MonadThrow m => Text -> Text -> Maybe a -> m a
 required resource identifier =
   maybe (throwM . NotFound $ NotFoundError resource identifier) return
-          
+
+-- TODO: this should enqueue work in a persistent queue, retry, ...
+background :: MonadStore m => m () -> m ()
+background action = void $ fork action

@@ -5,7 +5,7 @@ module Data.Property
   , put
   ) where
 
-import Core hiding (find)
+import Core
 import Data        (findParsed, makeId, required, updateBranch)
 import Data.Git    (writePages)
 
@@ -23,7 +23,7 @@ fetch sha _id =
 pending :: PropertyId
 pending = Id ""
 
-put :: (MonadStore m, MonadThrow m)
+put :: (MonadStore m, MonadThrow m, MonadLogger m)
     => Branch -> CommitMeta -> Property -> m (Property, Sha)
 put branch meta prop' = do
   prop <- assignId prop'

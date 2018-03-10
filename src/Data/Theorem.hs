@@ -5,7 +5,7 @@ module Data.Theorem
   , put
   ) where
 
-import           Core  hiding (find)
+import           Core
 import           Data  (findParsed, makeId, required, updateView, viewDeductions)
 import qualified Data.Parse as Parse
 import qualified Data.Property

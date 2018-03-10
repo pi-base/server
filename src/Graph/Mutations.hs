@@ -5,17 +5,19 @@ module Graph.Mutations
   , createProperty
   , createSpace
   , resetBranch
+  , submitBranch
   , updateProperty
   , updateSpace
   , updateTheorem
   , updateTrait
   ) where
 
-import           Database.Persist     (Entity(..))
+import           Import           (AppSettings)
+import           Database.Persist (Entity(..))
 import           GraphQL.Resolver
 
 import           Core
-import           Data            (makeId, slugify)
+import           Data            (slugify)
 import qualified Data.Branch     as Branch
 import qualified Data.Git        as Git
 import qualified Data.Property   as Property
@@ -24,6 +26,7 @@ import qualified Data.Theorem    as Theorem
 import qualified Data.Trait      as Trait
 import qualified Graph.Queries   as G
 import qualified Graph.Schema    as G
+import qualified Services.Github as Github
 import qualified View            as View
 
 assertTrait :: MonadGraph m => G.PatchInput -> G.AssertTraitInput -> Handler m G.Viewer
@@ -98,20 +101,25 @@ createProperty patch G.CreatePropertyInput{..} = do
 
 resetBranch :: MonadGraph m => G.ResetBranchInput -> Handler m G.ResetBranchResponse
 resetBranch G.ResetBranchInput{..} = do
-  user <- requireUser
-  Branch.find branch >>= \case
-    Nothing -> throw $ NotFound $ NotFoundError "Branch" branch
-    Just branch' -> do
-      access <- Branch.access user branch'
-      unless (access == Just BranchAdmin) $ do
-        throw $ PermissionError $ BranchPermission BranchAdmin
-      -- TODO: handle case where `to` is not found
-      commit <- Git.commitFromLabel $ Just to
-      sha <- Branch.reset branch' $ CommitSha $ Git.commitSha commit
+  (_, branch') <- requireBranchAccess branch BranchAdmin
+  -- TODO: better handling when `to` is not found
+  commit <- Git.commitFromLabel $ Just to
+  sha <- Branch.reset branch' $ CommitSha $ Git.commitSha commit
 
-      return $ pure "ResetBranchResponse"
+  return $ pure "ResetBranchResponse"
+    :<> pure branch
+    :<> pure sha
+
+submitBranch :: MonadGraph m => AppSettings -> G.SubmitBranchInput -> Handler m G.SubmitBranchResponse
+submitBranch settings G.SubmitBranchInput{..} = do
+  _ <- requireBranchAccess branch BranchAdmin
+
+  Github.createPullRequest settings branch >>= \case
+    Left e -> throw $ Core.ValidationError $ ValidationMessage e
+    Right url -> 
+      return $ pure "SubmitBranchResponse"
         :<> pure branch
-        :<> pure sha
+        :<> pure url
 
 updateProperty :: MonadGraph m => G.PatchInput -> G.UpdatePropertyInput -> Handler m G.Viewer
 updateProperty patch G.UpdatePropertyInput{..} = do
@@ -162,20 +170,24 @@ updateTrait patch G.UpdateTraitInput{..} = do
 -- TODO: should this return a loader for the branch?
 checkPatch :: MonadGraph m => G.PatchInput -> m (User, Branch)
 checkPatch G.PatchInput{..} = do
-  user <- requireUser
-  mb   <- Branch.find branch
-  case mb of
-    Nothing -> throw $ NotFound $ NotFoundError "Branch" branch
-    Just b -> do
-      access <- Branch.access user b
-      unless (access == Just BranchAdmin || access == Just BranchWrite) $
-        throw $ PermissionError $ BranchPermission BranchWrite
+  (user, b) <- requireBranchAccess branch BranchWrite
+  currentSha <- Branch.headSha b
+  unless (sha == currentSha) $
+    throw $ ConflictError $ Conflict
+      { expectedSha = sha
+      , actualSha = currentSha
+      }
+  return $ (entityVal user, b)
 
-      currentSha <- Branch.headSha b
-      unless (sha == currentSha) $
-        throw $ ConflictError $ Conflict
-          { expectedSha = sha
-          , actualSha = currentSha
-          }
-
-      return $ (entityVal user, b)
+requireBranchAccess :: MonadGraph m => BranchName -> BranchAccess -> m (Entity User, Branch)
+requireBranchAccess name minLevel = do
+  user   <- requireUser
+  branch <- Branch.find name >>= \case
+    Nothing -> throw $ NotFound $ NotFoundError "Branch" name
+    Just b  -> return b
+  Branch.access user branch >>= \case
+    Just access -> do
+      unless (access >= minLevel) $
+        throw $ PermissionError $ BranchPermission minLevel
+      return (user, branch)
+    _ -> throw $ PermissionError $ BranchPermission minLevel

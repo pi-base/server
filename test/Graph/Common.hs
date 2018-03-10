@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Graph.Common 
   ( Config(..)
   , mkConfig
@@ -8,7 +9,7 @@ module Graph.Common
 
 import TestImport (App(..), TestApp, traceJ)
 
-import           Control.Monad.Logger     (MonadLogger(..), runStdoutLoggingT)
+import           Control.Monad.Logger     (MonadLogger(..))
 import           Database.Persist.Sql     (ConnectionPool, Entity(..), runSqlPool)
 import           Git.Libgit2              (HasLgRepo(..))
 
@@ -50,7 +51,6 @@ login user config = do
   currentUser <- runGraph config $ do
     entity <- ensureUser user
     _      <- Branch.ensureUserBranch entity
-    _      <- Branch.claim
     return entity
   return $ config { user = Just currentUser }
 

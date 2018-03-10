@@ -35,7 +35,6 @@ import           Data       (initializeStore)
 import qualified Data.Branch
 import           Data.Store (Store)
 import           Logging    (makeLogWare)
-import           Types      (Ref(..))
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
@@ -81,7 +80,10 @@ makeFoundation appSettings = do
         logFunc = messageLoggerSource tempFoundation appLogger
 
     store <- flip runLoggingT logFunc $
-      initializeStore (appRepoPath appSettings) (Ref $ appDefaultBranch appSettings)
+      initializeStore 
+        (appRepoPath      appSettings) 
+        (appDefaultBranch appSettings)
+        (appAutoPush      appSettings)
 
     -- Create the database connection pool
     pool <- flip runLoggingT logFunc $ createSqlitePool
@@ -170,14 +172,16 @@ appMain = do
     -- Generate the foundation from the settings
     foundation <- makeFoundation settings
 
-    -- Run boot-time "handlers"
-    _ <- unsafeHandler foundation $
-      Data.Branch.claim
-
     -- Generate a WAI Application from the foundation
     app <- makeApplication foundation
 
-    putStrLn $ "App starting on port " <> tshow (appPort settings)
+    -- Run boot-time "handlers"
+    _ <- unsafeHandler foundation $ do
+      $(logDebug) "Setting up branches"
+      _ <- Data.Branch.ensureBaseBranch
+      _ <- Data.Branch.claimUserBranches
+
+      $(logInfo) $ "App starting on port " <> tshow (appPort settings)
 
     -- Run the application with Warp
     runSettings (warpSettings foundation) app

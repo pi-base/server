@@ -47,6 +47,11 @@ type ResetBranchResponse {
   sha: String!
 }
 
+type SubmitBranchResponse {
+  branch: String!
+  url: String!
+}
+
 # Inputs
 
 input CreateSpaceInput {
@@ -77,6 +82,10 @@ input AssertTheoremInput {
 input ResetBranchInput {
   branch: String!
   to: String!
+}
+
+input SubmitBranchInput {
+  branch: String!
 }
 
 input UpdateSpaceInput {
@@ -122,6 +131,7 @@ type Mutation {
   assertTrait(patch: PatchInput!, trait: AssertTraitInput!): Viewer!
   assertTheorem(patch: PatchInput!, theorem: AssertTheoremInput!): Viewer!
   resetBranch(input: ResetBranchInput!): ResetBranchResponse!
+  submitBranch(input: SubmitBranchInput!): SubmitBranchResponse!
 }
 
 schema {

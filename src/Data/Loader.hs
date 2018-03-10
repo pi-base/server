@@ -14,7 +14,6 @@ module Data.Loader
   , Data.Loader.theorems
   , spaceTraits
   , implications
-  , view
   ) where
 
 import           Core
@@ -24,7 +23,6 @@ import           Data.Git        (commitSha)
 import qualified Data.Map.Strict as M
 import           Types.Loader    (Loader, Field(..))
 import qualified Types.Loader    as Loader
-import qualified View            as View
 
 instance Show Loader where
   show loader = "<Loader(" ++ show (commitSha $ Loader.commit loader) ++ ")>"
@@ -120,11 +118,3 @@ properties = loadAll propertyIds property
 
 theorems :: MonadStore m => Loader -> m [Theorem PropertyId]
 theorems = loadAll theoremIds theorem
-
-view :: MonadStore m => Loader -> m View
-view loader = View.build
-  <$> spaces loader
-  <*> properties loader
-  <*> pure [] -- FIXME
-  <*> pure [] -- FIXME
-  <*> pure (Version . commitSha $ Loader.commit loader)

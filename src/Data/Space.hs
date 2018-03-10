@@ -5,7 +5,7 @@ module Data.Space
   , put
   ) where
 
-import Core hiding (find)
+import Core
 import Data        (findParsed, makeId, required, updateBranch)
 import Data.Git    (writePages)
 
@@ -22,7 +22,8 @@ fetch sha _id = find sha _id >>= Data.required "Space" (unId _id)
 pending :: SpaceId
 pending = Id ""
 
-put :: (MonadStore m, MonadThrow m) => Branch -> CommitMeta -> Space -> m (Space, Sha)
+put :: (MonadStore m, MonadThrow m, MonadLogger m) 
+    => Branch -> CommitMeta -> Space -> m (Space, Sha)
 put branch meta space' = do
   space <- assignId space'
   updateBranch branch meta $ \_ -> do

@@ -100,6 +100,12 @@ type ResetBranchResponse = Object "ResetBranchResponse" '[]
    , Field "sha"        Text
    ]
 
+type SubmitBranchResponse = Object "SubmitBranchResponse" '[]
+  '[ Field "__typename" Text
+   , Field "branch"     Text
+   , Field "url"        Text
+   ]
+
 type Root = Object "QueryRoot" '[]
   '[ Field "__typename" Text
    , Argument "version" (Maybe Text) :> Field "viewer" Viewer
@@ -139,6 +145,7 @@ type Root = Object "QueryRoot" '[]
      :> Field "assertTheorem" Viewer
 
    , Argument "input" ResetBranchInput :> Field "resetBranch" ResetBranchResponse
+   , Argument "input" SubmitBranchInput :> Field "submitBranch" SubmitBranchResponse
    ]
 
 -- Inputs
@@ -172,6 +179,10 @@ data AssertTheoremInput = AssertTheoremInput
 data ResetBranchInput = ResetBranchInput
   { branch :: Text
   , to     :: Text -- ref or sha
+  } deriving (Show, Generic)
+
+data SubmitBranchInput = SubmitBranchInput
+  { branch :: Text
   } deriving (Show, Generic)
 
 data UpdateSpaceInput = UpdateSpaceInput

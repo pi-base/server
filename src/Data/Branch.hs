@@ -1,10 +1,12 @@
 module Data.Branch
   ( access
-  , Data.Branch.all
-  , claim
+  , all
+  , claimUserBranches
   , commit
+  , ensureBaseBranch
+  , ensureBranch
   , ensureUserBranch
-  , Data.Branch.find
+  , find
   , headSha
   , reset
   , userBranches
@@ -14,13 +16,13 @@ import Data.Attoparsec.Text
 import Database.Esqueleto
 import Database.Persist (selectList)
 
-import           Core hiding (head)
+import           Core
 import qualified Data.Git as Git
 import qualified Data.Map.Strict as M
 import           Git
 
 import           Data.Helpers (findOrCreate, repsertBy)
-import           Data.Store   (storeBaseRef)
+import           Data.Store   (storeBaseBranch)
 import           Model        (Unique(..))
 
 type Name = Text
@@ -58,15 +60,15 @@ userBranches (Entity _id _) = all >>= foldM f []
       sha <- Git.headSha branch
       return $ BranchStatus branch sha role
 
-claim :: (MonadDB m, MonadStore m) => m [Entity Branch]
-claim = do
+claimUserBranches :: (MonadDB m, MonadStore m) => m ()
+claimUserBranches = do
   names    <- scanRepo
   ownerMap <- buildOwnerMap . catMaybes $ map snd names
 
-  forM names $ \(name, mownerName) -> do
+  forM_ names $ \(name, mownerName) -> do
     let ownerId = mownerName >>= \ownerName -> M.lookup ownerName ownerMap
-        branch = Branch name ownerId
-    findOrCreate (UniqueBranchName . branchName) branch
+    when (isJust ownerId) $ void $
+      findOrCreate (UniqueBranchName . branchName) $ Branch name ownerId
   where
     buildOwnerMap :: MonadDB m => [OwnerName] -> m (M.Map OwnerName UserId)
     buildOwnerMap names = do
@@ -84,17 +86,29 @@ commit branch = do
     Nothing -> throw $ UnknownGitRef $ Ref $ branchName branch
 
 userBranch :: Entity User -> Branch
-userBranch (Entity _id User{..}) = Branch ("users/" <> userName) (Just _id)
+userBranch (Entity _id User{..}) = Branch 
+  { branchName    = "users/" <> userName
+  , branchOwnerId = Just _id
+  }
 
-ensureUserBranch :: (MonadDB m, MonadStore m) => Entity User -> m Branch
-ensureUserBranch user = do
-  let branch = userBranch user
+ensureBranch :: (MonadDB m, MonadStore m) => Branch -> m (Entity Branch)
+ensureBranch branch = do
+  -- In git repo
   found <- Git.branchExists branch
   unless found $ do
-    base <- storeBaseRef <$> getStore
+    base <- Ref . storeBaseBranch <$> getStore
     Git.createBranchFromBase branch base
-  _ <- repsertBy (UniqueBranchName . branchName) branch
-  return branch
+
+  -- In database
+  repsertBy (UniqueBranchName . branchName) branch
+
+ensureUserBranch :: (MonadDB m, MonadStore m) => Entity User -> m (Entity Branch)
+ensureUserBranch = ensureBranch . userBranch
+
+ensureBaseBranch :: (MonadDB m, MonadStore m) => m (Entity Branch)
+ensureBaseBranch = do
+  name <- storeBaseBranch <$> getStore
+  ensureBranch $ Branch name Nothing
 
 reset :: MonadStore m => Branch -> Committish -> m Sha
 reset = Git.resetBranch

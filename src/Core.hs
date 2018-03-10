@@ -3,7 +3,7 @@ module Core
   ) where
 
 -- TODO: replace ClassyPrelude with Protolude
-import ClassyPrelude                    as Core hiding (Handler, all, index)
+import ClassyPrelude                    as Core hiding (Handler, all, find, head, index)
 import Control.Applicative              as Core ((<|>))
 import Control.Monad.IO.Class           as Core (MonadIO, liftIO)
 import Control.Monad.Logger             as Core (MonadLogger, logDebug, logInfo, logError)

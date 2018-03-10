@@ -7,7 +7,9 @@ import Types
 import Types.Loader
 
 data Store = Store
-  { storeRepo    :: LgRepo
-  , storeBaseRef :: Ref
-  , storeLoader  :: MVar Loader
+  { storeRepo       :: LgRepo
+  , storeRepoPath   :: FilePath
+  , storeBaseBranch :: BranchName
+  , storeLoader     :: MVar Loader
+  , storeAutoSync   :: Bool
   }

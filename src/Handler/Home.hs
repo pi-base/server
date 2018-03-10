@@ -2,22 +2,18 @@ module Handler.Home where
 
 import Import
 
-import Data            (storeMaster)
+import Data.Store      (getStoreBaseVersion)
 import Handler.Helpers (generateToken)
 import Services.Github (checkPullRequest, webhookHandler)
 import Core            (View(..), unVersion)
 
-getMaster :: Handler View
-getMaster = storeMaster >>=
-  either (sendStatusJSON status200) return
-
 getHomeR :: Handler Value
 getHomeR = do
-  master <- getMaster
-  build <- getSetting appBuild
+  version <- getStoreBaseVersion
+  build   <- getSetting appBuild
   return $ object 
-    [ "version" .= _viewVersion master 
-    , "build" .= build
+    [ "version" .= version
+    , "build"   .= build
     ]
 
 postHooksR :: Handler Value

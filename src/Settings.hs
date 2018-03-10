@@ -63,6 +63,8 @@ data AppSettings = AppSettings
 
     , appBuild                  :: Text
     , appRepoPath               :: FilePath
+    , appAutoPush               :: Bool
+
     , appFrontendUrl            :: Text
     , appLogLevel               :: LogLevel
 
@@ -100,8 +102,9 @@ instance FromJSON AppSettings where
 
         appAuthDummyLogin         <- o .:? "auth-dummy-login" .!= defaultDev
 
-        appRepoPath    <- o .:  "repo-path"
-        appFrontendUrl <- o .:? "frontend-url" .!= "http://localhost:3000"
+        appRepoPath    <- o .: "repo-path"
+        appFrontendUrl <- o .: "frontend-url"
+        appAutoPush    <- o .: "auto-push"
 
         appGitHubOwner <- o .: "github-owner"
         appGitHubRepo  <- o .: "github-repo"

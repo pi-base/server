@@ -38,7 +38,7 @@ fetch :: MonadStore m
 fetch branch sid pid =
   Data.Trait.find branch sid pid >>= Data.required "Trait" (tshow (sid, pid))
 
-put :: (MonadStore m, MonadThrow m)
+put :: (MonadStore m, MonadThrow m, MonadLogger m)
     => Branch
     -> CommitMeta
     -> Trait SpaceId PropertyId

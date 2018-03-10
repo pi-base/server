@@ -17,11 +17,10 @@ import           Database.Persist.Types (Entity(..))
 
 import           Core         hiding (readFile)
 import           Data.Branch  (userBranches)
-import           Data.Git     as Git
 import           Data.Loader  (Loader)
 import qualified Data.Loader  as Loader
 import qualified Data.Map     as M
-import           Data.Store   (storeLoader)
+import qualified Data.Store
 import           Formula      (Formula)
 import qualified Graph.Schema as G
 import           Model        (User(..))
@@ -38,8 +37,7 @@ user = do
 
 viewer :: MonadGraph m => Maybe Text -> Handler m G.Viewer
 viewer mver = do
-  commit <- Git.commitFromLabel mver
-  loader <- cachedLoader commit
+  loader <- maybe Data.Store.currentLoader Data.Store.loaderAt mver
   return $ pure "Viewer"
     :<> pure (unVersion $ Loader.version loader)
     :<> loadSpaces loader
@@ -159,14 +157,6 @@ loadTrait loader space (pid, tval) = pure $ pure "Trait"
   :<> (Loader.property loader pid >>= presentProperty)
   :<> pure tval
   :<> (_traitDescription <$> Loader.trait loader (spaceId space) pid)
-
-cachedLoader :: MonadStore m => Commit LgRepo -> m Loader
-cachedLoader commit = do
-  loaderVar <- storeLoader <$> getStore
-  loader    <- readMVar loaderVar
-  if (commitSha commit) == (commitSha $ Loader.commit loader)
-    then return loader
-    else Loader.mkLoader commit
 
 encodeFormula :: Formula PropertyId -> Text
 encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unId

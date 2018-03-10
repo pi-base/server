@@ -1,6 +1,7 @@
 module Data.Git
   ( Commit
   , LgRepo
+  , baseCommit
   , branchExists
   , branchRef
   , commitFromLabel
@@ -9,7 +10,6 @@ module Data.Git
   , getDir
   , headSha
   , lookupCommittish
-  , openRepo
   , resetBranch
   , resolveCommittish
   , updateBranch
@@ -22,17 +22,9 @@ import Model (User(..))
 import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
-import Git.Libgit2  (LgRepo, openLgRepository)
+import Git.Libgit2  (LgRepo)
 import Types.Loader (Loader, mkLoader)
-import Types.Store  (storeBaseRef)
-
-openRepo :: FilePath -> IO LgRepo
-openRepo path = openLgRepository $ RepositoryOptions
-  { repoPath       = path
-  , repoWorkingDir = Nothing
-  , repoIsBare     = False
-  , repoAutoCreate = False
-  }
+import Types.Store  (storeBaseBranch)
 
 updateBranch :: MonadStore m
              => Branch
@@ -95,7 +87,7 @@ commitFromLabel (Just label) = do
 
 baseCommit :: MonadStore m => m (Commit LgRepo)
 baseCommit = do
-  base <- CommitRef . storeBaseRef <$> getStore
+  base <- CommitRef . Ref . storeBaseBranch <$> getStore
   (Just moid) <- lookupCommittish base
   lookupCommit $ Tagged moid
 

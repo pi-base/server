@@ -9,4 +9,4 @@ import Prelude
 import GHC.Generics (Generic(..))
 
 data BranchAccess = BranchRead | BranchWrite | BranchAdmin
-  deriving (Show, Read, Eq, Enum, Generic)
+  deriving (Show, Read, Eq, Ord, Enum, Generic)

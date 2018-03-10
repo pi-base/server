@@ -29,11 +29,13 @@ spec getApp = do
   queries <- Cache.mkCache schema "graph/queries"
   config  <- getApp >>= return . mkConfig >>= login testUser
 
+  _ <- runGraph config $ Branch.ensureBaseBranch
+
   let
     run :: String -> [(Text, Value)] -> IO (Either Error Value)
-    run name vars = runGraph config $ Root.asJSON (Root.compiled queries) request
+    run name vars = runGraph config $ Root.asJSON (Root.compiled (settings config) queries) request
       where
-        request = object 
+        request  = object 
           [ "operationName" .= name
           , "variables" .= object vars
           , "query" .= ("" :: Text) -- overridden with compiled query

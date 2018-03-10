@@ -12,10 +12,11 @@ import qualified Core
 
 postGraphR :: Handler Value
 postGraphR = do
+  settings <- appSettings <$> getYesod
   body <- requireJsonBody
   $(logInfo) $ "[GraphQL] " <> (body ^. key "operationName" . _String)
   $(logDebug) $ "[GraphQL] " <> pj (body ^. key "variables" . _Object)
-  asJSON interpreted body >>= \case
+  asJSON (interpreted settings) body >>= \case
     Left e -> do
       let status = errorStatus e
       if (status == status500)

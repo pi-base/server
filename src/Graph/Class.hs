@@ -127,6 +127,11 @@ instance HasAnnotatedInputType ResetBranchInput
 instance Defaultable ResetBranchInput where
   defaultFor _ = error "No default for ResetBranchInput"
 
+instance FromValue SubmitBranchInput
+instance HasAnnotatedInputType SubmitBranchInput
+instance Defaultable SubmitBranchInput where
+  defaultFor _ = error "No default for ResetBranchInput"
+
 instance FromValue UpdateSpaceInput
 instance HasAnnotatedInputType UpdateSpaceInput
 instance Defaultable UpdateSpaceInput where

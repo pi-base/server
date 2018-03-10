@@ -30,6 +30,7 @@ newtype Version = Version { unVersion :: Text } deriving (Eq, ToJSON, FromJSON)
 newtype Ref     = Ref Text deriving (Eq, Show)
 type    Sha     = Text
 data Committish = CommitRef Ref | CommitSha Sha deriving (Eq, Show)
+type BranchName = Text
 
 newtype Id a = Id { unId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
 

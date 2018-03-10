@@ -37,7 +37,6 @@ postUsersR = do
   token <- generateToken $ entityKey user
 
   _ <- Branch.ensureUserBranch user
-  _ <- Branch.claim
 
   returnJson $ object
     [ "user"  .= user
