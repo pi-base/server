@@ -139,11 +139,18 @@ warpSettings foundation =
             (toLogStr $ "Exception from Warp: " ++ show e))
       defaultSettings
 
+setupBranches :: Handler ()
+setupBranches = do
+  $(logDebug) "Setting up branches"
+  void Data.Branch.ensureBaseBranch
+  void Data.Branch.claimUserBranches
+
 -- | For yesod devel, return the Warp settings and WAI Application.
 getApplicationDev :: IO (Settings, Application)
 getApplicationDev = do
     settings <- getAppSettings
     foundation <- makeFoundation settings
+    unsafeHandler foundation $ setupBranches
     wsettings <- getDevSettings $ warpSettings foundation
     app <- makeApplication foundation
     return (wsettings, app)
@@ -177,10 +184,7 @@ appMain = do
 
     -- Run boot-time "handlers"
     _ <- unsafeHandler foundation $ do
-      $(logDebug) "Setting up branches"
-      _ <- Data.Branch.ensureBaseBranch
-      _ <- Data.Branch.claimUserBranches
-
+      setupBranches
       $(logInfo) $ "App starting on port " <> tshow (appPort settings)
 
     -- Run the application with Warp

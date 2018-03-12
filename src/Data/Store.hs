@@ -70,7 +70,7 @@ pushBranches :: (MonadStore m, MonadLogger m) => m ()
 pushBranches = do
   repoPath <- storeRepoPath <$> getStore
   run "Pushing user branches" $ 
-    "cd " <> T.pack repoPath <> " && git push origin users/*"
+    "cd " <> T.pack repoPath <> " && git push origin --all"
 
 run :: (MonadLogger m, MonadIO m) => Text -> Text -> m ()
 run desc cmd = do
