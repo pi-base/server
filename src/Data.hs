@@ -98,7 +98,7 @@ addProof :: (TraitId, (TVal, L.Evidence))
          -> (Map SpaceId (Map PropertyId (Trait SpaceId PropertyId)), Map (SpaceId, PropertyId) Proof)
          -> (Map SpaceId (Map PropertyId (Trait SpaceId PropertyId)), Map (SpaceId, PropertyId) Proof)
 addProof ((sid, pid), (value, evidence)) (traits, proofs) =
-  let trait = Trait sid pid value ""
+  let trait = Trait sid pid value [] ""
       proofs' = case evidence of
         L.Asserted -> proofs
         L.Deduced thrms props -> M.insert (sid, pid) (Proof sid props thrms) proofs

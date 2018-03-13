@@ -64,6 +64,7 @@ presentSpace Space{..} traits = pure $ pure "Space"
   :<> pure spaceSlug
   :<> pure spaceName
   :<> pure (map pure spaceAliases)
+  :<> pure (map presentCitation spaceRefs)
   :<> pure spaceDescription
   :<> pure spaceTopology
   :<> pure (map presentTrait traits)
@@ -74,6 +75,7 @@ presentProperty Property{..} = pure $ pure "Property"
   :<> pure propertySlug
   :<> pure propertyName
   :<> pure (map pure propertyAliases)
+  :<> pure (map presentCitation propertyRefs)
   :<> pure propertyDescription
 
 presentTrait :: Monad m
@@ -82,6 +84,7 @@ presentTrait :: Monad m
 presentTrait Trait{..} = pure $ pure "Trait"
   :<> presentProperty _traitProperty
   :<> pure _traitValue
+  :<> pure (map presentCitation _traitRefs)
   :<> pure _traitDescription
 
 presentTheorem :: Monad m => Theorem PropertyId -> Handler m G.Theorem
@@ -89,7 +92,19 @@ presentTheorem t@Theorem{..} = pure $ pure "Theorem"
   :<> pure (unId theoremId)
   :<> pure (encodeFormula $ theoremIf t)
   :<> pure (encodeFormula $ theoremThen t)
+  :<> pure (map presentCitation theoremRefs)
   :<> pure theoremDescription
+
+presentCitation :: Monad m => Citation -> Handler m G.Citation
+presentCitation Citation{..} = pure $ pure "Citation"
+  :<> pure 
+    ( case citationType of
+        DOICitation  -> "doi"
+        MRCitation   -> "mr"
+        WikiCitation -> "wikipedia"
+    )
+  :<> pure citationRef
+  :<> pure citationName
 
 -- IDEA: define View -> PureLoader and re-use?
 presentView :: Monad m => View -> Handler m G.Viewer
@@ -143,6 +158,7 @@ loadSpace loader s@Space{..} = pure $ pure "Space"
   :<> pure spaceSlug
   :<> pure spaceName
   :<> pure (map pure spaceAliases)
+  :<> pure (map presentCitation spaceRefs)
   :<> pure spaceDescription
   :<> pure spaceTopology
   :<> loadTraits loader s
@@ -153,10 +169,13 @@ loadTraits loader space = do
   return . map (loadTrait loader space) $ M.toList traits
 
 loadTrait :: MonadStore m => Loader -> Space -> (PropertyId, TVal) -> Handler m G.Trait
-loadTrait loader space (pid, tval) = pure $ pure "Trait"
-  :<> (Loader.property loader pid >>= presentProperty)
-  :<> pure tval
-  :<> (_traitDescription <$> Loader.trait loader (spaceId space) pid)
+loadTrait loader space (pid, tval) = do
+  trait <- Loader.trait loader (spaceId space) pid
+  return $ pure "Trait"
+    :<> (Loader.property loader pid >>= presentProperty)
+    :<> pure tval
+    :<> pure (map presentCitation $ _traitRefs trait)
+    :<> pure (_traitDescription trait)
 
 encodeFormula :: Formula PropertyId -> Text
 encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unId

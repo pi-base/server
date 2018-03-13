@@ -32,6 +32,15 @@ type    Sha     = Text
 data Committish = CommitRef Ref | CommitSha Sha deriving (Eq, Show)
 type BranchName = Text
 
+data CitationType = DOICitation | MRCitation | WikiCitation
+  deriving (Show, Eq, Ord)
+
+data Citation = Citation 
+  { citationName :: Text
+  , citationType :: CitationType
+  , citationRef  :: Text
+  } deriving (Show, Eq, Ord)
+
 newtype Id a = Id { unId :: Uid } deriving (Eq, Ord, ToJSON, FromJSON)
 
 type SpaceId    = Id Space
@@ -87,6 +96,7 @@ data Space = Space
   , spaceAliases     :: ![Text]
   , spaceDescription :: !Text
   , spaceTopology    :: !(Maybe Text)
+  , spaceRefs        :: ![Citation]
   } deriving Eq
 
 data Property = Property
@@ -95,6 +105,7 @@ data Property = Property
   , propertyName        :: !Text
   , propertyAliases     :: ![Text]
   , propertyDescription :: !Text
+  , propertyRefs        :: ![Citation]
   } deriving Eq
 
 data Formula p = Atom p TVal
@@ -110,12 +121,14 @@ data Theorem p = Theorem
   , theoremImplication :: !(Implication p)
   , theoremConverse    :: !(Maybe [TheoremId])
   , theoremDescription :: !Text
+  , theoremRefs        :: ![Citation]
   } deriving (Eq, Functor, Foldable, Traversable)
 
 data Trait s p = Trait
   { _traitSpace       :: !s
   , _traitProperty    :: !p
   , _traitValue       :: !TVal
+  , _traitRefs        :: ![Citation]
   , _traitDescription :: !Text
   } deriving Show
 

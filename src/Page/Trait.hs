@@ -21,6 +21,7 @@ parse PageData{..} = do
   _traitSpace    <- pageFrontmatter .: "space"
   _traitProperty <- pageFrontmatter .: "property"
   _traitValue    <- pageFrontmatter .: "value"
+  _traitRefs     <- pageFrontmatter .:? "refs" .!= []
   let _traitDescription = pageMain
   return Trait{..}
 
@@ -31,6 +32,7 @@ write t@Trait{..} = PageData
     [ "space"    .= _traitSpace
     , "property" .= _traitProperty
     , "value"    .= _traitValue
+    , "refs"     .= _traitRefs
     ]
   , pageMain = _traitDescription
   , pageSections = mempty

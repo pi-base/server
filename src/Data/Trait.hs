@@ -28,6 +28,7 @@ find branch sid pid = do
         <$> space
         <*> property
         <*> Just (_traitValue parsed)
+        <*> Just (_traitRefs parsed)
         <*> Just (_traitDescription parsed)
 
 fetch :: MonadStore m

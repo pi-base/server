@@ -39,6 +39,7 @@ type Space = Object "Space" '[]
    , Field "slug"            Text
    , Field "name"            Text
    , Field "aliases"         (List Text)
+   , Field "references"      (List Citation)
    , Field "description"     Text
    , Field "proofOfTopology" (Maybe Text)
    , Field "traits"          (List Trait)
@@ -50,6 +51,7 @@ type Property = Object "Property" '[]
    , Field "slug"            Text
    , Field "name"            Text
    , Field "aliases"         (List Text)
+   , Field "references"      (List Citation)
    , Field "description"     Text
    ]
 
@@ -57,6 +59,7 @@ type Trait = Object "Trait" '[]
   '[ Field "__typename"  Text
    , Field "property"    Property
    , Field "value"       Bool
+   , Field "references"  (List Citation)
    , Field "description" Text
    ]
 
@@ -65,7 +68,15 @@ type Theorem = Object "Theorem" '[]
    , Field "uid"         Text
    , Field "if"          Text
    , Field "then"        Text
+   , Field "references"  (List Citation)
    , Field "description" Text
+   ]
+
+type Citation = Object "Citation" '[]
+  '[ Field "__typename" Text
+   , Field "type"       Text -- doi | mr | wikipedia
+   , Field "ref"        Text
+   , Field "name"       Text
    ]
 
 type Branch = Object "Branch" '[]

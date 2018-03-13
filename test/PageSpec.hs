@@ -31,6 +31,7 @@ instance Arbitrary Core.Property where
     <*> string
     <*> pure []
     <*> pure "description"
+    <*> pure []
 
 instance Arbitrary Space where
   arbitrary = Space
@@ -40,6 +41,7 @@ instance Arbitrary Space where
     <*> pure []
     <*> pure "description"
     <*> pure Nothing
+    <*> pure []
 
 instance Arbitrary p => Arbitrary (Theorem p) where
   arbitrary = Theorem
@@ -47,12 +49,14 @@ instance Arbitrary p => Arbitrary (Theorem p) where
     <*> arbitrary
     <*> pure Nothing
     <*> pure "description"
+    <*> pure []
 
 instance (Arbitrary s, Arbitrary p) => Arbitrary (Trait s p) where
   arbitrary = Trait
     <$> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> pure []
     <*> pure "description"
 
 instance Arbitrary p => Arbitrary (Implication p) where

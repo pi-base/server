@@ -18,6 +18,7 @@ parse PageData{..} = do
   spaceSlug    <- pageFrontmatter .: "slug"
   spaceName    <- pageFrontmatter .: "name"
   spaceAliases <- pageFrontmatter .:? "aliases" .!= []
+  spaceRefs    <- pageFrontmatter .:? "refs" .!= []
   let spaceDescription = pageMain
       spaceTopology = HM.lookup "Proof of Topology" $ pageSections
   return Space{..}
@@ -29,6 +30,7 @@ write Space{..} = PageData
     [ "uid"  .= spaceId
     , "slug" .= spaceSlug
     , "name" .= spaceName
+    , "refs" .= spaceRefs
     ]
   , pageMain = spaceDescription
   , pageSections = HM.fromList $ case spaceTopology of

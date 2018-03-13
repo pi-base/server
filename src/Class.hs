@@ -16,7 +16,7 @@ import Database.Persist.Sql        (Entity, SqlBackend)
 import Git                         (MonadGit)
 import Git.Libgit2                 (LgRepo)
 
-import Data.Aeson (ToJSON(..), object, (.=))
+import Data.Aeson (ToJSON(..), FromJSON(..), object, withObject, (.=), (.:))
 import qualified Data.Map.Strict as SM
 import qualified Data.Text       as T
 
@@ -110,3 +110,24 @@ explainGraphError (QueryNotFound name) = "Could not find a query named " <> tsho
 explainGraphError QueryNameRequired = "Query name is required"
 explainGraphError (QuerySerializationError e) = "Failed to serialize query: " <> T.pack e
 explainGraphError (SchemaInvalid e) = "Schema invalid: " <> tshow e
+
+instance ToJSON Citation where
+  toJSON Citation{..} =
+    let type' = case citationType of
+          DOICitation  -> "doi"
+          MRCitation   -> "mr"
+          WikiCitation -> "wikipedia"
+    in object [ type' .= citationRef, ("name" :: Text) .= citationName ]
+
+instance FromJSON Citation where
+  parseJSON = withObject "Citation" $ \c -> do
+    citationName <- c .: "name"
+    (citationType, citationRef) <- getRef c "doi" DOICitation
+                               <|> getRef c "mr" MRCitation
+                               <|> getRef c "wikipedia" WikiCitation
+    return Citation{..}
+    where
+      getRef c text type' = do
+        citationRef <- c .: text
+        return $ (type', citationRef)
+    

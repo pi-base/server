@@ -18,6 +18,7 @@ parse PageData{..} = do
   propertySlug    <- pageFrontmatter .: "slug"
   propertyName    <- pageFrontmatter .: "name"
   propertyAliases <- pageFrontmatter .:? "aliases" .!= []
+  propertyRefs    <- pageFrontmatter .:? "refs" .!= []
   let propertyDescription = pageMain
   return Property{..}
 
@@ -29,6 +30,7 @@ write Property{..} = PageData
     , "slug"    .= propertySlug
     , "name"    .= propertyName
     , "aliases" .= propertyAliases
+    , "refs"    .= propertyRefs
     ]
   , pageMain = propertyDescription
   , pageSections = mempty

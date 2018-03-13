@@ -39,6 +39,7 @@ assertTrait patch G.AssertTraitInput{..} = do
         { _traitSpace       = space
         , _traitProperty    = property
         , _traitValue       = value
+        , _traitRefs        = [] -- FIXME
         , _traitDescription = description
         }
 
@@ -57,9 +58,10 @@ assertTheorem patch G.AssertTheoremInput{..} = do
   (user, branch) <- checkPatch patch
 
   let theorem = Theorem
-        { theoremId = uid
+        { theoremId          = uid
         , theoremImplication = (Implication antecedent consequent)
-        , theoremConverse = Nothing
+        , theoremConverse    = Nothing -- FIXME
+        , theoremRefs        = [] -- FIXME
         , theoremDescription = description
         }
   theorem' <- mapM (Property.fetch branch) theorem
@@ -75,9 +77,10 @@ createSpace patch G.CreateSpaceInput{..} = do
         { spaceId          = uid
         , spaceName        = name
         , spaceAliases     = []
-        , spaceDescription = description
+        , spaceRefs        = []
         , spaceSlug        = slugify name
         , spaceTopology    = Nothing
+        , spaceDescription = description
         }
       commit = CommitMeta user $ "Add " <> name
 
@@ -91,9 +94,10 @@ createProperty patch G.CreatePropertyInput{..} = do
   let property = Property
         { propertyId          = uid
         , propertyName        = name
-        , propertyDescription = description
         , propertySlug        = slugify name
         , propertyAliases     = []
+        , propertyRefs        = []
+        , propertyDescription = description
         }
       commit = CommitMeta user $ "Add " <> name
   (p, sha) <- Property.put branch commit property

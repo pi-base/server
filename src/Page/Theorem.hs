@@ -21,6 +21,7 @@ parse PageData{..} = do
       <$> pageFrontmatter .: "if"
       <*> pageFrontmatter .: "then"
     )
+  theoremRefs <- pageFrontmatter .:? "refs" .!= []
   let theoremDescription = pageMain
   return Theorem{..}
 
@@ -32,6 +33,7 @@ write t@Theorem{..} = PageData
     , "if"       .= (unId <$> theoremIf t)
     , "then"     .= (unId <$> theoremThen t)
     , "converse" .= theoremConverse
+    , "refs"     .= theoremRefs
     ]
   , pageMain = theoremDescription
   , pageSections = mempty
