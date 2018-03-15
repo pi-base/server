@@ -17,9 +17,12 @@ import Handler.Helpers (generateToken, maybeToken, requireToken, rollbar)
 import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
-import qualified Yesod.Core.Unsafe as Unsafe
+import qualified Yesod.Core.Unsafe    as Unsafe
+import qualified Data.Aeson           as Aeson
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.CaseInsensitive as CI
-import qualified Data.Text.Encoding as TE
+import qualified Data.Text            as T
+import qualified Data.Text.Encoding   as TE
 
 import Class
 import Git.Libgit2 (HasLgRepo(..))
@@ -78,6 +81,28 @@ instance MonadDB Handler where
 instance MonadGraph Handler where
   getSettings = appSettings <$> getYesod
   requireUser = requireToken
+
+data GithubUserResponse = GithubUserResponse
+  { ghLogin :: Text
+  , ghEmail :: Text
+  }
+
+instance Aeson.FromJSON GithubUserResponse where
+  parseJSON = Aeson.withObject "UserResponse" $ \u ->
+    GithubUserResponse 
+      <$> u .: "login"
+      <*> u .: "email"
+
+parseGithubUserResponse :: Text -> Text -> Text -> Either String User
+parseGithubUserResponse _id token response = 
+  (Aeson.eitherDecode $ LBS.fromStrict $ encodeUtf8 response) >>= \case
+    Left err -> Left err
+    Right GithubUserResponse{..} -> Right $ User 
+      { userIdent       = _id
+      , userGithubToken = token
+      , userName        = ghLogin
+      , userEmail       = ghEmail
+      }
 
 createGithubUser :: User -> Handler UserId
 createGithubUser user = do
@@ -199,29 +224,25 @@ instance YesodAuth App where
     -- Where to send a user after successful login
     loginDest _ = FrontendR
     -- Where to send a user after logout
-    logoutDest _ = HooksR
+    logoutDest _ = FrontendR
     -- Override the above two destinations when a Referer: header is present
     redirectToReferer _ = True
 
     authenticate Creds{..} = do
       let extras = Map.fromList credsExtra
-      case (Map.lookup "access_token" extras, Map.lookup "login" extras, Map.lookup "email" extras) of
-        (Just token, Just login, Just email) -> do
+      case (Map.lookup "accessToken" extras, Map.lookup "userResponse" extras) of
+        (Just token, Just response) -> do
           let _id  = credsPlugin <> ":" <> credsIdent
-          x <- runDB . getBy $ UniqueUser _id
-          case x of
+          (runDB . getBy $ UniqueUser _id) >>= \case
             Just (Entity uid _) -> return $ Authenticated uid
-            Nothing -> Authenticated <$> createGithubUser User
-              { userIdent = _id
-              , userName = login
-              , userEmail = email
-              , userGithubToken = token
-              }
-        _ -> return $ ServerError "Missing access token or login"
+            Nothing -> case parseGithubUserResponse _id token response of
+              Left   err -> return . ServerError $ "Could not parse Github data: " <> T.pack err
+              Right user -> Authenticated <$> createGithubUser user
+        _ -> return $ ServerError "Missing accessToken or userResponse"
 
     authPlugins app =
       let AppSettings{..} = appSettings app
-          oauth = oauth2GithubScoped appGitHubClientId appGitHubClientSecret ["user:email,public_repo"]
+          oauth = oauth2GithubScoped ["user:email,public_repo"] appGitHubClientId appGitHubClientSecret 
       in [oauth] ++ [authDummy | appAuthDummyLogin]
 
     authHttpManager = getHttpManager

@@ -17,7 +17,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/thoughtbot/yesod-auth-oauth2.git
-    commit: 25e63cdcc22935aed3dde79ef9f233ff783eeea3
+    commit: 07c757aaa51f623673556099cece25f5b18ac349
   extra-dep: true
 # - '/data/src/pi-base/graphql-api'
 - location:
@@ -26,9 +26,11 @@ packages:
   extra-dep: true
 
 extra-deps:
+- hoauth2-1.5.1
 - lens-aeson-1.0.1
 - load-env-0.1.1
 - rollbar-1.1.0
+- uri-bytestring-aeson-0.1.0.4
 
 flags: {}
 
