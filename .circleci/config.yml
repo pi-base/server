@@ -11,10 +11,7 @@ jobs:
       - run:
           name: Clone data repo
           command: |
-            git clone --mirror https://github.com/pi-base/data.git /data/repo/.git
-            cd /data/repo
-            git config --bool core.bare false
-            git checkout master
+            git clone --bare https://github.com/pi-base/data.git /data/repo/.git
 
       # Build and cache installed dependencies based on package.yml
       - restore_cache:

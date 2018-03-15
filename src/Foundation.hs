@@ -29,6 +29,9 @@ import Git.Libgit2 (HasLgRepo(..))
 import Data.Branch (ensureUserBranch)
 import Data.Store  (Store, storeRepo)
 
+import System.Environment (lookupEnv)
+import System.IO.Unsafe   (unsafePerformIO)
+
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
 -- starts running, such as database connections. Every handler will have
@@ -95,7 +98,7 @@ instance Aeson.FromJSON GithubUserResponse where
 
 parseGithubUserResponse :: Text -> Text -> Text -> Either String User
 parseGithubUserResponse _id token response = 
-  (Aeson.eitherDecode $ LBS.fromStrict $ encodeUtf8 response) >>= \case
+  case Aeson.eitherDecode . LBS.fromStrict $ encodeUtf8 response of
     Left err -> Left err
     Right GithubUserResponse{..} -> Right $ User 
       { userIdent       = _id
@@ -133,7 +136,11 @@ rollbarH err = forkHandler ($logErrorS "rollbarH" . tshow) $ do
 instance Yesod App where
     -- Controls the base of generated URLs. For more information on modifying,
     -- see: https://github.com/yesodweb/yesod/wiki/Overriding-approot
-    approot = ApprootMaster $ appRoot . appSettings
+    --
+    -- N.B. it looks like this has to be Static for oauth's redriect_uri to work;
+    --  be sure this is set in the env _before_ here.
+    approot = ApprootStatic $ unsafePerformIO $
+      maybe "http://server.counterexamples.info" T.pack <$> lookupEnv "APPROOT"
 
     -- Store session data on the client in encrypted cookies,
     -- default session idle timeout is 120 minutes
@@ -226,7 +233,7 @@ instance YesodAuth App where
     -- Where to send a user after logout
     logoutDest _ = FrontendR
     -- Override the above two destinations when a Referer: header is present
-    redirectToReferer _ = True
+    redirectToReferer _ = False
 
     authenticate Creds{..} = do
       let extras = Map.fromList credsExtra

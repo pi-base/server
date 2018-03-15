@@ -26,10 +26,6 @@ github-client-secret: "_env:GITHUB_CLIENT_SECRET:"
 
 test-mode: "_env:TEST_MODE:false"
 
-# Default behavior: determine the application root from the request headers.
-# Uncomment to set an explicit approot
-approot: "_env:APPROOT:http://localhost:3141"
-
 log-level: "_env:LOG_LEVEL:error"
 
 rollbar-token: "_env:ROLLBAR_TOKEN"

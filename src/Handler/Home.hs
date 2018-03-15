@@ -11,11 +11,11 @@ getHomeR :: Handler Value
 getHomeR = do
   version <- getStoreBaseVersion
   build   <- getSetting appBuild
-  root    <- getSetting appRoot
+  render  <- getUrlRender
   return $ object 
     [ "version" .= version
     , "build"   .= build
-    , "root"    .= root
+    , "root"    .= render HomeR
     ]
 
 postHooksR :: Handler Value
