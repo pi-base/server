@@ -11,9 +11,11 @@ getHomeR :: Handler Value
 getHomeR = do
   version <- getStoreBaseVersion
   build   <- getSetting appBuild
+  root    <- getSetting appRoot
   return $ object 
     [ "version" .= version
     , "build"   .= build
+    , "root"    .= root
     ]
 
 postHooksR :: Handler Value
@@ -32,11 +34,11 @@ activeToken userId = do
 
 getFrontendR :: Handler ()
 getFrontendR = do
-  AppSettings{..} <- appSettings <$> getYesod
+  frontendUrl <- getSetting appFrontendUrl
   defaultMaybeAuthId >>= \case
-    Nothing -> redirect appFrontendUrl
+    Nothing -> redirect frontendUrl
     Just _id -> (runDB $ get _id) >>= \case
-      Nothing -> redirect appFrontendUrl
+      Nothing -> redirect frontendUrl
       Just _ -> do
         Token{..} <- activeToken _id
-        redirect $ appFrontendUrl <> "/login/" <> tokenUuid
+        redirect $ frontendUrl <> "/login/" <> tokenUuid
