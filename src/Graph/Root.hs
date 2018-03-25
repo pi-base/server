@@ -42,6 +42,8 @@ handler settings = pure $ pure "Query"
   :<> assertTheorem
   :<> resetBranch
   :<> submitBranch settings
+  -- Hook for testing Rollbar
+  :<> error "Forced error"
 
 schema :: Either QueryError Schema
 schema = makeSchema @Root

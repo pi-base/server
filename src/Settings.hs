@@ -22,7 +22,7 @@ import Yesod.Default.Util          (WidgetFileSettings, widgetFileNoReload,
                                     widgetFileReload)
 
 import qualified GitHub
-import qualified Rollbar
+import qualified Services.Rollbar.Types as Rollbar
 
 -- | Runtime settings to configure this application. These settings can be
 -- loaded from various sources: defaults, environment variables, config files,
@@ -123,10 +123,11 @@ instance FromJSON AppSettings where
         rollbarEnv   <- o .: "rollbar-environment"
         rollbarHost  <- o .: "rollbar-host"
         let appRollbar = Rollbar.Settings
-              { Rollbar.environment = Rollbar.Environment rollbarEnv
-              , Rollbar.token = Rollbar.ApiToken $ maybe "" id rollbarToken
-              , Rollbar.hostName = rollbarHost
-              , Rollbar.reportErrors = isJust rollbarToken
+              { Rollbar.token       = rollbarToken
+              , Rollbar.environment = rollbarEnv
+              , Rollbar.hostname    = rollbarHost
+              , Rollbar.active      = isJust rollbarToken
+              , Rollbar.build       = appBuild
               }
 
         return AppSettings {..}

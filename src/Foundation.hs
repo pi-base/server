@@ -12,7 +12,7 @@ import Text.Jasmine         (minifym)
 
 import Yesod.Auth.Dummy
 
-import Handler.Helpers (generateToken, maybeToken, requireToken, rollbar)
+import Handler.Helpers (generateToken, maybeToken, requireToken)
 
 import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
@@ -28,6 +28,7 @@ import Class
 import Git.Libgit2 (HasLgRepo(..))
 import Data.Branch (ensureUserBranch)
 import Data.Store  (Store, storeRepo)
+import Services.Rollbar as Rollbar
 
 import System.Environment (lookupEnv)
 import System.IO.Unsafe   (unsafePerformIO)
@@ -125,11 +126,13 @@ development =
     False
 #endif
 
-rollbarH :: Show e => e -> Handler ()
-rollbarH err = forkHandler ($logErrorS "rollbarH" . tshow) $ do
-  settings <- appSettings <$> getYesod
+rollbar :: Report -> Handler ()
+rollbar r = do
+  settings <- appRollbar . appSettings <$> getYesod
+  req      <- getRequest
   muser    <- maybeAuth
-  rollbar settings muser err
+  forkHandler ($logErrorS "Rollbar.handler" . tshow) $ 
+    Rollbar.send settings $ r { Rollbar.request = Just req, Rollbar.user = muser }
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
@@ -149,7 +152,10 @@ instance Yesod App where
         "config/client_session_key.aes"
 
     errorHandler err@(InternalError e) = do
-      unless development $ rollbarH e
+      rollbar $ Rollbar.report
+        { message = T.pack $ show e
+        , level   = Rollbar.Error
+        }
       defaultErrorHandler err
     errorHandler err = defaultErrorHandler err
 

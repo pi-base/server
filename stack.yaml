@@ -29,7 +29,6 @@ extra-deps:
 - hoauth2-1.5.1
 - lens-aeson-1.0.1
 - load-env-0.1.1
-- rollbar-1.1.0
 - uri-bytestring-aeson-0.1.0.4
 
 flags: {}

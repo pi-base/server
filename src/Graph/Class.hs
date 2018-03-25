@@ -157,6 +157,11 @@ instance HasAnnotatedInputType PatchInput
 instance Defaultable PatchInput where
   defaultFor _ = error "No default for PatchInput"
 
+instance FromValue ThrowErrorInput
+instance HasAnnotatedInputType ThrowErrorInput
+instance Defaultable ThrowErrorInput where
+  defaultFor _ = error "No default for ThrowErrorInput"
+
 instance HasAnnotatedInputType (Id a) where
   getAnnotatedInputType = Right $ TypeNamed $ BuiltinInputType GString
 instance FromValue (Id a) where

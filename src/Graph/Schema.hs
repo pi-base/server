@@ -117,6 +117,11 @@ type SubmitBranchResponse = Object "SubmitBranchResponse" '[]
    , Field "url"        Text
    ]
 
+type ThrowErrorResponse = Object "ThrowErrorResponse" '[]
+  '[ Field "__typename" Text
+   , Field "message" Text
+   ]
+
 type Root = Object "QueryRoot" '[]
   '[ Field "__typename" Text
    , Argument "version" (Maybe Text) :> Field "viewer" Viewer
@@ -157,6 +162,7 @@ type Root = Object "QueryRoot" '[]
 
    , Argument "input" ResetBranchInput :> Field "resetBranch" ResetBranchResponse
    , Argument "input" SubmitBranchInput :> Field "submitBranch" SubmitBranchResponse
+   , Argument "input" ThrowErrorInput :> Field "throwError" ThrowErrorResponse
    ]
 
 -- Inputs
@@ -220,4 +226,8 @@ data UpdateTraitInput = UpdateTraitInput
 data PatchInput = PatchInput
   { branch :: Text
   , sha    :: Text
+  } deriving (Show, Generic)
+
+data ThrowErrorInput = ThrowErrorInput
+  { message :: Text
   } deriving (Show, Generic)

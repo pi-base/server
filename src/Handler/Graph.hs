@@ -8,7 +8,10 @@ import Graph.Root                (asJSON, interpreted)
 import Network.HTTP.Types.Status (mkStatus)
 import Util                      (pj)
 
+import qualified Data.HashMap.Strict as HM
+
 import qualified Core
+import qualified Services.Rollbar as Rollbar
 
 postGraphR :: Handler Value
 postGraphR = do
@@ -16,12 +19,20 @@ postGraphR = do
   body <- requireJsonBody
   $(logInfo) $ "[GraphQL] " <> (body ^. key "operationName" . _String)
   $(logDebug) $ "[GraphQL] " <> pj (body ^. key "variables" . _Object)
+  -- FIXME: compiled and cached queries only in production
   asJSON (interpreted settings) body >>= \case
     Left e -> do
       let status = errorStatus e
       if (status == status500)
         then do
-          rollbarH e
+          rollbar $ Rollbar.report
+            { Rollbar.message = "Graph error"
+            , Rollbar.level   = Rollbar.Error
+            , Rollbar.custom  = Just $ HM.fromList 
+              [ "body"  .= body 
+              , "error" .= e
+              ]
+            }
           $(logError) $ "[GraphQL] " <> pj e
         else
           $(logDebug) $ "[GraphQL] " <> pj e
@@ -34,7 +45,6 @@ status422 :: Status
 status422 = mkStatus 422 "Unprocessable Entity"
 
 errorStatus :: Core.Error -> Status
-errorStatus (Core.GraphError (Core.ExecutionErrors _)) = status400
 errorStatus (Core.PermissionError _) = status403
 errorStatus (Core.NotFound _) = status404
 errorStatus (Core.UnknownGitRef _) = status404

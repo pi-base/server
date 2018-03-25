@@ -60,7 +60,6 @@ library:
     - persistent-sqlite
     - persistent-template
     - process
-    - rollbar
     - safe
     - scientific
     - shakespeare
@@ -78,6 +77,7 @@ library:
     - wai-extra
     - wai-logger
     - warp
+    - wreq
     - yaml
     - yesod
     - yesod-auth
