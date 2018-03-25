@@ -43,7 +43,7 @@ initializeRepo path = do
       branches or anything to cause errors when we do a push
     -}
     run "Cloning initial repository" $ 
-      "git clone --bare git@github.com:pi-base/data.git " <> T.pack path <> "/.git"
+      "git clone --bare git@github.com:pi-base/data.git " <> T.pack path
   liftIO $ openLgRepository $ RepositoryOptions
     { repoPath       = path
     , repoWorkingDir = Nothing

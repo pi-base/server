@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 module TestImport
     ( module TestImport
     , module X
@@ -11,7 +12,6 @@ import ClassyPrelude         as X hiding (delete, deleteBy)
 #endif
 import Control.Monad.Trans.State as X (StateT)
 import Database.Persist      as X hiding (get)
-import Database.Persist.Sql  (SqlPersistM, SqlBackend, runSqlPersistMPool, rawExecute, rawSql, unSingle, connEscapeName)
 import Foundation            as X
 import Logging               as X
 import Model                 as X
@@ -22,30 +22,30 @@ import Yesod.Default.Config2 (useEnv, loadYamlSettings)
 import Yesod.Auth            as X
 import Yesod.Test            as X
 
-import           Data.Aeson           (ToJSON(..), Value(..), decode)
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text            as T
-import qualified Data.Text.Lazy       as TL
-import qualified Data.HashMap.Strict  as HM
-import           Network.Wai.Test     (SResponse(..))
-import           System.Environment   (lookupEnv)
-import qualified Test.HUnit           as H
-import           Test.Hspec.Core.Spec (SpecM)
-
+import           Data.Aeson            (ToJSON(..), Value(..), decode)
+import qualified Data.ByteString.Lazy  as LBS
+import qualified Data.Text             as T
+import qualified Data.Text.Lazy        as TL
+import qualified Data.HashMap.Strict   as HM
+import           Network.Wai.Test      (SResponse(..))
+import           System.Environment    (lookupEnv)
+import qualified Test.HUnit            as H
+import           Test.Hspec.Core.Spec  (SpecM)
+import           Text.Shakespeare.Text (st)
 
 -- Wiping the database
-import Database.Persist.Sqlite              (sqlDatabase, wrapConnection, createSqlPool)
-import qualified Database.Sqlite as Sqlite
-import Control.Monad.Logger                 (runLoggingT)
-import Settings                             (appDatabaseConf)
-import Yesod.Core                           (messageLoggerSource)
+
+import Database.Persist.Sql  (SqlPersistM, runSqlPersistMPool, rawExecute, rawSql, unSingle, connEscapeName)
 
 import Util (pj)
 
 runDB :: SqlPersistM a -> YesodExample App a
 runDB query = do
-    pool <- fmap appConnPool getTestYesod
-    liftIO $ runSqlPersistMPool query pool
+    app <- getTestYesod
+    liftIO $ runDBWithApp app query
+
+runDBWithApp :: App -> SqlPersistM a -> IO a
+runDBWithApp app query = runSqlPersistMPool query (appConnPool app)
 
 buildApp :: IO (TestApp App)
 buildApp = do
@@ -64,39 +64,23 @@ withApp = before buildApp
 -- 'withApp' calls it before each test, creating a clean environment for each
 -- spec to run in.
 wipeDB :: App -> IO ()
-wipeDB app = do
-    -- In order to wipe the database, we need to temporarily disable foreign key checks.
-    -- Unfortunately, disabling FK checks in a transaction is a noop in SQLite.
-    -- Normal Persistent functions will wrap your SQL in a transaction,
-    -- so we create a raw SQLite connection to disable foreign keys.
-    -- Foreign key checks are per-connection, so this won't effect queries outside this function.
+wipeDB app = runDBWithApp app $ do
+    tables <- getTables
+    sqlBackend <- ask
 
-    -- Aside: SQLite by default *does not enable foreign key checks*
-    -- (disabling foreign keys is only necessary for those who specifically enable them).
-    let settings = appSettings app
-    sqliteConn <- rawConnection (sqlDatabase $ appDatabaseConf settings)
-    disableForeignKeys sqliteConn
+    let escapedTables = map (connEscapeName sqlBackend . DBName) tables
+        query = "TRUNCATE TABLE " ++ intercalate ", " escapedTables
+    rawExecute query []
 
-    let logFunc = messageLoggerSource app (appLogger app)
-    pool <- runLoggingT (createSqlPool (wrapConnection sqliteConn) 1) logFunc
-
-    flip runSqlPersistMPool pool $ do
-        sqlBackend <- ask
-        -- tables <- getTables -- need to control the order
-        let tables = ["token", "user_branch", "branch", "user"]
-        let queries = map (\t -> "DELETE FROM " ++ (connEscapeName sqlBackend $ DBName t)) tables
-        forM_ queries (\q -> rawExecute q [])
-
-rawConnection :: Text -> IO Sqlite.Connection
-rawConnection t = Sqlite.open t
-
-disableForeignKeys :: Sqlite.Connection -> IO ()
-disableForeignKeys conn = Sqlite.prepare conn "PRAGMA foreign_keys = OFF;" >>= void . Sqlite.step
-
-getTables :: MonadIO m => ReaderT SqlBackend m [Text]
+getTables :: SqlPersistM [Text]
 getTables = do
-    tables <- rawSql "SELECT name FROM sqlite_master WHERE type = 'table';" []
-    return (fmap unSingle tables)
+    tables <- rawSql [st|
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public';
+    |] []
+
+    return $ map unSingle tables
 
 -- | Authenticate as a user. This relies on the `auth-dummy-login: true` flag
 -- being set in test-settings.yaml, which enables dummy authentication in

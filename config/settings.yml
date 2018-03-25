@@ -12,7 +12,7 @@ github-owner: "_env:GITHUB_OWNER:pi-base"
 github-repo:  "_env:GITHUB_REPO:data"
 
 # Path to a copy of the pi-base/data repo on the local machine
-repo-path:      "_env:REPO_PATH:/data/repo"
+repo-path:      "_env:REPO_PATH"
 default-branch: "_env:DEFAULT_BRANCH:master"
 auto-push:      "_env:AUTO_PUSH:false"
 
@@ -47,8 +47,11 @@ rollbar-host: "_env:ROLLBAR_HOST:unknown"
 
 database:
   # See config/test-settings.yml for an override during tests
-  database: "_env:SQLITE_DATABASE:/data/pi-base-server.sqlite3"
-  poolsize: "_env:SQLITE_POOLSIZE:10"
+  database: "_env:DATABASE_NAME:pi_base_development"
+  poolsize: "_env:DATABASE_POOL_SIZE:10"
+  host:     "_env:DATABASE_HOST:localhost"
+  user:     "_env:DATABASE_USER:"
+  password: "_env:DATABASE_PASSWORD:"
 
 copyright: Insert copyright statement here
 #analytics: UA-YOURCODE

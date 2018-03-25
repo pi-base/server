@@ -13,7 +13,7 @@ import Data.Aeson                  (Result (..), fromJSON, withObject, (.!=),
 import Data.FileEmbed              (embedFile)
 import qualified Data.Text         as T
 import Data.Yaml                   (decodeEither')
-import Database.Persist.Sqlite     (SqliteConf)
+import Database.Persist.Postgresql (PostgresConf)
 import Development.GitRev          (gitHash)
 import Language.Haskell.TH.Syntax  (Exp, Name, Q)
 import Network.Wai.Handler.Warp    (HostPreference)
@@ -30,7 +30,7 @@ import qualified Services.Rollbar.Types as Rollbar
 data AppSettings = AppSettings
     { appStaticDir              :: String
     -- ^ Directory from which to serve static files.
-    , appDatabaseConf           :: SqliteConf
+    , appDatabaseConf           :: PostgresConf
     -- ^ Configuration settings for accessing the database.
     , appHost                   :: HostPreference
     -- ^ Host/interface the server should bind to.

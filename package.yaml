@@ -57,7 +57,7 @@ library:
     - monad-logger
     - mtl
     - persistent
-    - persistent-sqlite
+    - persistent-postgresql
     - persistent-template
     - process
     - safe
@@ -136,7 +136,7 @@ tests:
     - lens-aeson
     - monad-logger
     - persistent
-    - persistent-sqlite
+    - persistent-postgresql
     - pretty-show
     - QuickCheck
     - resourcet

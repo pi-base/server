@@ -27,7 +27,7 @@ import qualified Page.Trait
 
 import           Core
 import qualified Data.Branch as Branch
-import           Data.Git    as Git (updateBranch)
+import           Data.Git    as Git (updateBranch, writePages)
 import           Data.Store
 import           Util        (indexBy)
 
@@ -39,17 +39,13 @@ makeId prefix = do
 slugify :: Text -> Text
 slugify t = t -- TODO
 
-writeView :: MonadStore m => View -> TreeT LgRepo m ()
-writeView v = forM_ (viewPages v) $ \(path, contents) -> do
-  blob <- lift $ createBlobUtf8 contents
-  putBlob path blob
-
 viewPages :: View -> [(TreeFilePath, Text)]
 viewPages v = map (Page.write Page.Theorem.page) theorems
            <> map (Page.write Page.Trait.page)   traits
   where
+    -- Only write asserted traits (where proof is null)
+    traits   = map (identifyTrait . fst) $ filter (isNothing . snd) $ V.traits v
     theorems = map (fmap propertyId) $ V.theorems v
-    traits   = map (identifyTrait . fst) $ V.traits v
 
 viewDeductions :: MonadStore m
                => Loader.Loader -> L.Deductions -> m View
@@ -90,7 +86,7 @@ updateView :: (MonadStore m, MonadLogger m)
 updateView branch meta getView = do
   (view', sha) <- Data.updateBranch branch meta $ \loader -> do
     v <- lift $ getView loader
-    writeView v
+    Git.writePages $ viewPages v
     return v
   return $ view' { _viewVersion = Just $ Version sha }
 

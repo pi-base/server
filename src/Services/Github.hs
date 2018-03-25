@@ -38,7 +38,7 @@ createPullRequest AppSettings{..} branch = do
     Left err -> do
       $(logError) $ T.pack $ show err
       return $ Left "Failed to open pull request" -- TODO: better error messaging (but don't leak token)
-    Right pr -> return $ Right . GH.getUrl $ GH.pullRequestUrl pr
+    Right pr -> return $ Right . GH.getUrl $ GH.pullRequestHtmlUrl pr
 
 -- TODO: deprecate / cleanup below vvv
 
