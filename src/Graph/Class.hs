@@ -13,18 +13,16 @@ module Graph.Class where
 import           Data.Aeson                  as Aeson
 import qualified Data.HashMap.Lazy           as HM
 import           Data.Int                    (Int32)
+import qualified Data.List.NonEmpty          as NonEmpty
 import qualified Data.Map                    as M
 import           Data.Scientific             (floatingOrInteger)
 import           Data.Text                   (Text)
 import qualified Data.Text.Lazy              as TL
 import           GraphQL.API
-import           GraphQL.Resolver
 import qualified GraphQL.Internal.OrderedMap as OM
 import           GraphQL.Internal.Syntax.AST (Variable(..))
 import           GraphQL.Internal.Schema
 import           GraphQL.Value
-import           GraphQL.Value.FromValue     (FromValue(..))
-import           GraphQL.Value.ToValue       (ToValue(..))
 
 import Core
 import Graph.Schema
@@ -96,7 +94,7 @@ instance FromValue AssertTraitInput where
     <*> field "description" o
   fromValue v = wrongType "Object" v
 instance HasAnnotatedInputType AssertTraitInput where
-  getAnnotatedInputType = Right $ TypeNamed $ DefinedInputType $ InputTypeDefinitionObject $ InputObjectTypeDefinition "AssertTraitInput" $ NonEmptyList
+  getAnnotatedInputType = Right $ TypeNamed $ DefinedInputType $ InputTypeDefinitionObject $ InputObjectTypeDefinition "AssertTraitInput" $ NonEmpty.fromList
     [ InputObjectFieldDefinition "spaceId" (TypeNamed $ BuiltinInputType GID) Nothing
     , InputObjectFieldDefinition "propertyId" (TypeNamed $ BuiltinInputType GID) Nothing
     , InputObjectFieldDefinition "value" (TypeNamed $ BuiltinInputType GBool) Nothing
@@ -113,7 +111,7 @@ instance FromValue AssertTheoremInput where
     <*> field "description" o
   fromValue v = wrongType "Object" v
 instance HasAnnotatedInputType AssertTheoremInput where
-  getAnnotatedInputType = Right $ TypeNamed $ DefinedInputType $ InputTypeDefinitionObject $ InputObjectTypeDefinition "AssertTraitInput" $ NonEmptyList
+  getAnnotatedInputType = Right $ TypeNamed $ DefinedInputType $ InputTypeDefinitionObject $ InputObjectTypeDefinition "AssertTraitInput" $ NonEmpty.fromList
     [ InputObjectFieldDefinition "uid" (TypeNamed $ BuiltinInputType GID) Nothing
     , InputObjectFieldDefinition "antecedent" (TypeNamed $ BuiltinInputType GString) Nothing
     , InputObjectFieldDefinition "consequent" (TypeNamed $ BuiltinInputType GString) Nothing

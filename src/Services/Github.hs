@@ -22,8 +22,8 @@ import qualified GitHub.Endpoints.Repos.Statuses  as GH
 import qualified GitHub.Endpoints.PullRequests    as GH
 
 createPullRequest :: (MonadStore m, MonadLogger m) 
-                  => AppSettings -> BranchName -> m (Either Text Text) -- FIXME
-createPullRequest AppSettings{..} branch = do
+                  => GithubSettings -> BranchName -> m (Either Text Text) -- FIXME
+createPullRequest GithubSettings{..} branch = do
   pushBranches -- should already happen on branch update, but just to be sure
 
   base <- storeBaseBranch <$> getStore
@@ -33,7 +33,7 @@ createPullRequest AppSettings{..} branch = do
         , createPullRequestHead = branch
         , createPullRequestBase = base
         }
-  epr <- liftIO $ GH.createPullRequest appGitHubToken appGitHubOwner appGitHubRepo request
+  epr <- liftIO $ GH.createPullRequest gsToken gsOwner gsRepo request
   case epr of
     Left err -> do
       $(logError) $ T.pack $ show err
@@ -64,7 +64,7 @@ checkPullRequest pre = do
 
 validateSignature :: ByteString -> Handler ()
 validateSignature body = do
-  secret <- getSetting appGitHubWebhookSecret
+  secret <- getSetting $ gsWebhookSecret . appGithub
   lookupHeader "X-Hub-Signature" >>= \case
     Nothing -> halt ("No signature found" :: Text)
     Just given ->
@@ -100,14 +100,14 @@ prStatusOk _id sha _viewer = do
 
 issueComment :: GH.Id GH.Issue -> Text -> Handler ()
 issueComment _id msg = do
-  AppSettings{..} <- appSettings <$> getYesod
-  _ <- liftIO $ GH.createComment appGitHubToken appGitHubOwner appGitHubRepo _id msg
+  GithubSettings{..} <- getSetting appGithub
+  _ <- liftIO $ GH.createComment gsToken gsOwner gsRepo _id msg
   return ()
 
 postStatus :: Name Commit -> GH.StatusState -> Text -> Handler ()
 postStatus sha state message = do
-  AppSettings{..} <- appSettings <$> getYesod
-  _ <- liftIO $ GH.createStatus appGitHubToken appGitHubOwner appGitHubRepo sha status
+  GithubSettings{..} <- getSetting appGithub
+  _ <- liftIO $ GH.createStatus gsToken gsOwner gsRepo sha status
   return ()
   where
     status = GH.NewStatus state Nothing (Just message) (Just "pi-base/validator")

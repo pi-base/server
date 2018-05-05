@@ -12,7 +12,7 @@ module Graph.Mutations
   , updateTrait
   ) where
 
-import           Import           (AppSettings)
+import           Import           (GithubSettings)
 import           Database.Persist (Entity(..))
 import           GraphQL.Resolver
 
@@ -85,7 +85,7 @@ createSpace patch G.CreateSpaceInput{..} = do
       commit = CommitMeta user $ "Add " <> name
 
   (s, sha) <- Space.put branch commit space
-  G.presentView $ View.build [s] [] [] [] $ Version sha
+  G.presentView $ View.build [s] [] [] [] $ Just $ Version sha
 
 createProperty :: MonadGraph m => G.PatchInput -> G.CreatePropertyInput -> Handler m G.Viewer
 createProperty patch G.CreatePropertyInput{..} = do
@@ -101,7 +101,7 @@ createProperty patch G.CreatePropertyInput{..} = do
         }
       commit = CommitMeta user $ "Add " <> name
   (p, sha) <- Property.put branch commit property
-  G.presentView $ View.build [] [p] [] [] $ Version sha
+  G.presentView $ View.build [] [p] [] [] $ Just $ Version sha
 
 resetBranch :: MonadGraph m => G.ResetBranchInput -> Handler m G.ResetBranchResponse
 resetBranch G.ResetBranchInput{..} = do
@@ -114,7 +114,7 @@ resetBranch G.ResetBranchInput{..} = do
     :<> pure branch
     :<> pure sha
 
-submitBranch :: MonadGraph m => AppSettings -> G.SubmitBranchInput -> Handler m G.SubmitBranchResponse
+submitBranch :: MonadGraph m => GithubSettings -> G.SubmitBranchInput -> Handler m G.SubmitBranchResponse
 submitBranch settings G.SubmitBranchInput{..} = do
   _ <- requireBranchAccess branch BranchAdmin
 
@@ -133,7 +133,7 @@ updateProperty patch G.UpdatePropertyInput{..} = do
   let updated = old { propertyDescription = description }
       commit  = CommitMeta user $ "Update " <> propertyName updated
   (p, sha) <- Property.put branch commit updated
-  G.presentView $ View.build [] [p] [] [] $ Version sha
+  G.presentView $ View.build [] [p] [] [] $ Just $ Version sha
 
 updateSpace :: MonadGraph m => G.PatchInput -> G.UpdateSpaceInput -> Handler m G.Viewer
 updateSpace patch G.UpdateSpaceInput{..} = do
@@ -143,7 +143,7 @@ updateSpace patch G.UpdateSpaceInput{..} = do
   let updated = old { spaceDescription = description }
       meta    = CommitMeta user $ "Update " <> spaceName updated
   (s, sha) <- Space.put branch meta updated
-  G.presentView $ View.build [s] [] [] [] $ Version sha
+  G.presentView $ View.build [s] [] [] [] $ Just $ Version sha
 
 updateTheorem :: (MonadGraph m, MonadLogger m)
               => G.PatchInput -> G.UpdateTheoremInput -> Handler m G.Viewer

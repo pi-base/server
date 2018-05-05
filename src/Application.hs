@@ -80,10 +80,7 @@ makeFoundation appSettings = do
         logFunc = messageLoggerSource tempFoundation appLogger
 
     store <- flip runLoggingT logFunc $
-      initializeStore 
-        (appRepoPath      appSettings) 
-        (appDefaultBranch appSettings)
-        (appAutoPush      appSettings)
+      initializeStore $ appRepo appSettings
 
     -- Create the database connection pool
     pool <- flip runLoggingT logFunc $ createPostgresqlPool
@@ -98,7 +95,7 @@ makeFoundation appSettings = do
 
 checkEnv :: IO ()
 checkEnv = do
-  let required = ["REPO_PATH", "GITHUB_AUTH", "GITHUB_WEBHOOK_SECRET", "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"]
+  let required = ["REPO_PATH"] -- , "GITHUB_AUTH", "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"
 
   missing <- filterM (lookupEnv >=> return . isNothing) required
   when (length missing > 0) $ do

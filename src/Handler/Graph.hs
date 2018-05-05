@@ -6,7 +6,6 @@ import Control.Lens              hiding ((.=))
 import Data.Aeson.Lens
 import Graph.Root                (asJSON, interpreted)
 import Network.HTTP.Types.Status (mkStatus)
-import Util                      (pj)
 
 import qualified Data.HashMap.Strict as HM
 

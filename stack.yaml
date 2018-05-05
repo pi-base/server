@@ -1,13 +1,17 @@
 # For advanced use and comprehensive documentation of the format, please see:
 # http://docs.haskellstack.org/en/stable/yaml_configuration/
 
-resolver: lts-8.24
+resolver: lts-10.10
 
 packages:
 - '.'
 - location:
-    git: https://github.com/phadej/github.git
-    commit: 5b6b4e8d7e44e165c3558a350c667b4c1c913c7b
+    git: https://github.com/haskell-graphql/graphql-api.git
+    commit: f06c7af1bc0c9e475f88e47448218373eb9686b6
+  extra-dep: true
+- location:
+    git: https://github.com/thoughtbot/yesod-auth-oauth2.git
+    commit: 66b9b6410e92dfd4b41b5e91ff10d8cb98908b24
   extra-dep: true
 - location:
     git: https://github.com/jwiegley/gitlib.git
@@ -15,21 +19,8 @@ packages:
   subdirs:
     - gitlib-libgit2
   extra-dep: true
-- location:
-    git: https://github.com/thoughtbot/yesod-auth-oauth2.git
-    commit: 07c757aaa51f623673556099cece25f5b18ac349
-  extra-dep: true
-# - '/data/src/pi-base/graphql-api'
-- location:
-    git: https://github.com/jml/graphql-api.git
-    commit: ba407bc8aaa182aa3e98ca0cdce509231e2318ca
-  extra-dep: true
 
-extra-deps:
-- hoauth2-1.5.1
-- lens-aeson-1.0.1
-- load-env-0.1.1
-- uri-bytestring-aeson-0.1.0.4
+extra-deps: []
 
 flags: {}
 

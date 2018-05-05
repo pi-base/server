@@ -255,7 +255,10 @@ instance YesodAuth App where
 
     authPlugins app =
       let AppSettings{..} = appSettings app
-          oauth = oauth2GithubScoped ["user:email,public_repo"] appGitHubClientId appGitHubClientSecret 
+          clientId = gsClientId appGithub
+          clientSecret = gsClientSecret appGithub
+          
+          oauth = oauth2GithubScoped ["user:email,public_repo"] clientId clientSecret 
       in [oauth] ++ [authDummy | appAuthDummyLogin]
 
     authHttpManager = getHttpManager

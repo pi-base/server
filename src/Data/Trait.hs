@@ -9,7 +9,8 @@ import qualified Data.Branch as Branch
 import qualified Data.Parse as Parse
 import qualified Data.Property
 import qualified Data.Space
-import qualified Logic as L
+import qualified Data.Loader as Load
+import qualified View
 
 find :: MonadStore m 
      => Branch 
@@ -44,8 +45,14 @@ put :: (MonadStore m, MonadThrow m, MonadLogger m)
     -> CommitMeta
     -> Trait SpaceId PropertyId
     -> m View
-put branch meta trait = updateView branch meta $ \loader -> do
-  result <- L.runLogicT loader $ L.assertTrait trait
-  case result of
-    Left      err -> throw $ LogicError err
-    Right updates -> viewDeductions loader $ updates
+put branch meta trait' = updateView branch meta $ \loader -> do
+  -- TODO: for now, we're only going to validate for assertion conflicts
+  --   on the frontend and at review / merge time
+  -- result <- L.runLogicT loader $ L.assertTrait trait
+  -- case result of
+  --   Left      err -> throw $ LogicError err
+  --   Right updates -> viewDeductions loader $ updates
+  space    <- Load.space    loader $ _traitSpace    trait'
+  property <- Load.property loader $ _traitProperty trait'
+  let trait = trait' { _traitSpace = space, _traitProperty = property }
+  return $ View.build [space] [property] [trait] [] Nothing

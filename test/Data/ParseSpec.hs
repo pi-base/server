@@ -27,7 +27,7 @@ spec :: IO (TestApp App) -> IO TestTree
 spec getApp = do
   store <- appStore . fst <$> getApp
 
-  Just commit <- runM store $ Git.resolveCommittish $ CommitSha "b91cbfb12122fc4fc5379f7a9f68cc42c487aa81"
+  Just commit <- runM store $ Git.resolveCommittish $ CommitRef "master"
 
   testSpec "Data.ParseSpec" $ do
     it "can parse spaceIds" $ do

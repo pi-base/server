@@ -10,11 +10,11 @@ import Graph.Import hiding (Query, readFile)
 import Graph.Schema hiding (Error)
 
 import           Data.Attoparsec.Text
-import           Data.Either.Combinators     (rightToMaybe)
-import qualified Data.Map                    as M
-import qualified Data.Text                   as T
-import           Data.Text.IO                (readFile)
-import           GraphQL.Internal.Syntax.AST (Name(..), makeName)
+import           Data.Either.Combinators (rightToMaybe)
+import qualified Data.Map                as M
+import qualified Data.Text               as T
+import           Data.Text.IO            (readFile)
+import           GraphQL.Internal.Name   (Name(..), makeName)
 
 import Util (traverseDir)
 

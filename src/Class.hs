@@ -106,8 +106,8 @@ explainLogicError (LoadFailure e) =
 
 explainGraphError :: GraphError -> Text
 explainGraphError (ExecutionErrors errs) = "Execution errors: " <> tshow errs
-explainGraphError (QueryNotFound name) = "Could not find a query named " <> tshow name
 explainGraphError QueryNameRequired = "Query name is required"
+explainGraphError (QueryNotFound name) = "Could not find a query named " <> tshow name
 explainGraphError (QuerySerializationError e) = "Failed to serialize query: " <> T.pack e
 explainGraphError (SchemaInvalid e) = "Schema invalid: " <> tshow e
 

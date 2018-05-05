@@ -1,4 +1,18 @@
+log-level: error
+
+repo:
+  path: /tmp/pi-base-working.git
+  default-branch: master
+  auto-push: true
+  upstream: https://github.com/pi-base/data.git
+  downstream: /tmp/pi-base-downstream.git
+
+rollbar:
+  environment: test
+
 database:
-  database: "pi_base_test"
+  database: pi_base_test
+  poolsize: 5
+  host:     localhost
 
 log-requests: false

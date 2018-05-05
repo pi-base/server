@@ -9,8 +9,6 @@ module Util
   , insertNested
   , mapRightC
   , memoized
-  , pj
-  , traceC
   , traverseDir
   , unionN
   ) where
@@ -19,7 +17,6 @@ import ClassyPrelude hiding (groupBy)
 
 import           Conduit                  hiding (throwM)
 import           Data.Aeson               (ToJSON, encode)
-import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Map                 as M
 import qualified Data.Set                 as S
 import qualified Data.Text.Lazy           as TL
@@ -65,9 +62,6 @@ fetch k m = case M.lookup k m of
 encodeText :: ToJSON a => a -> Text
 encodeText = TL.toStrict . decodeUtf8 . encode
 
-pj :: ToJSON a => a -> Text
-pj = TL.toStrict . decodeUtf8 . encodePretty
-
 insertNested :: (Ord a, Ord b) => a -> b -> v -> Map a (Map b v) -> Map a (Map b v)
 insertNested a b v = M.alter add a
   where
@@ -79,8 +73,6 @@ mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
 discardLeftC :: Monad m => ConduitM (Either a b) b m ()
 discardLeftC = awaitForever $ either (const $ return ()) yield
 
-traceC :: (Monad m, Show d) => (o -> d) -> ConduitM o o m ()
-traceC f = mapC $ \x -> trace (show $ f x) x
 
 traverseDir :: (a -> FilePath -> IO a) -> FilePath -> a -> IO a
 traverseDir f top = go [top]

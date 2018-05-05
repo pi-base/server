@@ -22,7 +22,7 @@ import Yesod.Default.Config2 (useEnv, loadYamlSettings)
 import Yesod.Auth            as X
 import Yesod.Test            as X
 
-import           Data.Aeson            (ToJSON(..), Value(..), decode)
+import           Data.Aeson            (Value(..), decode)
 import qualified Data.ByteString.Lazy  as LBS
 import qualified Data.Text             as T
 import qualified Data.Text.Lazy        as TL
@@ -33,11 +33,14 @@ import qualified Test.HUnit            as H
 import           Test.Hspec.Core.Spec  (SpecM)
 import           Text.Shakespeare.Text (st)
 
+import Debug as X
+
+import Data.Store (initializeDownstream)
+import Settings   (appRepo)
+
 -- Wiping the database
 
 import Database.Persist.Sql  (SqlPersistM, runSqlPersistMPool, rawExecute, rawSql, unSingle, connEscapeName)
-
-import Util (pj)
 
 runDB :: SqlPersistM a -> YesodExample App a
 runDB query = do
@@ -55,6 +58,8 @@ buildApp = do
       useEnv
   foundation <- makeFoundation settings
   wipeDB foundation
+  -- This assumes that we're testing with downstream pointed to a local dir
+  unsafeHandler foundation $ initializeDownstream $ appRepo settings
   return (foundation, id)
 
 withApp :: SpecWith (TestApp App) -> Spec
@@ -130,9 +135,6 @@ shouldHaveKey (Object _map) key = liftIO $ H.assertBool msg (HM.member key _map)
   where msg = "Value does not contain key: " ++ T.unpack key
 shouldHaveKey _ _ = liftIO $ H.assertBool "Value is not an object" False
 
-traceJ :: (ToJSON a, Monad m) => a -> m ()
-traceJ = traceM . T.unpack . pj
-
 slow :: (Arg a ~ (), Example a) 
      => String
      -> a
@@ -145,7 +147,6 @@ slow title action = do
            putStr $ (colorize Blue "CI") <> " - "
            pass
            
-
 -- xit / pending currently count as a failure on CI
 todo :: String -> t -> SpecWith ()
 todo msg _ = it msg $ do

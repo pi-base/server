@@ -15,11 +15,11 @@ import Control.Lens (Prism', makeLenses)
 
 import Git (TreeFilePath)
 
-import qualified Data.Aeson                  as Aeson (Object)
-import qualified Data.HashMap.Strict         as HM
-import qualified GraphQL                     as GraphQL (QueryError)
-import qualified GraphQL.Internal.Output     as GraphQL (Errors)
-import qualified GraphQL.Internal.Syntax.AST as GraphQL (Name)
+import qualified Data.Aeson              as Aeson (Object)
+import qualified Data.HashMap.Strict     as HM
+import qualified GraphQL                 as GraphQL (QueryError)
+import qualified GraphQL.Internal.Name   as GraphQL (Name)
+import qualified GraphQL.Internal.Output as GraphQL (Errors)
 
 import Types.Base as X
 
@@ -27,7 +27,7 @@ type    Uid     = Text
 type    Record  = (TreeFilePath, Text)
 newtype Version = Version { unVersion :: Text } deriving (Eq, ToJSON, FromJSON)
 
-newtype Ref     = Ref Text deriving (Eq, Show)
+newtype Ref     = Ref Text deriving (Eq, Show, IsString)
 type    Sha     = Text
 data Committish = CommitRef Ref | CommitSha Sha deriving (Eq, Show)
 type BranchName = Text

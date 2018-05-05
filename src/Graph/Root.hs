@@ -41,7 +41,7 @@ handler settings = pure $ pure "Query"
   :<> assertTrait 
   :<> assertTheorem
   :<> resetBranch
-  :<> submitBranch settings
+  :<> submitBranch (appGithub settings)
   -- Hook for testing Rollbar
   :<> error "Forced error"
 

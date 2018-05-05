@@ -63,11 +63,11 @@ presentSpace Space{..} traits = pure $ pure "Space"
   :<> pure (unId spaceId)
   :<> pure spaceSlug
   :<> pure spaceName
-  :<> pure (map pure spaceAliases)
-  :<> pure (map presentCitation spaceRefs)
+  :<> pure (pure <$> spaceAliases)
+  :<> pure (presentCitation <$> spaceRefs)
   :<> pure spaceDescription
-  :<> pure spaceTopology
-  :<> pure (map presentTrait traits)
+  :<> pure (pure <$> spaceTopology)
+  :<> pure (presentTrait <$> traits)
 
 presentProperty :: Monad m => Property -> Handler m G.Property
 presentProperty Property{..} = pure $ pure "Property"
@@ -157,10 +157,10 @@ loadSpace loader s@Space{..} = pure $ pure "Space"
   :<> pure (unId spaceId)
   :<> pure spaceSlug
   :<> pure spaceName
-  :<> pure (map pure spaceAliases)
-  :<> pure (map presentCitation spaceRefs)
+  :<> pure (pure <$> spaceAliases)
+  :<> pure (presentCitation <$> spaceRefs)
   :<> pure spaceDescription
-  :<> pure spaceTopology
+  :<> pure (pure <$> spaceTopology)
   :<> loadTraits loader s
 
 loadTraits :: MonadStore m => Loader -> Space -> Handler m (List G.Trait)

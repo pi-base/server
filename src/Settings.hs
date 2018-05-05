@@ -21,58 +21,53 @@ import Yesod.Default.Config2       (applyEnvValue, configSettingsYml)
 import Yesod.Default.Util          (WidgetFileSettings, widgetFileNoReload,
                                     widgetFileReload)
 
-import qualified GitHub
+import qualified GitHub as GH
 import qualified Services.Rollbar.Types as Rollbar
+
+data RepoSettings = RepoSettings
+  { rsPath          :: FilePath
+  , rsDefaultBranch :: Text
+  , rsAutoPush      :: Bool
+  , rsUpstream      :: Text
+  , rsDownstream    :: Text
+  }
+
+data GithubSettings = GithubSettings
+  { gsToken         :: GH.Auth
+  , gsOwner         :: GH.Name GH.Owner
+  , gsRepo          :: GH.Name GH.Repo
+  , gsClientId      :: Text
+  , gsClientSecret  :: Text
+  , gsWebhookSecret :: Text
+  }
 
 -- | Runtime settings to configure this application. These settings can be
 -- loaded from various sources: defaults, environment variables, config files,
 -- theoretically even a database.
 data AppSettings = AppSettings
-    { appStaticDir              :: String
-    -- ^ Directory from which to serve static files.
-    , appDatabaseConf           :: PostgresConf
-    -- ^ Configuration settings for accessing the database.
-    , appHost                   :: HostPreference
-    -- ^ Host/interface the server should bind to.
-    , appPort                   :: Int
-    -- ^ Port to listen on
-    , appIpFromHeader           :: Bool
-    -- ^ Get the IP address from the header when logging. Useful when sitting
-    -- behind a reverse proxy.
+    { appStaticDir           :: String
+    , appDatabaseConf        :: PostgresConf
+    , appHost                :: HostPreference
+    , appPort                :: Int
+    , appIpFromHeader        :: Bool
 
-    , appReloadTemplates        :: Bool
-    -- ^ Use the reload version of templates
-    , appMutableStatic          :: Bool
-    -- ^ Assume that files in the static dir may change after compilation
-    , appSkipCombining          :: Bool
-    -- ^ Perform no stylesheet/script combining
+    , appReloadTemplates     :: Bool
+    , appMutableStatic       :: Bool
+    , appSkipCombining       :: Bool
 
-    -- Example app-specific configuration values.
-    , appCopyright              :: Text
-    -- ^ Copyright text to appear in the footer of the page
-    , appAnalytics              :: Maybe Text
-    -- ^ Google Analytics code
+    , appCopyright           :: Text
+    , appAnalytics           :: Maybe Text
 
-    , appAuthDummyLogin         :: Bool
-    -- ^ Indicate if auth dummy login should be enabled
+    , appAuthDummyLogin      :: Bool
 
-    , appRollbar                :: Rollbar.Settings
+    , appFrontendUrl         :: Text
+    , appLogLevel            :: LogLevel
+    , appTestMode            :: Bool
 
-    , appBuild                  :: Text
-    , appRepoPath               :: FilePath
-    , appAutoPush               :: Bool
-
-    , appFrontendUrl            :: Text
-    , appLogLevel               :: LogLevel
-
-    , appGitHubToken            :: GitHub.Auth
-    , appGitHubOwner            :: GitHub.Name GitHub.Owner
-    , appGitHubRepo             :: GitHub.Name GitHub.Repo
-    , appGitHubWebhookSecret    :: Text
-    , appGitHubClientId         :: Text
-    , appGitHubClientSecret     :: Text
-    , appDefaultBranch          :: Text
-    , appTestMode               :: Bool
+    , appBuild               :: Text
+    , appRepo                :: RepoSettings
+    , appRollbar             :: Rollbar.Settings
+    , appGithub              :: GithubSettings
     }
 
 instance FromJSON AppSettings where
@@ -98,30 +93,24 @@ instance FromJSON AppSettings where
 
         appAuthDummyLogin         <- o .:? "auth-dummy-login" .!= defaultDev
 
-        appRepoPath    <- o .: "repo-path"
         appFrontendUrl <- o .: "frontend-url"
-        appAutoPush    <- o .: "auto-push"
-
-        appGitHubOwner <- o .: "github-owner"
-        appGitHubRepo  <- o .: "github-repo"
-
-        appGitHubWebhookSecret <- o .: "github-webhook-secret"
-        appGitHubToken         <- (GitHub.OAuth . fromString) <$> o .: "github-auth"
-
         appLogLevel <- logLevel <$> o .: "log-level"
-
-        appGitHubClientId     <- o .: "github-client-id"
-        appGitHubClientSecret <- o .: "github-client-secret"
-
-        appDefaultBranch  <- o .: "default-branch"
-
         appTestMode <- o .: "test-mode"
 
         let appBuild = $(gitHash)
 
-        rollbarToken <- o .:? "rollbar-token"
-        rollbarEnv   <- o .: "rollbar-environment"
-        rollbarHost  <- o .: "rollbar-host"
+        repo <- o .: "repo"
+        appRepo <- RepoSettings 
+          <$> repo .: "path" .!= error "Repo path should be set in ENV at run time"
+          <*> repo .: "default-branch"
+          <*> repo .: "auto-push"
+          <*> repo .: "upstream"
+          <*> repo .: "downstream"
+
+        rollbar      <- o .: "rollbar"
+        rollbarToken <- rollbar .:? "token"
+        rollbarEnv   <- rollbar .: "environment"
+        rollbarHost  <- rollbar .: "host"
         let appRollbar = Rollbar.Settings
               { Rollbar.token       = rollbarToken
               , Rollbar.environment = rollbarEnv
@@ -130,14 +119,24 @@ instance FromJSON AppSettings where
               , Rollbar.build       = appBuild
               }
 
+        gh <- o .: "github"
+        appGithub <- GithubSettings
+          <$> fmap (GH.OAuth . fromString) (gh .: "token")
+          <*> gh .: "owner"
+          <*> gh .: "repo"
+          <*> gh .: "client-id"
+          <*> gh .: "client-secret"
+          <*> gh .: "webhook-secret"
+
         return AppSettings {..}
+
 
 logLevel :: String -> LogLevel
 logLevel "error" = LevelError
-logLevel "warn" = LevelWarn
-logLevel "info" = LevelInfo
+logLevel "warn"  = LevelWarn
+logLevel "info"  = LevelInfo
 logLevel "debug" = LevelDebug
-logLevel other = LevelOther $ T.pack other
+logLevel other   = LevelOther $ T.pack other
 
 -- | Settings for 'widgetFile', such as which template languages to support and
 -- default Hamlet settings.

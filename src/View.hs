@@ -47,7 +47,7 @@ build :: [Space]
       -> [Property]
       -> [Trait Space Property]
       -> [Theorem Property]
-      -> Version
+      -> Maybe Version
       -> View
 build ss ps ts is version = View
   { _viewSpaces     = indexBy spaceId ss
@@ -55,5 +55,5 @@ build ss ps ts is version = View
   , _viewTraits     = M.map (indexBy _traitProperty) $ groupBy _traitSpace $ map identifyTrait ts
   , _viewTheorems   = indexBy theoremId $ map (fmap propertyId) is
   , _viewProofs     = mempty
-  , _viewVersion    = Just version
+  , _viewVersion    = version
   }

@@ -6,10 +6,11 @@ module Data.Theorem
   ) where
 
 import           Core
-import           Data  (findParsed, makeId, required, updateView, viewDeductions)
+import           Data  (findParsed, makeId, required, updateView)
 import qualified Data.Parse as Parse
 import qualified Data.Property
-import qualified Logic as L
+import qualified Data.Loader as Load
+import qualified View
 
 find :: MonadStore m => Branch -> TheoremId -> m (Maybe (Theorem Property))
 find branch _id = findParsed Parse.theorem branch _id >>= \case
@@ -31,14 +32,16 @@ put :: (MonadStore m, MonadLogger m)
 put branch meta theorem' = do
   theorem <- assignId theorem'
   updateView branch meta $ \loader -> do
-    $(logDebug) $ "Asserting " <> tshow (theoremImplication theorem)
-    result <- L.runLogicT loader $ L.assertTheorem theorem
-    $(logDebug) $ "Assertion yielded: " <> tshow result
-    case result of
-      Left      err -> throw $ LogicError err
-      Right updates -> do
-        view <- viewDeductions loader updates
-        return view
+    -- $(logDebug) $ "Asserting " <> tshow (theoremImplication theorem)
+    -- result <- L.runLogicT loader $ L.assertTheorem theorem
+    -- $(logDebug) $ "Assertion yielded: " <> tshow result
+    -- case result of
+    --   Left      err -> throw $ LogicError err
+    --   Right updates -> do
+    --     view <- viewDeductions loader updates
+    --     return view
+    loaded <- mapM (Load.property loader) theorem
+    return $ View.build [] [] [] [loaded] Nothing
 
 assignId :: MonadIO m => Theorem p -> m (Theorem p)
 assignId t = if theoremId t == pending

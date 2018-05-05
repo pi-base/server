@@ -4,10 +4,9 @@ module Graph.Common
   , mkConfig
   , login
   , runGraph
-  , traceJ
   ) where
 
-import TestImport (App(..), TestApp, traceJ)
+import TestImport (App(..), TestApp)
 
 import           Control.Monad.Logger     (MonadLogger(..))
 import           Database.Persist.Sql     (ConnectionPool, Entity(..), runSqlPool)

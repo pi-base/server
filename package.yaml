@@ -109,6 +109,11 @@ executables:
     dependencies:
     - base
     - pi-base-server
+    # TODO: yesod devel seems not to require these, but running the _tests_ 
+    # fails to build if they aren't included. The tests probably shouldn't
+    # need to build this at all.
+    - foreign-store
+    - warp
     when:
     - condition: flag(library-only)
       buildable: false
