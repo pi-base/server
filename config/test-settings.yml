@@ -1,11 +1,11 @@
 log-level: error
 
 repo:
-  path: /tmp/pi-base-working.git
+  path: /tmp/pi-base-test-repo.git
   default-branch: master
   auto-push: true
   upstream: https://github.com/pi-base/data.git
-  downstream: /tmp/pi-base-downstream.git
+  downstream: /tmp/pi-base-test-downstream.git
 
 rollbar:
   environment: test

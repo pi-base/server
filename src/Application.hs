@@ -33,7 +33,7 @@ import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
 
 import           Data       (initializeStore)
 import qualified Data.Branch
-import           Data.Store (Store)
+import           Data.Store (Store, initializeDownstream)
 import           Logging    (makeLogWare)
 
 -- Import all relevant handler modules here.
@@ -79,9 +79,14 @@ makeFoundation appSettings = do
           (error "store forced in tempFoundation")
         logFunc = messageLoggerSource tempFoundation appLogger
 
-    store <- flip runLoggingT logFunc $
-      initializeStore $ appRepo appSettings
-
+    -- Set up the git repo(s)
+    store <- flip runLoggingT logFunc $ do
+      s <- initializeStore $ appRepo appSettings
+      -- In test modes, we have a local "downstream" repo
+      when (appTestMode appSettings) $
+        initializeDownstream $ appRepo appSettings
+      return s
+    
     -- Create the database connection pool
     pool <- flip runLoggingT logFunc $ createPostgresqlPool
         (pgConnStr  $ appDatabaseConf appSettings)
