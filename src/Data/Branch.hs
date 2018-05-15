@@ -87,7 +87,7 @@ commit branch = do
 
 userBranch :: Entity User -> Branch
 userBranch (Entity _id User{..}) = Branch 
-  { branchName    = "users/" <> userName
+  { branchName    = "users/" <> userEmail
   , branchOwnerId = Just _id
   }
 

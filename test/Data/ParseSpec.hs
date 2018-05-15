@@ -32,7 +32,7 @@ spec getApp = do
   testSpec "Data.ParseSpec" $ do
     it "can parse spaceIds" $ do
       ids <- runM store $ sourceToList $ spaceIds commit
-      length ids `shouldBe` 143
+      length ids `shouldBe` 135
 
     it "can parse a space object" $ do
       Right s <- runM store $ space commit $ Id "S000001"

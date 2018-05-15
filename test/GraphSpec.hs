@@ -83,24 +83,24 @@ spec getApp = do
 
         let branches = buildMap (key "name" . _String) (key "access" . _String) $ user ^.. key "me" . key "branches" . values . _Value
 
-        M.lookup "users/test" branches `shouldBe` Just "admin"
+        M.lookup testBranch branches `shouldBe` Just "admin"
         M.lookup "master" branches `shouldBe` Just "read"
 
     describe "branches" $ do
       it "can reset user owned branches" $ do
         result <- mutation "ResetBranch" $
                     [ "input" .= object
-                      [ "branch" .= ("users/test" :: Text)
+                      [ "branch" .= (testBranch :: Text)
                       , "to"     .= ("master" :: Text)
                       ]
                     ]
-        result ^. key "resetBranch" . key "branch" . _String `shouldBe` "users/test"
+        result ^. key "resetBranch" . key "branch" . _String `shouldBe` testBranch
 
       it "cannot reset system branches" $ do
         result <- mutation' "ResetBranch" $
               [ "input" .= object
                 [ "branch" .= ("master" :: Text)
-                , "to"     .= ("users/test" :: Text)
+                , "to"     .= (testBranch :: Text)
                 ]
               ]
         let (Left (PermissionError (BranchPermission required))) = result
@@ -111,7 +111,7 @@ spec getApp = do
         result <- query "Viewer" $ [ "version" .= initial ]
 
         let spaceIds = result ^.. key "viewer" . key "spaces" . values . key "uid" . _String
-        length spaceIds `shouldSatisfy` (>= 143)
+        length spaceIds `shouldSatisfy` (>= 135)
 
         let propIds = result ^.. key "viewer" . key "properties" . values . key "uid" . _String
         length propIds `shouldSatisfy` (>= 100)
@@ -120,11 +120,11 @@ spec getApp = do
         length theoremIds `shouldSatisfy` (>= 200)
 
       it "can add a space" $ do
-        resetBranch "users/test" initial
+        resetBranch testBranch initial
 
         result <- mutation "CreateSpace" $
                     [ "patch" .= object
-                      [ "branch" .= ("users/test" :: Text)
+                      [ "branch" .= (testBranch :: Text)
                       , "sha"    .= initial
                       ]
                     , "space" .= object
@@ -138,11 +138,11 @@ spec getApp = do
         names `shouldBe` ["New Space"]
 
       it "can assert a trait" $ do
-        resetBranch "users/test" initial
+        resetBranch testBranch initial
 
         s <- mutation "CreateSpace" $
                [ "patch" .= object
-                 [ "branch" .= ("users/test" :: Text)
+                 [ "branch" .= (testBranch :: Text)
                  , "sha"    .= initial
                  ]
                , "space" .= object
@@ -161,7 +161,7 @@ spec getApp = do
         -- S |= compact
         t1 <- mutation "AssertTrait" $
                 [ "patch" .= object
-                  [ "branch" .= ("users/test" :: Text)
+                  [ "branch" .= (testBranch :: Text)
                   , "sha"    .= v1
                   ]
                 , "trait" .= object
@@ -185,7 +185,7 @@ spec getApp = do
         -- S |= ~metrizable
         t2 <- mutation "AssertTrait" $
                 [ "patch" .= object
-                  [ "branch" .= ("users/test" :: Text)
+                  [ "branch" .= (testBranch :: Text)
                   , "sha"    .= v2
                   ]
                 , "trait" .= object
@@ -203,11 +203,11 @@ spec getApp = do
         -- M.lookup locallyMetrizable ps2 `shouldBe` Just False
 
       it "can assert a theorem" $ do
-        resetBranch "users/test" initial
+        resetBranch testBranch initial
 
         p <- mutation "CreateProperty"
                 [ "patch" .= object
-                  [ "branch" .= ("users/test" :: Text)
+                  [ "branch" .= (testBranch :: Text)
                   , "sha"    .= initial
                   ]
                 , "property" .= object
@@ -223,7 +223,7 @@ spec getApp = do
         -- compact => P
         t1 <- mutation "AssertTheorem"
                 [ "patch" .= object
-                  [ "branch" .= ("users/test" :: Text)
+                  [ "branch" .= (testBranch :: Text)
                   , "sha"    .= v1
                   ]
                 , "theorem" .= object
@@ -248,7 +248,7 @@ spec getApp = do
         -- P => metacompact
         t2 <- mutation "AssertTheorem"
                 [ "patch" .= object
-                  [ "branch" .= ("users/test" :: Text)
+                  [ "branch" .= (testBranch :: Text)
                   , "sha"    .= v2
                   ]
                 , "theorem" .= object
@@ -270,10 +270,10 @@ spec getApp = do
 
     describe "validation" $ do
       it "handles missing fields" $ do
-        resetBranch "users/test" initial
+        resetBranch testBranch initial
         result <- mutation' "CreateSpace" $
                     [ "patch" .= object
-                      [ "branch" .= ("users/test" :: Text)
+                      [ "branch" .= (testBranch :: Text)
                       , "sha"    .= initial
                       ]
                     , "space" .= object
@@ -284,10 +284,10 @@ spec getApp = do
         show errs `shouldInclude` "Could not coerce Name"
 
       todo "handles validation errors" $ do
-        resetBranch "users/test" initial
+        resetBranch testBranch initial
         r1 <- mutation "CreateSpace" $
               [ "patch" .= object
-                [ "branch" .= ("users/test" :: Text)
+                [ "branch" .= (testBranch :: Text)
                 , "sha"    .= initial
                 ]
               , "space" .= object
@@ -300,7 +300,7 @@ spec getApp = do
 
         r2 <- mutation' "CreateSpace" $
               [ "patch" .= object
-                [ "branch" .= ("users/test" :: Text)
+                [ "branch" .= (testBranch :: Text)
                 , "sha"    .= v1
                 ]
               , "space" .= object
@@ -313,10 +313,10 @@ spec getApp = do
         msg `shouldBe` ValidationMessage "uid is taken"
 
       it "handles branch mis-matches" $ do
-        resetBranch "users/test" initial
+        resetBranch testBranch initial
         result <- mutation' "CreateSpace" $
                     [ "patch" .= object
-                      [ "branch" .= ("users/test" :: Text)
+                      [ "branch" .= (testBranch :: Text)
                       , "sha"    .= ("mismatch" :: Text)
                       ]
                     , "space" .= object
@@ -331,6 +331,9 @@ spec getApp = do
 
 testUser :: User
 testUser = User "github:1234" "test" "test@example.com" "xxx"
+
+testBranch :: Text
+testBranch = "users/" <> userEmail testUser
 
 compact, metacompact, metrizable :: Text
 compact           = "P000016"
