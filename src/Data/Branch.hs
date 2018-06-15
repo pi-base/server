@@ -4,7 +4,6 @@ module Data.Branch
   , claimUserBranches
   , commit
   , ensureBaseBranch
-  , ensureBranch
   , ensureUserBranch
   , find
   , headSha
@@ -16,7 +15,7 @@ import Data.Attoparsec.Text
 import Database.Esqueleto
 import Database.Persist (selectList)
 
-import           Core
+import           Core hiding (on, isNothing)
 import qualified Data.Git as Git
 import qualified Data.Map.Strict as M
 import           Git
@@ -28,17 +27,19 @@ import           Model        (Unique(..))
 type Name = Text
 type OwnerName = Text
 
-find :: MonadDB m => Text -> m (Maybe Branch)
-find name = do
-  meb <- db . getBy $ UniqueBranchName name
-  return $ entityVal <$> meb
+find :: MonadDB m => Text -> m (Maybe (Entity Branch))
+find = db . getBy . UniqueBranchName
 
-access :: MonadDB m => Entity User -> Branch -> m (Maybe BranchAccess)
-access (Entity _id _) Branch{..} = return $ case branchOwnerId of
-  Nothing -> Just BranchRead
-  Just ownerId -> if ownerId == _id
-    then Just BranchAdmin
-    else Nothing
+access :: MonadDB m => Entity User -> Entity Branch -> m (Maybe BranchAccess)
+access (Entity userId _) (Entity branchId Branch{..}) = case branchOwnerId of
+  Nothing -> return $ Just BranchRead
+  Just ownerId -> if ownerId == userId
+    then return $ Just BranchAdmin
+    else do
+      mub <- db $ getBy $ UniqueUserBranch userId branchId
+      case mub of
+        Just (Entity _ ub) -> return $ Just $ userBranchRole ub
+        _ -> return Nothing
 
 all :: MonadDB m => m [Branch]
 all = do
@@ -46,19 +47,24 @@ all = do
   return $ map entityVal entities
 
 userBranches :: (MonadDB m, MonadStore m) => Entity User -> m [BranchStatus]
-userBranches (Entity _id _) = all >>= foldM f []
+userBranches (Entity _id _) = do
+  grantedPairs <- db $ select $
+    from $ \(branch `InnerJoin` ub) -> do
+    on (branch ^. BranchId ==. ub ^. UserBranchBranchId)
+    where_ $ ub ^. UserBranchUserId ==. val _id
+    return (branch, ub ^. UserBranchRole)
+  unowned <- db $ select $
+    from $ \branch -> do
+    where_ $ isNothing $ branch ^. BranchOwnerId
+    return branch
+  granted <- forM grantedPairs $ \(Entity _ branch, Value role) -> build branch role
+  public  <- forM unowned $ \(Entity _ branch) -> build branch BranchRead
+  return $ public ++ granted
   where
-    f :: MonadStore m => [BranchStatus] -> Branch -> m [BranchStatus]
-    f acc branch = case branchOwnerId branch of
-      Nothing -> (: acc) <$> build branch BranchRead
-      Just ownerId -> if ownerId == _id
-        then (: acc) <$> build branch BranchAdmin
-        else return acc
-
-    build :: MonadStore m => Branch -> BranchAccess -> m BranchStatus
-    build branch role = do
-      sha <- Git.headSha branch
-      return $ BranchStatus branch sha role
+    build :: (MonadDB m, MonadStore m) => Branch -> BranchAccess -> m BranchStatus
+    build b r = do
+      sha <- Git.headSha b
+      return $ BranchStatus b sha r
 
 claimUserBranches :: (MonadDB m, MonadStore m) => m ()
 claimUserBranches = do
@@ -66,9 +72,12 @@ claimUserBranches = do
   ownerMap <- buildOwnerMap . catMaybes $ map snd names
 
   forM_ names $ \(name, mownerName) -> do
-    let ownerId = mownerName >>= \ownerName -> M.lookup ownerName ownerMap
-    when (isJust ownerId) $ void $
-      findOrCreate (UniqueBranchName . branchName) $ Branch name ownerId
+    let mownerId = mownerName >>= \ownerName -> M.lookup ownerName ownerMap
+    case mownerId of
+      Nothing -> return ()
+      Just ownerId -> void $ do
+        (Entity branchId _) <- findOrCreate (UniqueBranchName . branchName) $ Branch name (Just ownerId)
+        findOrCreate (\UserBranch{..} -> UniqueUserBranch userBranchUserId userBranchBranchId) $ UserBranch ownerId branchId BranchAdmin
   where
     buildOwnerMap :: MonadDB m => [OwnerName] -> m (M.Map OwnerName UserId)
     buildOwnerMap names = do
@@ -103,7 +112,10 @@ ensureBranch branch = do
   repsertBy (UniqueBranchName . branchName) branch
 
 ensureUserBranch :: (MonadDB m, MonadStore m) => Entity User -> m (Entity Branch)
-ensureUserBranch = ensureBranch . userBranch
+ensureUserBranch user = do
+  branch <- ensureBranch $ userBranch user
+  _ <- findOrCreate (\UserBranch{..} -> UniqueUserBranch userBranchUserId userBranchBranchId) $ UserBranch (entityKey user) (entityKey branch) BranchAdmin
+  return branch
 
 ensureBaseBranch :: (MonadDB m, MonadStore m) => m (Entity Branch)
 ensureBaseBranch = do

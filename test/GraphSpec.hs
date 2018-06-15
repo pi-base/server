@@ -11,7 +11,6 @@ import TestImport hiding (request)
 import           Control.Lens       hiding ((.=))
 import           Data.Aeson         (Value(..), (.=), object)
 import           Data.Aeson.Lens
-import           Data.List          (nub)
 import qualified Data.Map           as M
 import qualified Data.Monoid
 

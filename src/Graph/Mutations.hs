@@ -193,5 +193,5 @@ requireBranchAccess name minLevel = do
     Just access -> do
       unless (access >= minLevel) $
         throw $ PermissionError $ BranchPermission minLevel
-      return (user, branch)
+      return (user, entityVal branch)
     _ -> throw $ PermissionError $ BranchPermission minLevel

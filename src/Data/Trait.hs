@@ -4,7 +4,7 @@ module Data.Trait
   ) where
 
 import           Core
-import           Data  (required, updateView, viewDeductions)
+import           Data  (required, updateView)
 import qualified Data.Branch as Branch
 import qualified Data.Parse as Parse
 import qualified Data.Property

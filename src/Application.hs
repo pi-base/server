@@ -143,7 +143,7 @@ warpSettings foundation =
 
 setupBranches :: Handler ()
 setupBranches = do
-  $(logDebug) "Setting up branches"
+  $(logInfo) "Setting up branches"
   void Data.Branch.ensureBaseBranch
   void Data.Branch.claimUserBranches
 

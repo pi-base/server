@@ -25,4 +25,4 @@ UserBranch
   branchId BranchId
   role BranchAccess
   UniqueUserBranch userId branchId
-  deriving Typeable
+  deriving Typeable Show

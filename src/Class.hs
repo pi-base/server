@@ -61,6 +61,7 @@ deriving instance Show View
 deriving instance Show LogicError
 deriving instance Show Error
 deriving instance Show Branch
+deriving instance Show BranchStatus
 
 instance Exception Error
 instance Exception [Error]
