@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Services.Rollbar
-  ( Level(..)
+  ( HasRollbar(..)
+  , Level(..)
   , Report(..)
   , Settings(..)
   , send
@@ -23,6 +24,9 @@ data Report = Report
   , user    :: Maybe (Entity User)
   , custom  :: Maybe Object
   }
+
+class MonadIO m => HasRollbar m where
+  rollbar :: Level -> Text -> [(Text, Value)] -> m ()
 
 report :: Report
 report = Report

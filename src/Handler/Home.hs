@@ -23,7 +23,7 @@ postHooksR = do
   pullRequest <- webhookHandler
   result      <- checkPullRequest pullRequest
   let version = (maybe "??" unVersion . _viewVersion) <$> result
-  either throw returnJson version
+  either throwIO returnJson version
 
 activeToken :: UserId -> Handler Token
 activeToken userId = do

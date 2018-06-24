@@ -11,11 +11,13 @@ module Data.Branch
   , userBranches
   ) where
 
+import Protolude hiding (all, find, from, head, on, isNothing)
+
 import Data.Attoparsec.Text
 import Database.Esqueleto
 import Database.Persist (selectList)
 
-import           Core hiding (on, isNothing)
+import           Core
 import qualified Data.Git as Git
 import qualified Data.Map.Strict as M
 import           Git
@@ -91,8 +93,8 @@ commit :: MonadStore m => Branch -> m (Commit LgRepo)
 commit branch = do
   head <- Git.resolveCommittish . CommitRef $ Ref $ branchName branch
   case head of
-    Just c -> return c
-    Nothing -> throw $ UnknownGitRef $ Ref $ branchName branch
+    Just c  -> return c
+    Nothing -> notFound "Branch" $ branchName branch
 
 userBranch :: Entity User -> Branch
 userBranch (Entity _id User{..}) = Branch 

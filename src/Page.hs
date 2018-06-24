@@ -6,6 +6,8 @@ module Page
   , withFrontmatter
   ) where
 
+import Protolude
+
 import           Control.Monad.Writer    (execWriter, tell)
 import           Control.Lens            hiding ((.=))
 import qualified Data.Aeson.Types        as Aeson
@@ -17,16 +19,15 @@ import qualified Data.Yaml               as Y
 
 import Core
 
-
 withFrontmatter :: (Y.Object -> Y.Parser a)
                 -> (TreeFilePath, Text)
-                -> Either Error a
-withFrontmatter parser (path, content) = mapLeft (ParseError path) $ do
+                -> Either ParseError a
+withFrontmatter parser (path, content) = mapLeft (ParseError path . T.pack) $ do
   frontmatter <- flip parseOnly content $ "---\n" *> manyTill anyChar "---\n"
   metadata    <- Y.decodeEither $ encodeUtf8 $ T.pack frontmatter
   Y.parseEither parser metadata
 
-parse :: Page a -> (TreeFilePath, Text) -> Either Error a
+parse :: Page a -> (TreeFilePath, Text) -> Either ParseError a
 parse (Page p) (path, content) =
   parseData (path, content) >>= \page -> case page ^? p of
     Just a  -> Right a
@@ -40,8 +41,8 @@ build t f' = Page $ prism t f
   where
     f p = mapLeft (const p) $ Aeson.parseEither f' p
 
-parseData :: Record -> Either Error PageData
-parseData (path, content) = mapLeft (ParseError path) $ do
+parseData :: Record -> Either ParseError PageData
+parseData (path, content) = mapLeft (ParseError path . T.pack) $ do
   (header, body) <- pullFrontmatter content
   front <- Y.decodeEither $ encodeUtf8 header
   (main, sections) <- parseSections body
@@ -61,13 +62,13 @@ writeData PageData{..} = (,) pagePath . execWriter $ do
 
 -- TODO: replace manyTill w/ text-based parsers where possible
 
-pullFrontmatter :: Text -> Either String (Text, Text)
+pullFrontmatter :: Text -> Either [Char] (Text, Text)
 pullFrontmatter text = flip parseOnly text $ do
   fm   <- "---\n" *> manyTill anyChar "---\n"
   rest <- takeText
   return (T.pack fm, rest)
 
-parseSections :: Text -> Either String (Text, [(Text, Text)])
+parseSections :: Text -> Either [Char] (Text, [(Text, Text)])
 parseSections body = flip parseOnly body $ do
   main_    <- manyTill anyChar endSection
   sections <- many' section
@@ -82,13 +83,13 @@ parseSections body = flip parseOnly body $ do
       body_ <- manyTill anyChar endSection
       return (t title, t body_)
 
-    t :: String -> Text
+    t :: [Char] -> Text
     t = T.strip . T.pack
 
-updateMetadata :: ((TreeFilePath, Aeson.Value) -> Either String (TreeFilePath, Aeson.Value))
+updateMetadata :: ((TreeFilePath, Aeson.Value) -> Either [Char] (TreeFilePath, Aeson.Value))
                -> (TreeFilePath, Text)
-               -> Either Error (TreeFilePath, Text)
-updateMetadata f (path, content) = mapLeft (ParseError path) $ do
+               -> Either ParseError (TreeFilePath, Text)
+updateMetadata f (path, content) = mapLeft (ParseError path . T.pack) $ do
   (header, body)    <- pullFrontmatter content
   front             <- Y.decodeEither $ encodeUtf8 header
   (path', content') <- f (path, front)

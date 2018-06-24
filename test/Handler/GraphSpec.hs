@@ -7,17 +7,12 @@ import           Data.Aeson
 import           Data.Aeson.Lens
 import qualified Data.Aeson.Types     as Aeson
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text            as T
 import           Network.HTTP.Types.Method
 
 import Handler.Helpers (ensureUser, ensureToken)
 
 testUser :: User
 testUser = User "github:5678" "graphtest" "graphtest@example.com" "github-token-xxx"
-
-userNamed :: String -> User
-userNamed name' = User ("github:" <> name) name (name <> "@example.com") ("token-" <> name)
-  where name = T.pack name'
 
 spec :: IO (TestApp App) -> IO TestTree
 spec getApp = do
@@ -70,7 +65,7 @@ query token q = do
   body <- checkResponse
   return $ encode $ body ^. key "data" . _Object
 
-checkResponse :: StateT (YesodExampleData site) IO LBS.ByteString
+checkResponse :: SIO (YesodExampleData site) LBS.ByteString
 checkResponse = do
   body <- getResponseBody
   assertEq "errors" [] $ body ^.. key "errors" . values . key "message" . _String

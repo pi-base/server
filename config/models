@@ -18,7 +18,7 @@ Branch
   name Text
   ownerId UserId Maybe
   UniqueBranchName name
-  deriving Typeable
+  deriving Typeable Show
 
 UserBranch
   userId UserId

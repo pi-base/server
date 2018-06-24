@@ -13,7 +13,9 @@ module Data.Parse
   , blobs
   ) where
 
+import Protolude hiding (throwIO)
 import Conduit
+import qualified Data.ByteString.Char8 as BS8
 import Data.Attoparsec.Text hiding (space)
 import Git
 
@@ -25,15 +27,15 @@ import qualified Page.Space
 import qualified Page.Theorem
 import qualified Page.Trait
 
-space :: MonadStore m => Commit LgRepo -> SpaceId -> m (Either Error Space)
+space :: MonadStore m => Commit LgRepo -> SpaceId -> m Space
 space commit sid = load commit path Page.Space.page
   where path = "spaces/" <> unId sid <> "/README.md"
 
-property :: MonadStore m => Commit LgRepo -> PropertyId -> m (Either Error Property)
+property :: MonadStore m => Commit LgRepo -> PropertyId -> m Property
 property commit pid = load commit path Page.Property.page
   where path = "properties/" <> unId pid <> ".md"
 
-theorem :: MonadStore m => Commit LgRepo -> TheoremId -> m (Either Error (Theorem PropertyId))
+theorem :: MonadStore m => Commit LgRepo -> TheoremId -> m (Theorem PropertyId)
 theorem commit tid = load commit path Page.Theorem.page
   where path = "theorems/" <> unId tid <> ".md"
 
@@ -41,7 +43,7 @@ trait :: MonadStore m
       => Commit LgRepo
       -> SpaceId
       -> PropertyId
-      -> m (Either Error (Trait SpaceId PropertyId))
+      -> m (Trait SpaceId PropertyId)
 trait commit sid pid = load commit path Page.Trait.page
   where path = "spaces/" <> unId sid <> "/properties/" <> unId pid <> ".md"
 
@@ -66,14 +68,14 @@ spaceTraitIds _id commit = sourceCommitEntries commit ["spaces", encodeUtf8 (unI
                         .| parsePath traitIdParser
                         .| mapC snd
 
-load :: MonadStore m => Commit LgRepo -> Text -> Page a -> m (Either Error a)
+load :: MonadStore m => Commit LgRepo -> Text -> Page a -> m a
 load commit path page = do
   tree <- lookupTree $ commitTree commit
   treeEntry tree (encodeUtf8 path) >>= \case
     Just (BlobEntry oid _) -> do
       blob <- catBlobUtf8 oid
-      return $ Page.parse page (encodeUtf8 path, blob)
-    _ -> return . Left $ NotFound $ NotFoundError "Tree" path
+      either throwIO return $ Page.parse page (encodeUtf8 path, blob)
+    _ -> notFound "Tree" path
 
 parsePath :: Monad m => Parser a -> ConduitM (TreeFilePath, b) a m ()
 parsePath parser = awaitForever $ \(path, _) -> case parseOnly parser (decodeUtf8 path) of
@@ -109,13 +111,16 @@ sourceCommitEntries :: MonadGit r m
                     -> [TreeFilePath]
                     -> ConduitM i (TreeFilePath, TreeEntry r) m ()
 sourceCommitEntries commit path = do
-  edir <- lift $ do
+  mdir <- lift $ do
     tree <- lookupTree $ commitTree commit
     getDir tree path
-  case edir of
-    Left    _ -> return ()
-    Right dir -> sourceTreeEntries dir 
-      .| mapC (\(p,t) -> (intercalate "/" (path ++ [p]), t))
+  case mdir of
+    Nothing  -> return ()
+    Just dir -> sourceTreeEntries dir 
+      .| mapC (\(p,t) -> (format p, t))
+  where 
+    format :: TreeFilePath -> TreeFilePath
+    format part = BS8.intercalate "/" $ path ++ [part]
 
 blobs :: MonadGit r m => ConduitM (TreeFilePath, TreeEntry r) (TreeFilePath, Text) m ()
 blobs = awaitForever $ \(path, entry) -> case entry of

@@ -6,15 +6,17 @@ module Graph.Queries.Cache
   , Graph.Queries.Cache.query
   ) where
 
-import Graph.Import hiding (Query, readFile)
+import Protolude
+
 import Graph.Schema hiding (Error)
+import GraphQL
 
 import           Data.Attoparsec.Text
-import           Data.Either.Combinators (rightToMaybe)
-import qualified Data.Map                as M
-import qualified Data.Text               as T
-import           Data.Text.IO            (readFile)
-import           GraphQL.Internal.Name   (Name(..), makeName)
+import qualified Data.Map              as M
+import qualified Data.Text             as T
+import           Data.Text.IO          (readFile)
+import           GraphQL.Internal.Name (Name(..), makeName)
+import           UnliftIO
 
 import Util (traverseDir)
 
@@ -27,13 +29,13 @@ data Cache = Cache
   , queries :: IORef (Map Name Query)
   }
 
-mkCache :: (MonadBase IO m, MonadIO m) => Schema -> FilePath -> m Cache
+mkCache :: MonadIO m => Schema -> FilePath -> m Cache
 mkCache schema root = Cache 
   <$> pure root
   <*> pure schema
   <*> newIORef mempty
 
-loadAll :: (MonadBase IO m, MonadIO m) => Cache -> m (Map FilePath CacheError)
+loadAll :: MonadIO m => Cache -> m (Map FilePath CacheError)
 loadAll cache = liftIO $ traverseDir f (root cache) mempty
   where
     f :: Map FilePath CacheError -> FilePath -> IO (Map FilePath CacheError)
@@ -45,7 +47,7 @@ loadAll cache = liftIO $ traverseDir f (root cache) mempty
           Left err -> return $ M.insert path (CompilationError err) acc
           Right  _ -> return $ acc
 
-query :: (MonadBase IO m, MonadIO m) => Cache -> Name -> m (Maybe Query)
+query :: MonadIO m => Cache -> Name -> m (Maybe Query)
 query cache name = do
   qs <- readIORef (queries cache)
   case M.lookup name qs of
@@ -54,12 +56,12 @@ query cache name = do
       let path = root cache ++ "/" ++ (T.unpack $ unName name) ++ ".gql"
       in rightToMaybe <$> load cache name path
 
-mutation :: (MonadBase IO m, MonadIO m) => Cache -> Name -> m (Maybe Query)
+mutation :: MonadIO m => Cache -> Name -> m (Maybe Query)
 mutation = Graph.Queries.Cache.query -- for now at least
 
 -- Helpers
 
-load :: (MonadBase IO m, MonadIO m) 
+load :: MonadIO m
      => Cache 
      -> Name
      -> FilePath 
@@ -72,7 +74,7 @@ load Cache{..} name path = do
       modifyIORef' queries $ M.insert name q
       return $ Right q
 
-parseName :: FilePath -> String -> Maybe Name
+parseName :: FilePath -> [Char] -> Maybe Name
 parseName root str = do
   let parser = do
         _ <- string (T.pack root)

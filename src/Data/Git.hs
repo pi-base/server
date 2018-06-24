@@ -16,6 +16,7 @@ module Data.Git
   , writePages
   ) where
 
+import Protolude
 import Core
 import Model (User(..))
 
@@ -44,23 +45,22 @@ updateBranch branch meta handler = do
 
 fetchRef :: MonadStore m => Ref -> m (Oid LgRepo)
 fetchRef ref = resolveReference (refHead ref) >>= \case
-  Nothing -> throwM $ UnknownGitRef ref
+  Nothing    -> notFound "Ref" ref
   Just found -> return found
 
 commitSha :: Commit LgRepo -> Sha
 commitSha cmt = case commitOid cmt of
-  (Tagged oid) -> tshow oid
+  (Tagged oid) -> show oid
 
-cd :: (MonadGit r m) => Tree r -> TreeFilePath -> m (Either Error (Tree r))
-cd tree path = treeEntry tree path >>= \case
-  Just (TreeEntry _id) -> lookupTree _id >>= return . Right
-  _ -> return . Left $ NotATree path
-
-getDir :: MonadGit r m => Tree r -> [TreeFilePath] -> m (Either Error (Tree r))
-getDir tree = foldM cd' $ Right tree
+getDir :: MonadGit r m => Tree r -> [TreeFilePath] -> m (Maybe (Tree r))
+getDir = foldM cd . Just
   where
-    cd' :: MonadGit r m => Either Error (Tree r) -> TreeFilePath -> m (Either Error (Tree r))
-    cd' etree path = either (return . Left) (flip cd path) etree
+    cd :: MonadGit r m => Maybe (Tree r) -> TreeFilePath -> m (Maybe (Tree r))
+    cd mtree path = case mtree of
+      Just tree -> treeEntry tree path >>= \case
+        Just (TreeEntry _id) -> Just <$> lookupTree _id
+        _ -> return Nothing
+      _ -> return Nothing
 
 branchRef :: Branch -> Ref
 branchRef = Ref . branchName
@@ -72,7 +72,7 @@ branchExists branch = do
 
 createBranchFromBase :: MonadStore m => Branch -> Ref -> m ()
 createBranchFromBase new base = lookupReference (refHead base) >>= \case
-  Nothing -> throwM $ UnknownGitRef base
+  Nothing -> notFound "Branch" base
   Just b  -> createReference (refHead $ branchRef new) b
 
 commitFromLabel :: MonadStore m => Maybe Text -> m (Commit LgRepo)
@@ -122,11 +122,11 @@ writePages pages = forM_ pages $ \(path, contents) ->
 refHead :: Ref -> Text
 refHead (Ref name) = "refs/heads/" <> name
 
-headSha :: MonadGit LgRepo m => Branch -> m Sha
+headSha :: (MonadIO m, MonadGit LgRepo m) => Branch -> m Sha
 headSha Branch{..} = do
   found <- lookupCommittish $ CommitRef $ Ref branchName
   case found of
-    Just oid -> return $ tshow oid
+    Just oid -> return $ show oid
     Nothing -> notFound "branch" branchName
 
 lookupCommittish :: MonadGit LgRepo m => Committish -> m (Maybe (Oid LgRepo))
@@ -141,6 +141,3 @@ resolveCommittish c = do
     Just oid -> do
       commit <- lookupCommit $ Tagged oid
       return $ Just commit
-
-notFound :: (MonadThrow m, Show a) => Text -> a -> m b
-notFound resource ident = throw $ NotFound $ NotFoundError resource $ tshow ident

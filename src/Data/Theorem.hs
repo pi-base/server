@@ -5,6 +5,8 @@ module Data.Theorem
   , put
   ) where
 
+import Protolude hiding (find, put)
+
 import           Core
 import           Data  (findParsed, makeId, required, updateView)
 import qualified Data.Parse as Parse
@@ -18,7 +20,7 @@ find branch _id = findParsed Parse.theorem branch _id >>= \case
   Just theorem ->
     mapM (Data.Property.find branch) theorem >>= return . sequence
 
-fetch :: (MonadStore m, MonadThrow m) => Branch -> TheoremId -> m (Theorem Property)
+fetch :: MonadStore m => Branch -> TheoremId -> m (Theorem Property)
 fetch branch _id = find branch _id >>= Data.required "Theorem" (unId _id)
 
 pending :: TheoremId
@@ -32,9 +34,9 @@ put :: (MonadStore m, MonadLogger m)
 put branch meta theorem' = do
   theorem <- assignId theorem'
   updateView branch meta $ \loader -> do
-    -- $(logDebug) $ "Asserting " <> tshow (theoremImplication theorem)
+    -- $(logDebug) $ "Asserting " <> show (theoremImplication theorem)
     -- result <- L.runLogicT loader $ L.assertTheorem theorem
-    -- $(logDebug) $ "Assertion yielded: " <> tshow result
+    -- $(logDebug) $ "Assertion yielded: " <> show result
     -- case result of
     --   Left      err -> throw $ LogicError err
     --   Right updates -> do

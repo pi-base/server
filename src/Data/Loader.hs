@@ -16,6 +16,8 @@ module Data.Loader
   , implications
   ) where
 
+import Protolude hiding (modifyMVar)
+
 import           Core
 import           Conduit         (sourceToList)
 import qualified Data.Parse      as Parse
@@ -23,36 +25,31 @@ import           Data.Git        (commitSha)
 import qualified Data.Map.Strict as M
 import           Types.Loader    (Loader, Field(..))
 import qualified Types.Loader    as Loader
-
-instance Show Loader where
-  show loader = "<Loader(" ++ show (commitSha $ Loader.commit loader) ++ ")>"
+import           UnliftIO        (MonadUnliftIO)
+import           UnliftIO.MVar   (modifyMVar)
 
 version :: Loader -> Version
 version = Version . commitSha . Loader.commit
 
-cache :: (MonadBase IO m, MonadBaseControl IO m, Ord x)
-      => Field x a -> x -> m (Either e a) -> m (Either e a)
+cache :: (MonadUnliftIO m, Ord x)
+      => Field x a -> x -> m a -> m a
 cache field key action = modifyMVar (ref field) $ \index ->
   case M.lookup key index of
-    Just record -> return (index, Right record)
-    Nothing -> action >>= \case
-      Left     err -> return (index, Left err)
-      Right record -> 
-        let ix = indexer field record
-            updated = M.insert ix record index
-        in return (updated, Right record)
-
-ethrow :: MonadStore m => m (Either Error a) -> m a
-ethrow action = action >>= either throwM return
+    Just record -> return (index, record)
+    Nothing -> do
+      record <- action
+      let ix = indexer field record
+          updated = M.insert ix record index
+      return (updated, record)
 
 fetch :: (MonadStore m, Ord k)
       => (Loader -> Field k a)
-      -> (Commit LgRepo -> k -> m (Either Error a))
+      -> (Commit LgRepo -> k -> m a)
       -> Loader
       -> k
       -> m a
-fetch field parser loader _id = ethrow 
-  $ cache  (field loader)         _id 
+fetch field parser loader _id =
+    cache  (field loader)         _id 
   $ parser (Loader.commit loader) _id
 
 space :: MonadStore m => Loader -> SpaceId -> m Space
@@ -69,10 +66,12 @@ trait :: MonadStore m
       -> SpaceId
       -> PropertyId
       -> m (Trait SpaceId PropertyId)
-trait loader sid pid = do
-  fetch Loader.traits parser loader (sid, pid)
+trait loader sid pid = fetch Loader.traits parser loader (sid, pid)
   where
-    parser :: MonadStore m => Commit LgRepo -> (SpaceId, PropertyId) -> m (Either Error (Trait SpaceId PropertyId))
+    parser :: MonadStore m
+           => Commit LgRepo 
+           -> (SpaceId, PropertyId) 
+           -> m (Trait SpaceId PropertyId)
     parser c (s, p) = Parse.trait c s p
 
 spaceIds :: MonadStore m => Loader -> m [SpaceId]

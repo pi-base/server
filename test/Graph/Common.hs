@@ -6,6 +6,7 @@ module Graph.Common
   , runGraph
   ) where
 
+import Protolude
 import TestImport (App(..), TestApp)
 
 import           Control.Monad.Logger     (MonadLogger(..))
@@ -32,7 +33,7 @@ instance HasLgRepo (ReaderT Config IO) where
 instance MonadStore (ReaderT Config IO) where
   getStore = asks store
 instance MonadGraph (ReaderT Config IO) where
-  requireUser = asks user >>= maybe (error "No user") return
+  requireUser = asks user >>= maybe (panic "No user") return
   getSettings = asks settings
 instance MonadLogger IO where
   monadLoggerLog _ _ _ _ = return () -- FIXME

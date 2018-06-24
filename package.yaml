@@ -60,6 +60,7 @@ library:
     - persistent-postgresql
     - persistent-template
     - process
+    - protolude
     - safe
     - scientific
     - shakespeare
@@ -69,6 +70,7 @@ library:
     - time
     - transformers
     - unix
+    - unliftio
     - unordered-containers
     - uuid
     - vector
@@ -131,6 +133,7 @@ tests:
     - classy-prelude
     - classy-prelude-yesod
     - containers
+    - conduit
     - conduit-combinators
     - gitlib-libgit2
     - hspec
@@ -143,6 +146,7 @@ tests:
     - persistent
     - persistent-postgresql
     - pretty-show
+    - protolude
     - QuickCheck
     - resourcet
     - shakespeare
@@ -150,6 +154,7 @@ tests:
     - tasty-hspec
     - text
     - transformers
+    - unliftio
     - unordered-containers
     - wai-extra
     - yesod

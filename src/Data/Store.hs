@@ -14,20 +14,22 @@ module Data.Store
   , storeRepo
   ) where
 
-import Import.NoFoundation hiding (head)
+import Import.NoFoundation hiding (head, newMVar, readMVar, modifyMVar)
 
-import           Class            (MonadStore(..))
-import           Data.Git         as Git
-import qualified Data.Text        as T
-import           Data.Loader      as Loader
+import           Class               (MonadStore(..))
+import           Control.Monad.Catch (MonadMask)
+import           Data.Git            as Git
+import qualified Data.Text           as T
+import           Data.Loader         as Loader
 import           Git
-import           Git.Libgit2      (openLgRepository, runLgRepository)
+import           Git.Libgit2         (openLgRepository, runLgRepository)
 import           Types
 import           Types.Store
-import           System.Directory (doesDirectoryExist)
-import           System.Process   (callCommand)
+import           System.Directory    (doesDirectoryExist)
+import           System.Process      (callCommand)
+import           UnliftIO
 
-initializeStore :: (MonadIO m, MonadBase IO m, MonadBaseControl IO m, MonadMask m, MonadLogger m)
+initializeStore :: (MonadIO m, MonadUnliftIO m, MonadMask m, MonadLogger m)
                 => RepoSettings -> m Store
 initializeStore RepoSettings{..} = do
   repo <- do
@@ -118,11 +120,10 @@ loaderAt label = do
 currentLoader :: MonadStore m => m Loader
 currentLoader = do
   loaderVar <- storeLoader <$> getStore
-  loader    <- readMVar loaderVar
-  head      <- Git.baseCommit 
-  if (commitSha head) == (commitSha $ Loader.commit loader)
-    then return loader
-    else do
-      newLoader <- Loader.mkLoader head
-      putMVar loaderVar newLoader
-      return newLoader
+  modifyMVar loaderVar $ \loader -> do
+    head <- Git.baseCommit
+    if (commitSha head) == (commitSha $ Loader.commit loader)
+      then return (loader, loader)
+      else do
+        newLoader <- Loader.mkLoader head
+        return (newLoader, newLoader)

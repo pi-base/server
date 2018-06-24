@@ -63,6 +63,8 @@ data AppSettings = AppSettings
     , appFrontendUrl         :: Text
     , appLogLevel            :: LogLevel
     , appTestMode            :: Bool
+    , appErrorToken          :: Text
+    , appCompileQueries      :: Bool
 
     , appBuild               :: Text
     , appRepo                :: RepoSettings
@@ -93,9 +95,11 @@ instance FromJSON AppSettings where
 
         appAuthDummyLogin         <- o .:? "auth-dummy-login" .!= defaultDev
 
-        appFrontendUrl <- o .: "frontend-url"
-        appLogLevel <- logLevel <$> o .: "log-level"
-        appTestMode <- o .: "test-mode"
+        appFrontendUrl    <- o .: "frontend-url"
+        appLogLevel       <- logLevel <$> o .: "log-level"
+        appTestMode       <- o .: "test-mode"
+        appErrorToken     <- o .: "error-token"
+        appCompileQueries <- o .: "compile-queries"
 
         let appBuild = $(gitHash)
 

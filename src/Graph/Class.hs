@@ -1,23 +1,18 @@
-{-# LANGUAGE
-    DataKinds
-  , DeriveGeneric
-  , DuplicateRecordFields
-  , OverloadedStrings
-  , PatternSynonyms
-  , TypeOperators
-  , ViewPatterns
-#-}
+{-# LANGUAGE DataKinds, DeriveGeneric, DuplicateRecordFields, OverloadedStrings, PatternSynonyms, TypeOperators, ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Graph.Class where
 
+import Protolude
+
+import           Control.Monad               (fail)
 import           Data.Aeson                  as Aeson
+import qualified Data.ByteString.Lazy        as BSL
 import qualified Data.HashMap.Lazy           as HM
 import           Data.Int                    (Int32)
 import qualified Data.List.NonEmpty          as NonEmpty
 import qualified Data.Map                    as M
 import           Data.Scientific             (floatingOrInteger)
 import           Data.Text                   (Text)
-import qualified Data.Text.Lazy              as TL
 import           GraphQL.API
 import qualified GraphQL.Internal.OrderedMap as OM
 import           GraphQL.Internal.Syntax.AST (Variable(..))
@@ -64,13 +59,13 @@ instance ToValue Aeson.Value where
   toValue (Aeson.String t)  = toValue t
   toValue (Aeson.Bool   b)  = toValue b
   toValue (Aeson.Object o)  = case objectFromList . map convert $ HM.toList o of
-    Nothing -> error "Could not convert object"
+    Nothing -> panic "Could not convert object"
     Just o' -> toValue o'
     where
       convert (key, val) =
         let Right name = makeName key
         in (name, toValue val)
-  toValue (Aeson.Array  _a) = error "Input is an array"
+  toValue (Aeson.Array  _a) = panic "Input is an array"
   toValue Aeson.Null        = toValue (Nothing :: Maybe Text)
 
 instance ToValue BranchAccess where
@@ -79,12 +74,12 @@ instance ToValue BranchAccess where
 instance FromValue CreateSpaceInput
 instance HasAnnotatedInputType CreateSpaceInput
 instance Defaultable CreateSpaceInput where
-  defaultFor _ = error "No default for CreateSpaceInput"
+  defaultFor _ = panic "No default for CreateSpaceInput"
 
 instance FromValue CreatePropertyInput
 instance HasAnnotatedInputType CreatePropertyInput
 instance Defaultable CreatePropertyInput where
-  defaultFor _ = error "No default for CreatePropertyInput"
+  defaultFor _ = panic "No default for CreatePropertyInput"
 
 instance FromValue AssertTraitInput where
   fromValue (ValueObject o) = AssertTraitInput
@@ -101,7 +96,7 @@ instance HasAnnotatedInputType AssertTraitInput where
     , InputObjectFieldDefinition "description" (TypeNamed $ BuiltinInputType GString) Nothing
     ]
 instance Defaultable AssertTraitInput where
-  defaultFor _ = error "No default for AssertTraitInput"
+  defaultFor _ = panic "No default for AssertTraitInput"
 
 instance FromValue AssertTheoremInput where
   fromValue (ValueObject o) = AssertTheoremInput
@@ -118,47 +113,42 @@ instance HasAnnotatedInputType AssertTheoremInput where
     , InputObjectFieldDefinition "description" (TypeNamed $ BuiltinInputType GString) Nothing
     ]
 instance Defaultable AssertTheoremInput where
-  defaultFor _ = error "No default for AssertTheoremInput"
+  defaultFor _ = panic "No default for AssertTheoremInput"
 
 instance FromValue ResetBranchInput
 instance HasAnnotatedInputType ResetBranchInput
 instance Defaultable ResetBranchInput where
-  defaultFor _ = error "No default for ResetBranchInput"
+  defaultFor _ = panic "No default for ResetBranchInput"
 
 instance FromValue SubmitBranchInput
 instance HasAnnotatedInputType SubmitBranchInput
 instance Defaultable SubmitBranchInput where
-  defaultFor _ = error "No default for ResetBranchInput"
+  defaultFor _ = panic "No default for ResetBranchInput"
 
 instance FromValue UpdateSpaceInput
 instance HasAnnotatedInputType UpdateSpaceInput
 instance Defaultable UpdateSpaceInput where
-  defaultFor _ = error "No default for UpdateSpaceInput"
+  defaultFor _ = panic "No default for UpdateSpaceInput"
 
 instance FromValue UpdatePropertyInput
 instance HasAnnotatedInputType UpdatePropertyInput
 instance Defaultable UpdatePropertyInput where
-  defaultFor _ = error "No default for UpdatePropertyInput"
+  defaultFor _ = panic "No default for UpdatePropertyInput"
 
 instance FromValue UpdateTheoremInput
 instance HasAnnotatedInputType UpdateTheoremInput
 instance Defaultable UpdateTheoremInput where
-  defaultFor _ = error "No default for UpdateTheoremInput"
+  defaultFor _ = panic "No default for UpdateTheoremInput"
 
 instance FromValue UpdateTraitInput
 instance HasAnnotatedInputType UpdateTraitInput
 instance Defaultable UpdateTraitInput where
-  defaultFor _ = error "No default for UpdateTraitInput"
+  defaultFor _ = panic "No default for UpdateTraitInput"
 
 instance FromValue PatchInput
 instance HasAnnotatedInputType PatchInput
 instance Defaultable PatchInput where
-  defaultFor _ = error "No default for PatchInput"
-
-instance FromValue ThrowErrorInput
-instance HasAnnotatedInputType ThrowErrorInput
-instance Defaultable ThrowErrorInput where
-  defaultFor _ = error "No default for ThrowErrorInput"
+  defaultFor _ = panic "No default for PatchInput"
 
 instance HasAnnotatedInputType (Id a) where
   getAnnotatedInputType = Right $ TypeNamed $ BuiltinInputType GString
@@ -169,15 +159,15 @@ instance FromValue (Id a) where
 instance HasAnnotatedInputType (Formula PropertyId) where
   getAnnotatedInputType = Right $ TypeNamed $ BuiltinInputType GString
 instance FromValue (Formula PropertyId) where
-  fromValue (ValueString (GraphQL.Value.String s)) = case eitherDecode $ encodeUtf8 $ TL.fromStrict s of
-    Left err -> Left $ "Could not parse forrmula: " <> tshow err
+  fromValue (ValueString (GraphQL.Value.String s)) = case eitherDecode $ BSL.fromStrict $ encodeUtf8 s of
+    Left err -> Left $ "Could not parse formula: " <> show err
     Right f  -> Right $ Id <$> f
   fromValue v = wrongType "String" v
 
 wrongType :: Show a => Text -> a -> Either Text b
-wrongType expected value = Left $ "Wrong type, should be: `" <> expected <> "` but is: `" <> tshow value <> "`"
+wrongType expected value = Left $ "Wrong type, should be: `" <> expected <> "` but is: `" <> show value <> "`"
 
 field :: FromValue a => Name -> Object' ConstScalar -> Either Text a
 field name (Object' fieldMap) = case OM.lookup name fieldMap of
-  Nothing -> Left $ "Key not found: " <> tshow name
+  Nothing -> Left $ "Key not found: " <> show name
   Just v  -> fromValue v

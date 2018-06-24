@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-deprecations #-}
 module Debug where
 
 import ClassyPrelude
@@ -12,9 +13,7 @@ pj :: ToJSON a => a -> Text
 pj = TL.toStrict . decodeUtf8 . encodePretty
 
 traceC :: (Monad m, Show d) => (o -> d) -> ConduitM o o m ()
-{-# OPTIONS_GHC -fno-warn-deprecations #-}
 traceC f = mapC $ \x -> trace (show $ f x) x
 
 traceJ :: (ToJSON a, Monad m) => a -> m ()
-{-# OPTIONS_GHC -fno-warn-deprecations #-}
 traceJ = traceM . T.unpack . pj

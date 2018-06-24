@@ -1,7 +1,5 @@
-{-# LANGUAGE 
-    MultiParamTypeClasses
-  , TemplateHaskell 
-#-}
+{-# LANGUAGE InstanceSigs, MultiParamTypeClasses, TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Foundation where
 
 import Import.NoFoundation
@@ -16,19 +14,23 @@ import Handler.Helpers (generateToken, maybeToken, requireToken)
 
 import Yesod.Auth.OAuth2.Github
 import Yesod.Default.Util   (addStaticContentExternal)
-import Yesod.Core.Types     (Logger)
+import Yesod.Core.Types     (HandlerFor(..), Logger)
 import qualified Yesod.Core.Unsafe    as Unsafe
 import qualified Data.Aeson           as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.CaseInsensitive as CI
+import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text            as T
 import qualified Data.Text.Encoding   as TE
+
+import Control.Monad.Catch as MC (MonadCatch(..), MonadMask(..))
 
 import Class
 import Git.Libgit2 (HasLgRepo(..))
 import Data.Branch (ensureUserBranch)
 import Data.Store  (Store, storeRepo)
 import Services.Rollbar as Rollbar
+import qualified Graph.Queries.Cache as GQ
 
 import System.Environment (lookupEnv)
 import System.IO.Unsafe   (unsafePerformIO)
@@ -41,6 +43,7 @@ data App = App
     { appSettings    :: AppSettings
     , appStatic      :: Static -- ^ Settings for static file serving.
     , appConnPool    :: ConnectionPool -- ^ Database connection pool.
+    , appQueryCache  :: GQ.Cache
     , appHttpManager :: Manager
     , appLogger      :: Logger
     , appStore       :: Store
@@ -71,10 +74,20 @@ data MenuTypes
 mkYesodData "App" $(parseRoutesFile "config/routes")
 
 -- | A convenient synonym for creating forms.
-type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
+type Form x = Html -> MForm (HandlerFor App) (FormResult x, Widget)
 
 instance HasLgRepo Handler where
   getRepository = (storeRepo . appStore) <$> getYesod
+
+-- http://hackage.haskell.org/package/yesod-core-1.4.37.3/docs/src/Yesod-Core-Types.html#line-455
+instance MonadCatch (HandlerFor site) where
+  catch (HandlerFor m) c = HandlerFor $ \r -> m r `MC.catch` \e -> unHandlerFor (c e) r
+instance MonadMask (HandlerFor site) where
+  mask a = HandlerFor $ \e -> MC.mask $ \u -> unHandlerFor (a $ q u) e
+    where q u (HandlerFor b) = HandlerFor (u . b)
+  uninterruptibleMask a =
+    HandlerFor $ \e -> MC.uninterruptibleMask $ \u -> unHandlerFor (a $ q u) e
+      where q u (HandlerFor b) = HandlerFor (u . b)
 
 instance MonadStore Handler where
   getStore = appStore <$> getYesod
@@ -126,13 +139,20 @@ development =
     False
 #endif
 
-rollbar :: Report -> Handler ()
-rollbar r = do
-  settings <- appRollbar . appSettings <$> getYesod
-  req      <- getRequest
-  muser    <- maybeAuth
-  forkHandler ($logErrorS "Rollbar.handler" . tshow) $ 
-    Rollbar.send settings $ r { Rollbar.request = Just req, Rollbar.user = muser }
+instance Rollbar.HasRollbar Handler where
+  rollbar level message extra = do
+    settings <- appRollbar . appSettings <$> getYesod
+    request  <- getRequest
+    muser    <- maybeAuth
+    forkHandler ($logErrorS "Rollbar.handler" . tshow) $ 
+      Rollbar.send settings $ Rollbar.Report
+        { Rollbar.message = message
+        , Rollbar.context = Nothing
+        , Rollbar.level   = level
+        , Rollbar.request = Just request
+        , Rollbar.user    = muser
+        , Rollbar.custom  = Just $ HM.fromList extra
+        }
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
@@ -152,10 +172,7 @@ instance Yesod App where
         "config/client_session_key.aes"
 
     errorHandler err@(InternalError e) = do
-      rollbar $ Rollbar.report
-        { message = T.pack $ show e
-        , level   = Rollbar.Error
-        }
+      rollbar Rollbar.Error (tshow e) mempty
       defaultErrorHandler err
     errorHandler err = defaultErrorHandler err
 
@@ -188,6 +205,7 @@ instance Yesod App where
 
     -- Routes not requiring authentication.
     isAuthorized (AuthR _) _ = return Authorized
+    isAuthorized ErrorR _    = return Authorized
     isAuthorized HooksR _    = return Authorized
     isAuthorized GraphR _    = return Authorized
     isAuthorized FrontendR _ = return Authorized
@@ -214,7 +232,7 @@ instance Yesod App where
         -- Generate a unique filename based on the content itself
         genFileName lbs = "autogen-" ++ base64md5 lbs
 
-    shouldLog app _source level = level >= appLogLevel (appSettings app)
+    shouldLogIO app _source level = return $ level >= appLogLevel (appSettings app)
 
     makeLogger = return . appLogger
 
@@ -225,34 +243,43 @@ instance Yesod App where
 -- How to run database actions.
 instance YesodPersist App where
     type YesodPersistBackend App = SqlBackend
+    runDB :: SqlPersistT Handler a -> Handler a
     runDB action = do
         master <- getYesod
         runSqlPool action $ appConnPool master
 instance YesodPersistRunner App where
+    getDBRunner :: Handler (DBRunner App, Handler ())
     getDBRunner = defaultGetDBRunner appConnPool
 
 instance YesodAuth App where
     type AuthId App = UserId
 
     -- Where to send a user after successful login
+    loginDest :: App -> Route App
     loginDest _ = FrontendR
     -- Where to send a user after logout
+    logoutDest :: App -> Route App
     logoutDest _ = FrontendR
     -- Override the above two destinations when a Referer: header is present
+    redirectToReferer :: App -> Bool
     redirectToReferer _ = False
 
+    authenticate :: (MonadHandler m, HandlerSite m ~ App)
+                 => Creds App -> m (AuthenticationResult App)
     authenticate Creds{..} = do
       let extras = Map.fromList credsExtra
       case (Map.lookup "accessToken" extras, Map.lookup "userResponse" extras) of
-        (Just token, Just response) -> do
-          let _id  = credsPlugin <> ":" <> credsIdent
-          (runDB . getBy $ UniqueUser _id) >>= \case
-            Just (Entity uid _) -> return $ Authenticated uid
-            Nothing -> case parseGithubUserResponse _id token response of
-              Left   err -> return . ServerError $ "Could not parse Github data: " <> T.pack err
-              Right user -> Authenticated <$> createGithubUser user
+        (Just token, Just response) -> liftHandler $ do
+            let _id = credsPlugin <> ":" <> credsIdent
+            x <- runDB $ getBy $ UniqueUser _id
+            case x of
+              Just (Entity uid _) -> return $ Authenticated uid
+              Nothing -> case parseGithubUserResponse _id token response of
+                Left   err -> return . ServerError $ "Could not parse Github data: " <> T.pack err
+                Right user -> Authenticated <$> createGithubUser user
         _ -> return $ ServerError "Missing accessToken or userResponse"
 
+    authPlugins :: App -> [AuthPlugin App]
     authPlugins app =
       let AppSettings{..} = appSettings app
           clientId = gsClientId appGithub
@@ -261,9 +288,8 @@ instance YesodAuth App where
           oauth = oauth2GithubScoped ["user:email,public_repo"] clientId clientSecret 
       in [oauth] ++ [authDummy | appAuthDummyLogin]
 
-    authHttpManager = getHttpManager
-
-    maybeAuthId = maybeToken >>= \case
+    maybeAuthId :: (MonadHandler m, App ~ HandlerSite m) => m (Maybe (AuthId App))
+    maybeAuthId = (liftHandler maybeToken) >>= \case
       Just (Entity _id _) -> return $ Just _id
       Nothing             -> return Nothing
 

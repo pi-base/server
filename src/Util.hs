@@ -54,10 +54,10 @@ data KeyError k = KeyError k deriving (Typeable, Show)
 
 instance (Show k, Typeable k) => Exception (KeyError k)
 
-fetch :: (MonadThrow m, Ord k, Show k, Typeable k) => k -> Map k v -> m v
+fetch :: (MonadIO m, Ord k, Show k, Typeable k) => k -> Map k v -> m v
 fetch k m = case M.lookup k m of
   Just v  -> return v
-  Nothing -> throwM $ KeyError k
+  Nothing -> throwIO $ KeyError k
 
 encodeText :: ToJSON a => a -> Text
 encodeText = TL.toStrict . decodeUtf8 . encode

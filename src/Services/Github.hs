@@ -13,7 +13,6 @@ import           Crypto.Hash
 import           Data.Aeson                       (eitherDecode)
 import qualified Data.ByteString.Char8            as BC8
 import qualified Data.ByteString.Lazy             as LBS
-import           Data.List                        (nub) -- FIXME: remove this
 import qualified Data.Text                        as T
 import           GitHub                           as GH
 import qualified GitHub.Data.Id                   as GH
@@ -44,12 +43,12 @@ createPullRequest GithubSettings{..} branch = do
 
 webhookHandler :: FromJSON a => Handler a
 webhookHandler = do
-  body <- rawRequestBody $$ runCatchC foldC
+  body <- runConduit $ rawRequestBody .| runCatchC foldC
   str  <- either halt return body
   validateSignature str
   either halt return . eitherDecode $ LBS.fromStrict str
 
-checkPullRequest :: PullRequestEvent -> Handler (Either [Core.Error] View)
+checkPullRequest :: PullRequestEvent -> Handler (Either Core.ValidationError View)
 checkPullRequest pre = do
   let
     pr   = pullRequestEventPullRequest pre
@@ -72,7 +71,7 @@ validateSignature body = do
         halt ("invalid secret" :: Text)
 
 halt :: Show a => a -> Handler b
-halt msg = sendStatusJSON status400 ("Invalid webhook: " <> tshow msg)
+halt msg = sendStatusJSON status400 ("Invalid webhook: " <> show msg)
 
 signaturesMatch :: ByteString -> Text -> ByteString -> Bool
 signaturesMatch body key given = comparison == computed
@@ -88,7 +87,7 @@ signaturesMatch body key given = comparison == computed
     comparison :: Maybe ByteString
     comparison = BC8.stripPrefix "sha1=" given
 
-prStatusError :: Id Issue -> Name Commit -> [Core.Error] -> Handler ()
+prStatusError :: Id Issue -> Name Commit -> Core.ValidationError -> Handler ()
 prStatusError _id sha errors = do
   issueComment _id $ explainErrors errors
   postStatus sha GH.StatusError "Errors found"
@@ -112,8 +111,8 @@ postStatus sha state message = do
   where
     status = GH.NewStatus state Nothing (Just message) (Just "pi-base/validator")
 
-explainErrors :: [Core.Error] -> Text
-explainErrors errors =
-  "Mistakes were made\n```"
-  <> unlines (map Core.explainError $ nub errors)
-  <> "\n```"
+explainErrors :: Core.ValidationError -> Text
+explainErrors _ = error "explainErrors"
+  -- "Mistakes were made\n```"
+  -- <> unlines (map Core.explainError $ nub errors)
+  -- <> "\n```"

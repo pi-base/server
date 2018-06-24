@@ -3,6 +3,8 @@ module Data.Trait
   , put
   ) where
 
+import Protolude hiding (find, put)
+
 import           Core
 import           Data  (required, updateView)
 import qualified Data.Branch as Branch
@@ -18,19 +20,16 @@ find :: MonadStore m
      -> PropertyId 
      -> m (Maybe (Trait Space Property))
 find branch sid pid = do
-  commit  <- Branch.commit branch
-  eparsed <- Parse.trait commit sid pid
-  case eparsed of
-    Left _ -> return Nothing
-    Right parsed -> do
-      space    <- Data.Space.find branch sid
-      property <- Data.Property.find branch pid
-      return $ Trait
-        <$> space
-        <*> property
-        <*> Just (_traitValue parsed)
-        <*> Just (_traitRefs parsed)
-        <*> Just (_traitDescription parsed)
+  commit   <- Branch.commit branch
+  parsed   <- Parse.trait commit sid pid
+  space    <- Data.Space.find branch sid
+  property <- Data.Property.find branch pid
+  return $ Trait
+    <$> space
+    <*> property
+    <*> Just (_traitValue parsed)
+    <*> Just (_traitRefs parsed)
+    <*> Just (_traitDescription parsed)
 
 fetch :: MonadStore m
       => Branch
@@ -38,9 +37,9 @@ fetch :: MonadStore m
       -> PropertyId
       -> m (Trait Space Property)
 fetch branch sid pid =
-  Data.Trait.find branch sid pid >>= Data.required "Trait" (tshow (sid, pid))
+  Data.Trait.find branch sid pid >>= Data.required "Trait" (show (sid, pid))
 
-put :: (MonadStore m, MonadThrow m, MonadLogger m)
+put :: (MonadStore m, MonadLogger m)
     => Branch
     -> CommitMeta
     -> Trait SpaceId PropertyId

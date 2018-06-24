@@ -1,6 +1,7 @@
 module Types.Loader where
 
-import Import.NoFoundation hiding (Field)
+import Import.NoFoundation hiding (Field, newMVar)
+import UnliftIO.MVar (newMVar)
 
 import Data.Map.Strict (Map)
 import Git             (Commit)
@@ -21,13 +22,13 @@ data Loader = Loader
   , traits     :: Field (SpaceId, PropertyId) (Trait SpaceId PropertyId)
   }
 
-mkField :: (Ord x, MonadBase IO m) => Text -> (a -> x) -> m (Field x a)
+mkField :: (MonadIO m, Ord x) => Text -> (a -> x) -> m (Field x a)
 mkField name indexer = Field
   <$> pure name
   <*> pure indexer
   <*> newMVar mempty
 
-mkLoader :: MonadBase IO m => Commit LgRepo -> m Loader
+mkLoader :: MonadIO m => Commit LgRepo -> m Loader
 mkLoader commit = Loader
   <$> pure commit
   <*> mkField "spaces" spaceId

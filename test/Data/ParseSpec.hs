@@ -35,7 +35,7 @@ spec getApp = do
       length ids `shouldBe` 135
 
     it "can parse a space object" $ do
-      Right s <- runM store $ space commit $ Id "S000001"
+      s <- runM store $ space commit $ Id "S000001"
       spaceName s `shouldBe` "Discrete topology on a two-point set"
 
     it "can parse traits for a space" $ do

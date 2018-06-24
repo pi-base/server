@@ -15,7 +15,7 @@ import qualified Data.Aeson
 import qualified Data.Text.Lazy as TL
 import           Database.Persist.Types (Entity(..))
 
-import           Core         hiding (readFile)
+import           Core
 import           Data.Branch  (userBranches)
 import           Data.Loader  (Loader)
 import qualified Data.Loader  as Loader

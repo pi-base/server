@@ -2,26 +2,27 @@ module Core
   ( module Core
   ) where
 
--- TODO: replace ClassyPrelude with Protolude
-import ClassyPrelude                    as Core hiding (Handler, all, find, head, index)
-import Control.Applicative              as Core ((<|>))
-import Control.Monad.IO.Class           as Core (MonadIO, liftIO)
-import Control.Monad.Logger             as Core (MonadLogger, logDebug, logInfo, logError)
-import Control.Monad.Reader             as Core (MonadReader(..), ReaderT, asks, runReaderT)
-import Control.Monad.Trans              as Core (lift)
-import Control.Monad.Trans.Control      as Core (MonadBaseControl)
-import Control.Monad.Trans.Except       as Core (ExceptT, except, runExceptT, throwE)
-import Control.Monad.Trans.State.Strict as Core (StateT, runStateT)
-import Data.Aeson                       as Core (FromJSON, ToJSON)
-import Data.ByteString                  as Core (ByteString)
-import Data.Either                      as Core (partitionEithers)
-import Data.Either.Combinators          as Core (mapLeft, mapRight)
-import Data.Map                         as Core (Map)
-import Data.Monoid                      as Core (Monoid)
-import Data.Text                        as Core (Text)
-import Data.Void                        as Core (Void)
-import Git                              as Core (TreeFilePath, MonadGit, Commit, CommitMessage)
-import Git.Libgit2                      as Core (LgRepo)
+import Protolude hiding (throwIO)
+
+import Control.Applicative         as Core ((<|>))
+import Control.Monad.IO.Class      as Core (MonadIO, liftIO)
+import Control.Monad.Logger        as Core (MonadLogger, logDebug, logInfo, logError)
+import Control.Monad.Reader        as Core (MonadReader(..), ReaderT, asks, runReaderT)
+import Control.Monad.Trans         as Core (lift)
+import Control.Monad.Trans.Control as Core (MonadBaseControl)
+import Control.Monad.Trans.Except  as Core (ExceptT, except, runExceptT, throwE)
+import Data.Aeson                  as Core (FromJSON, ToJSON)
+import Data.ByteString             as Core (ByteString)
+import Data.Either                 as Core (partitionEithers)
+import Data.Either.Combinators     as Core (mapLeft, mapRight)
+import Data.Map                    as Core (Map)
+import Data.Monoid                 as Core (Monoid)
+import Data.Text                   as Core (Text)
+import Data.Void                   as Core (Void)
+import GHC.Generics                as Core (Generic)
+import Git                         as Core (TreeFilePath, MonadGit, Commit, CommitMessage)
+import Git.Libgit2                 as Core (LgRepo)
+import UnliftIO.Exception          as Core hiding (Handler)
 
 import Class        as Core
 import Model        as Core
@@ -90,3 +91,6 @@ hydrateTheorem props theorem =
       (Left as, _) -> Left as
       (_, Left bs) -> Left bs
       (Right a', Right c') -> Right $ theorem { theoremImplication = Implication a' c' }
+
+notFound :: (MonadIO m, Show a) => Text -> a -> m b
+notFound resource ident = throwIO $ NotFoundError resource $ show ident

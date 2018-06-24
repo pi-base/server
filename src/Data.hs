@@ -10,6 +10,8 @@ module Data
   , viewDeductions
   ) where
 
+import Protolude hiding (handle)
+
 import           Control.Monad.Logger (MonadLogger)
 import qualified Data.Map             as M
 import qualified Data.Set             as S
@@ -101,22 +103,25 @@ addProof ((sid, pid), (value, evidence)) (traits, proofs) =
   in (insertNested sid pid trait traits, proofs')
 
 insertNested :: (Ord k1, Ord k2) => k1 -> k2 -> v -> Map k1 (Map k2 v) -> Map k1 (Map k2 v)
-insertNested k1 k2 v = M.alter (Just . M.insert k2 v . maybe mempty id) k1
+insertNested k1 k2 v = M.alter (Just . M.insert k2 v . maybe mempty identity) k1
 
 findParsed :: MonadStore m
-           => (Commit LgRepo -> a -> m (Either e b))
+           => (Commit LgRepo -> a -> m b)
            -> Branch
            -> a
            -> m (Maybe b)
-findParsed parser branch _id = do
+findParsed parser branch id = handle fail $ do
   commit <- Branch.commit branch
-  parsed <- parser commit _id
-  return $ either (const Nothing) Just parsed
+  parsed <- parser commit id
+  return $ Just parsed
+  where
+    fail :: Monad m => NotFoundError -> m (Maybe b)
+    fail _ = return Nothing
 
-required :: MonadThrow m => Text -> Text -> Maybe a -> m a
+required :: MonadIO m => Text -> Text -> Maybe a -> m a
 required resource identifier =
-  maybe (throwM . NotFound $ NotFoundError resource identifier) return
+  maybe (notFound resource identifier) return
 
--- TODO: this should enqueue work in a persistent queue, retry, ...
+-- FIXME: this should enqueue work in a persistent queue, retry, ...
 background :: MonadStore m => m () -> m ()
-background action = void $ fork action
+background action = void action

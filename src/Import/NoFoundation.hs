@@ -3,6 +3,7 @@ module Import.NoFoundation
     ( module Import
     ) where
 
+-- FIXME: replace with Protolude throughout
 import ClassyPrelude.Yesod   as Import
 import Model                 as Import
 import Settings              as Import

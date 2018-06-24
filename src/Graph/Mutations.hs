@@ -12,6 +12,8 @@ module Graph.Mutations
   , updateTrait
   ) where
 
+import Protolude hiding (throwIO, to)
+
 import           Import           (GithubSettings)
 import           Database.Persist (Entity(..))
 import           GraphQL.Resolver
@@ -119,7 +121,7 @@ submitBranch settings G.SubmitBranchInput{..} = do
   _ <- requireBranchAccess branch BranchAdmin
 
   Github.createPullRequest settings branch >>= \case
-    Left e -> throw $ Core.ValidationError $ ValidationMessage e
+    Left e -> throwIO $ ValidationMessage e
     Right url -> 
       return $ pure "SubmitBranchResponse"
         :<> pure branch
@@ -177,7 +179,7 @@ checkPatch G.PatchInput{..} = do
   (user, b) <- requireBranchAccess branch BranchWrite
   currentSha <- Branch.headSha b
   unless (sha == currentSha) $
-    throw $ ConflictError $ Conflict
+    throwIO $ ConflictError
       { expectedSha = sha
       , actualSha = currentSha
       }
@@ -187,11 +189,11 @@ requireBranchAccess :: MonadGraph m => BranchName -> BranchAccess -> m (Entity U
 requireBranchAccess name minLevel = do
   user   <- requireUser
   branch <- Branch.find name >>= \case
-    Nothing -> throw $ NotFound $ NotFoundError "Branch" name
+    Nothing -> notFound "Branch" name
     Just b  -> return b
   Branch.access user branch >>= \case
     Just access -> do
       unless (access >= minLevel) $
-        throw $ PermissionError $ BranchPermission minLevel
+        throwIO $ BranchPermissionRequired (entityVal branch) minLevel
       return (user, entityVal branch)
-    _ -> throw $ PermissionError $ BranchPermission minLevel
+    _ -> throwIO $ BranchPermissionRequired (entityVal branch) minLevel

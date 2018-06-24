@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE QuasiQuotes #-}
 module TestImport
     ( module TestImport
@@ -18,6 +19,7 @@ import Model                 as X
 import Test.Hspec            as X
 import Test.Tasty            as X (TestTree)
 import Test.Tasty.Hspec      as X (testSpec)
+import UnliftIO.Exception    as X hiding (Handler)
 import Yesod.Default.Config2 (useEnv, loadYamlSettings)
 import Yesod.Auth            as X
 import Yesod.Test            as X
@@ -33,7 +35,7 @@ import qualified Test.HUnit            as H
 import           Test.Hspec.Core.Spec  (SpecM)
 import           Text.Shakespeare.Text (st)
 
-import Debug as X
+import "pi-base-server" Debug as X
 
 import Data.Store (initializeDownstream)
 import Settings   (appRepo)

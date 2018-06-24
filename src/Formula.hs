@@ -39,9 +39,6 @@ format f (Atom p False) = "~" ++ f p
 format f (And fs) = enclose . intercalate " + " $ map (format f) fs
 format f (Or  fs) = enclose . intercalate " | " $ map (format f) fs
 
-instance Show a => Show (Formula a) where
-  show = format show
-
 (.=) :: p -> Bool -> Formula p
 (.=) = Atom
 infixl 5 .=

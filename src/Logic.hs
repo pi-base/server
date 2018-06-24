@@ -9,14 +9,16 @@ module Logic
   , checkAll
   ) where
 
+import Protolude hiding (evaluate, force, negate)
+
 import Control.Lens hiding (contains)
-import Control.Monad.State.Strict     (MonadState)
+import Control.Monad.State.Strict     (MonadState, MonadTrans)
 import Control.Monad.Trans.Except     (throwE)
 import Control.Monad.Trans.RWS.Strict (RWST, runRWST)
 import qualified Data.Map.Strict as M
 import qualified Data.Set        as S
 
-import           Core        hiding (force, negate)
+import           Core        hiding (evaluate)
 import qualified Data.Loader as Loader
 import           Formula     (negate)
 import           Util        (unionN)

@@ -4,7 +4,8 @@ module View
   , traits
   ) where
 
-import Core hiding (groupBy)
+import Protolude
+import Core
 import Control.Lens
 
 import qualified Data.Map as M

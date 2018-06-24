@@ -6,9 +6,11 @@ host:           "_env:HOST:*4" # any IPv4 host
 port:           "_env:PORT:3000" # NB: The port `yesod devel` uses is distinct from this value. Set the `yesod devel` port from the command line.
 ip-from-header: "_env:IP_FROM_HEADER:false"
 
-frontend-url: "_env:VIEWER_REDIRECT_URL:http://localhost:3000"
-log-level:    "_env:LOG_LEVEL:error"
-test-mode:    "_env:TEST_MODE:false"
+compile-queries: "_env:COMPILE_QUERIES:false"
+error-token:     "_env:ERROR_TOKEN:xxx"
+frontend-url:    "_env:VIEWER_REDIRECT_URL:http://localhost:3000"
+log-level:       "_env:LOG_LEVEL:error"
+test-mode:       "_env:TEST_MODE:false"
 
 repo:
   path:           "_env:REPO_PATH:xxx"

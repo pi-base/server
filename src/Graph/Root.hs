@@ -1,11 +1,4 @@
-{-# LANGUAGE
-    DataKinds
-  , DeriveGeneric
-  , ExistentialQuantification
-  , TemplateHaskell
-  , TypeApplications
-  , TypeOperators
-#-}
+{-# LANGUAGE DataKinds, DeriveGeneric, ExistentialQuantification, TemplateHaskell, TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Graph.Root
   ( Root
@@ -17,12 +10,9 @@ module Graph.Root
   ) where
 
 import Graph.Import
+import Graph.Mutations
 
-import qualified Control.Monad.Catch     as Catch
-import           Data.Aeson              as Aeson
-
-import qualified Core
-import           Graph.Mutations
+import           Data.Aeson          as Aeson
 import qualified Graph.Queries.Cache as Cache
 import           Graph.Queries       as G
 import           Graph.Schema        as G
@@ -42,27 +32,21 @@ handler settings = pure $ pure "Query"
   :<> assertTheorem
   :<> resetBranch
   :<> submitBranch (appGithub settings)
-  -- Hook for testing Rollbar
-  :<> error "Forced error"
 
 schema :: Either QueryError Schema
 schema = makeSchema @Root
 
-asJSON :: MonadCatch m 
-     => (QueryData -> m Response) -> Aeson.Value -> m (Either Core.Error Aeson.Value)
+asJSON :: MonadIO m
+       => (QueryData -> m Response) 
+       -> Aeson.Value 
+       -> m Aeson.Value
 asJSON executor request = case fromJSON request of
-  Aeson.Error  err -> return . Left $ GraphError $ QuerySerializationError err
-  Aeson.Success qd -> (trapErrors $ executor qd) >>= \case
-    Left  e -> return $ Left e
-    Right (PreExecutionFailure errs) -> return $ Left $ GraphError $ ExecutionErrors errs
-    Right (ExecutionFailure    errs) -> return $ Left $ GraphError $ ExecutionErrors errs
-    Right (PartialSuccess _    errs) -> return $ Left $ GraphError $ ExecutionErrors errs
-    Right r -> return $ Right $ Aeson.toJSON r
-
-trapErrors :: MonadCatch m => m a -> m (Either Core.Error a)
-trapErrors action = catches (fmap Right action) 
-  [ Catch.Handler (\e -> return $ Left (e :: Core.Error))
-  ]
+  Aeson.Error  err -> throwIO $ QuerySerializationError err
+  Aeson.Success qd -> executor qd >>= \case
+    (PreExecutionFailure errs) -> throwIO $ ExecutionErrors errs
+    (ExecutionFailure    errs) -> throwIO $ ExecutionErrors errs
+    (PartialSuccess _    errs) -> throwIO $ ExecutionErrors errs
+    r -> return $ Aeson.toJSON r
 
 interpreted :: (MonadGraph m, MonadLogger m) => AppSettings -> QueryData -> m Response
 interpreted settings QueryData{..} = interpretQuery @Root (handler settings) query (unOp operation) (unVar variables)
@@ -70,7 +54,7 @@ interpreted settings QueryData{..} = interpretQuery @Root (handler settings) que
 compiled :: (MonadGraph m, MonadLogger m) 
          => AppSettings -> Cache.Cache -> QueryData -> m Response
 compiled settings cache QueryData{..} = case unOp operation of
-  Nothing -> throw $ GraphError QueryNameRequired
+  Nothing -> throwIO QueryNameRequired
   Just name -> Cache.query cache name >>= \case
-    Nothing -> throw $ GraphError $ QueryNotFound name
+    Nothing -> throwIO $ QueryNotFound name
     Just q  -> executeQuery @Root (handler settings) q (Just name) (unVar variables)

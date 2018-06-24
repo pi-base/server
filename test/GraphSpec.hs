@@ -1,7 +1,5 @@
-{-# LANGUAGE 
-    RankNTypes
-  , TypeApplications
-#-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
 module GraphSpec (spec) where
 
 import Test.Tasty
@@ -24,15 +22,15 @@ import           Util                (encodeText)
 
 spec :: IO (TestApp App) -> IO TestTree
 spec getApp = do
-  schema  <- either (throw . SchemaInvalid) return Root.schema
+  schema  <- either (throwIO . SchemaInvalid) return Root.schema
   queries <- Cache.mkCache schema "graph/queries"
   config  <- getApp >>= return . mkConfig >>= login testUser
 
   _ <- runGraph config $ Branch.ensureBaseBranch
 
   let
-    run :: String -> [(Text, Value)] -> IO (Either Error Value)
-    run name vars = runGraph config $ Root.asJSON (Root.compiled (settings config) queries) request
+    run :: Exception e => String -> [(Text, Value)] -> IO (Either e Value)
+    run name vars = try $ runGraph config $ Root.asJSON (Root.compiled (settings config) queries) request
       where
         request  = object 
           [ "operationName" .= name
@@ -40,7 +38,7 @@ spec getApp = do
           , "query" .= ("" :: Text) -- overridden with compiled query
           ]
     
-    query' :: FilePath -> [(Text, Value)] -> IO (Either Error Value)
+    query' :: Exception e => FilePath -> [(Text, Value)] -> IO (Either e Value)
     query' name vars = run name vars >>= \case
       Right result -> do
         let errors = result ^.. key "errors" . values . _Value
@@ -50,12 +48,12 @@ spec getApp = do
 
     query :: FilePath -> [(Text, Value)] -> IO Value
     query name vars = do
-      result <- query' name vars
+      result <- (query' name vars :: IO (Either SomeException Value))
       result `shouldSatisfy` isRight
       return $ fromRight result
 
     -- We might want to distinguish these in the future
-    mutation' :: FilePath -> [(Text, Value)] -> IO (Either Error Value)
+    mutation' :: Exception e => FilePath -> [(Text, Value)] -> IO (Either e Value)
     mutation' = query'
 
     mutation :: FilePath -> [(Text, Value)] -> IO Value
@@ -102,7 +100,8 @@ spec getApp = do
                 , "to"     .= (testBranch :: Text)
                 ]
               ]
-        let (Left (PermissionError (BranchPermission required))) = result
+        let Left (BranchPermissionRequired Branch{..} required) = result
+        branchName `shouldBe` "master"
         required `shouldBe` BranchAdmin
 
     describe "viewer" $ do
@@ -279,7 +278,7 @@ spec getApp = do
                       [ "description" .= ("Desc" :: Text)
                       ]
                     ]
-        let (Left (GraphError (ExecutionErrors errs))) = result
+        let Left (ExecutionErrors errs) = result
         show errs `shouldInclude` "Could not coerce Name"
 
       todo "handles validation errors" $ do
@@ -308,8 +307,8 @@ spec getApp = do
                 , "description" .= ("Desc" :: Text)
                 ]
               ]
-        let (Left (ValidationError msg)) = r2
-        msg `shouldBe` ValidationMessage "uid is taken"
+        let Left (ValidationMessage msg) = r2
+        msg `shouldBe` "uid is taken"
 
       it "handles branch mis-matches" $ do
         resetBranch testBranch initial
@@ -324,7 +323,7 @@ spec getApp = do
                       , "description" .= ("Desc" :: Text)
                       ]
                     ]
-        let (Left (ConflictError Conflict{..})) = result
+        let Left ConflictError{..} = result
         actualSha `shouldBe` initial
         expectedSha `shouldBe` "mismatch"
 

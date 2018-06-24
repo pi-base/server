@@ -11,3 +11,4 @@
 /app     FrontendR GET
 /graphql GraphR    POST
 /users   UsersR    POST
+/error   ErrorR    POST
