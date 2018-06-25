@@ -129,6 +129,13 @@ spec getApp = do
                       [ "uid"         .= ("s1" :: Text)
                       , "name"        .= ("New Space" :: Text)
                       , "description" .= ("Desc" :: Text)
+                      , "references"  .= 
+                        [ object
+                          [ "name" .= ("Ref" :: Text)
+                          , "type" .= ("wikipedia" :: Text)
+                          , "ref"  .= ("wiki://ref" :: Text)
+                          ]
+                        ]
                       ]
                     ]
 
@@ -147,6 +154,7 @@ spec getApp = do
                  [ "uid"         .= ("s1" :: Text)
                  , "name"        .= ("New Space" :: Text)
                  , "description" .= ("Desc" :: Text)
+                 , "references"  .= ([] :: [Value])
                  ]
                ]
 
@@ -167,6 +175,7 @@ spec getApp = do
                   , "propertyId"  .= compact
                   , "value"       .= True
                   , "description" .= ("" :: Text)
+                  , "references"  .= ([] :: [Value])
                   ]
                 ]
 
@@ -191,6 +200,7 @@ spec getApp = do
                   , "propertyId"  .= metrizable
                   , "value"       .= False
                   , "description" .= ("" :: Text)
+                  , "references"  .= ([] :: [Value])
                   ]
                 ]
 
@@ -212,6 +222,7 @@ spec getApp = do
                   [ "uid"         .= ("p1" :: Text)
                   , "name"        .= ("P" :: Text)
                   , "description" .= ("" :: Text)
+                  , "references"  .= ([] :: [Value])
                   ]
                 ]
 
@@ -229,6 +240,7 @@ spec getApp = do
                   , "antecedent"  .= (encodeText $ object [ compact .= True ])
                   , "consequent"  .= (encodeText $ object [ pid .= True ])
                   , "description" .= ("New theorem" :: Text)
+                  , "references"  .= ([] :: [Value])
                   ]
                 ]
 
@@ -254,6 +266,7 @@ spec getApp = do
                   , "antecedent"  .= (encodeText $ object [ pid .= True ])
                   , "consequent"  .= (encodeText $ object [ metacompact .= True ])
                   , "description" .= ("New theorem" :: Text)
+                  , "references"  .= ([] :: [Value])
                   ]
                 ]
 
@@ -321,6 +334,7 @@ spec getApp = do
                       [ "uid"         .= ("s1" :: Text)
                       , "name"        .= ("New Space" :: Text)
                       , "description" .= ("Desc" :: Text)
+                      , "references"  .= ([] :: [Value])
                       ]
                     ]
         let Left ConflictError{..} = result

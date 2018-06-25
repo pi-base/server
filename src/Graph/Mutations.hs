@@ -41,7 +41,7 @@ assertTrait patch G.AssertTraitInput{..} = do
         { _traitSpace       = space
         , _traitProperty    = property
         , _traitValue       = value
-        , _traitRefs        = [] -- FIXME
+        , _traitRefs        = fromMaybe [] references
         , _traitDescription = description
         }
 
@@ -63,7 +63,7 @@ assertTheorem patch G.AssertTheoremInput{..} = do
         { theoremId          = uid
         , theoremImplication = (Implication antecedent consequent)
         , theoremConverse    = Nothing -- FIXME
-        , theoremRefs        = [] -- FIXME
+        , theoremRefs        = fromMaybe [] references
         , theoremDescription = description
         }
   theorem' <- mapM (Property.fetch branch) theorem
@@ -79,7 +79,7 @@ createSpace patch G.CreateSpaceInput{..} = do
         { spaceId          = uid
         , spaceName        = name
         , spaceAliases     = []
-        , spaceRefs        = []
+        , spaceRefs        = fromMaybe [] references
         , spaceSlug        = slugify name
         , spaceTopology    = Nothing
         , spaceDescription = description
@@ -98,7 +98,7 @@ createProperty patch G.CreatePropertyInput{..} = do
         , propertyName        = name
         , propertySlug        = slugify name
         , propertyAliases     = []
-        , propertyRefs        = []
+        , propertyRefs        = fromMaybe [] references
         , propertyDescription = description
         }
       commit = CommitMeta user $ "Add " <> name
@@ -132,7 +132,10 @@ updateProperty patch G.UpdatePropertyInput{..} = do
   (user, branch) <- checkPatch patch
 
   old <- Property.fetch branch uid
-  let updated = old { propertyDescription = description }
+  let updated = old 
+        { propertyDescription = fromMaybe (propertyDescription old) description 
+        , propertyRefs        = fromMaybe (propertyRefs old) references
+        }
       commit  = CommitMeta user $ "Update " <> propertyName updated
   (p, sha) <- Property.put branch commit updated
   G.presentView $ View.build [] [p] [] [] $ Just $ Version sha
@@ -142,8 +145,14 @@ updateSpace patch G.UpdateSpaceInput{..} = do
   (user, branch) <- checkPatch patch
 
   old <- Space.fetch branch uid
-  let updated = old { spaceDescription = description }
-      meta    = CommitMeta user $ "Update " <> spaceName updated
+  -- TODO: 
+  -- - HKD and write a generic patch merge
+  -- - skip updates if nothing has changed
+  let updated = old 
+        { spaceDescription = fromMaybe (spaceDescription old) description 
+        , spaceRefs        = fromMaybe (spaceRefs old) references
+        }
+      meta = CommitMeta user $ "Update " <> spaceName updated
   (s, sha) <- Space.put branch meta updated
   G.presentView $ View.build [s] [] [] [] $ Just $ Version sha
 
@@ -153,7 +162,10 @@ updateTheorem patch G.UpdateTheoremInput{..} = do
   (user, branch) <- checkPatch patch
 
   old <- Theorem.fetch branch uid
-  let updated = old { theoremDescription = description }
+  let updated = old 
+        { theoremDescription = fromMaybe (theoremDescription old) description 
+        , theoremRefs        = fromMaybe (theoremRefs old) references
+        }
       meta    = CommitMeta user $ "Update " <> theoremName updated
   Theorem.put branch meta (propertyId <$> updated) >>= G.presentView
 
@@ -165,7 +177,8 @@ updateTrait patch G.UpdateTraitInput{..} = do
   old <- Trait.fetch branch spaceId propertyId
   let meta = CommitMeta user $ "Update " <> traitName old
       updated = old 
-        { _traitDescription = description 
+        { _traitDescription = fromMaybe (_traitDescription old) description 
+        , _traitRefs        = fromMaybe (_traitRefs old) references
         , _traitSpace       = spaceId
         , _traitProperty    = propertyId
         }

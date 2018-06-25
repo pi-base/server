@@ -1,18 +1,30 @@
-{-# LANGUAGE DataKinds, DeriveGeneric, DuplicateRecordFields, OverloadedStrings, PatternSynonyms, TypeOperators, ViewPatterns #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Graph.Class where
 
 import Protolude
 
 import           Control.Monad               (fail)
-import           Data.Aeson                  as Aeson
+import           Data.Aeson                  ((.:), (.:?), (.!=))
+import qualified Data.Aeson                  as Aeson
 import qualified Data.ByteString.Lazy        as BSL
 import qualified Data.HashMap.Lazy           as HM
 import           Data.Int                    (Int32)
 import qualified Data.List.NonEmpty          as NonEmpty
 import qualified Data.Map                    as M
 import           Data.Scientific             (floatingOrInteger)
-import           Data.Text                   (Text)
+import           Data.String                 (IsString(..))
+import           Data.Text                   (Text, pack)
+import qualified Data.Vector                 as V
 import           GraphQL.API
 import qualified GraphQL.Internal.OrderedMap as OM
 import           GraphQL.Internal.Syntax.AST (Variable(..))
@@ -22,27 +34,34 @@ import           GraphQL.Value
 import Core
 import Graph.Schema
 
-instance GraphQLEnum BranchAccess
+instance IsString GraphQL.Value.String where
+  fromString = GraphQL.Value.String . pack
 
-instance FromJSON QueryData where
+instance GraphQLEnum BranchAccess
+instance GraphQLEnum CitationType
+
+instance forall t. (HasAnnotatedInputType t) => HasAnnotatedInputType [t] where
+  getAnnotatedInputType = TypeList . ListType <$> getAnnotatedInputType @t
+
+instance Aeson.FromJSON QueryData where
   parseJSON = Aeson.withObject "QueryData" $ \o -> QueryData
     <$> o .:? "operationName" .!= Operation Nothing
     <*> o .: "query"
     <*> o .:? "variables" .!= Variables mempty
 
-instance FromJSON Name where
+instance Aeson.FromJSON Name where
   parseJSON (Aeson.String str) = case makeName str of 
     Right name -> return name
     Left   err -> fail $ show err
   parseJSON _ = fail "expected name to be a string"
 
-instance FromJSON Operation where
+instance Aeson.FromJSON Operation where
   parseJSON (Aeson.String "") = return $ Operation Nothing
   parseJSON Aeson.Null = return $ Operation Nothing
-  parseJSON v = (Operation . Just) <$> parseJSON v
+  parseJSON v = (Operation . Just) <$> Aeson.parseJSON v
 
 instance FromJSON Variables where
-  parseJSON = withObject "VariableValues" $ \vs -> do
+  parseJSON = Aeson.withObject "VariableValues" $ \vs -> do
     converted <- mapM convert $ HM.toList vs
     return . Variables . M.fromList $ converted
     where 
@@ -65,52 +84,97 @@ instance ToValue Aeson.Value where
       convert (key, val) =
         let Right name = makeName key
         in (name, toValue val)
-  toValue (Aeson.Array  _a) = panic "Input is an array"
-  toValue Aeson.Null        = toValue (Nothing :: Maybe Text)
+  toValue (Aeson.Array a) = ValueList' $ List' $ map toValue $ V.toList a
+  toValue Aeson.Null      = toValue (Nothing :: Maybe Text)
 
 instance ToValue BranchAccess where
   toValue = ValueEnum . enumToValue
 
-instance FromValue CreateSpaceInput
-instance HasAnnotatedInputType CreateSpaceInput
+instance FromValue CreateSpaceInput where
+  fromValue = withObject "CreateSpaceInput" $ \o -> CreateSpaceInput
+    <$> field "uid"         o
+    <*> field "name"        o
+    <*> field "description" o
+    <*> field "references"  o
+instance HasAnnotatedInputType CreateSpaceInput where
+  getAnnotatedInputType = inputType "CreateSpaceInput"
+    [ ("uid",         BuiltinInputType GID)
+    , ("name",        BuiltinInputType GString)
+    , ("description", BuiltinInputType GString)
+    , ("references",  BuiltinInputType GString)
+    ]
 instance Defaultable CreateSpaceInput where
   defaultFor _ = panic "No default for CreateSpaceInput"
 
-instance FromValue CreatePropertyInput
-instance HasAnnotatedInputType CreatePropertyInput
+instance FromValue CreatePropertyInput where
+  fromValue = withObject "CreatePropertyInput" $ \o -> CreatePropertyInput
+    <$> field "uid"         o
+    <*> field "name"        o
+    <*> field "description" o
+    <*> field "references"  o
+instance HasAnnotatedInputType CreatePropertyInput where
+  getAnnotatedInputType = inputType "CreatePropertyInput"
+    [ ("uid",         BuiltinInputType GID)
+    , ("name",        BuiltinInputType GString)
+    , ("description", BuiltinInputType GString)
+    , ("references",  BuiltinInputType GString)
+    ]
 instance Defaultable CreatePropertyInput where
   defaultFor _ = panic "No default for CreatePropertyInput"
 
-instance FromValue AssertTraitInput where
-  fromValue (ValueObject o) = AssertTraitInput
-    <$> field "spaceId" o
-    <*> field "propertyId" o
-    <*> field "value" o
-    <*> field "description" o
+instance FromValue CitationType where
+  fromValue (ValueString s) = case s of
+    "doi"       -> return DOICitation
+    "mr"        -> return MRCitation
+    "wikipedia" -> return WikiCitation
+    _           -> wrongType "String" s
+  fromValue v = wrongType "String" v
+
+instance FromValue Core.Citation where
+  fromValue (ValueObject o) = Citation
+    <$> field "name" o
+    <*> field "type" o
+    <*> field "ref" o
   fromValue v = wrongType "Object" v
+instance HasAnnotatedInputType Core.Citation where
+  getAnnotatedInputType = inputType "Citation"
+    [ ("name", BuiltinInputType GString)
+    , ("type", BuiltinInputType GString)
+    , ("ref",  BuiltinInputType GString)
+    ]
+
+instance FromValue AssertTraitInput where
+  fromValue = withObject "AssertTraitInput" $ \o -> AssertTraitInput
+    <$> field "spaceId"     o
+    <*> field "propertyId"  o
+    <*> field "value"       o
+    <*> field "description" o
+    <*> field "references"  o
 instance HasAnnotatedInputType AssertTraitInput where
-  getAnnotatedInputType = Right $ TypeNamed $ DefinedInputType $ InputTypeDefinitionObject $ InputObjectTypeDefinition "AssertTraitInput" $ NonEmpty.fromList
-    [ InputObjectFieldDefinition "spaceId" (TypeNamed $ BuiltinInputType GID) Nothing
-    , InputObjectFieldDefinition "propertyId" (TypeNamed $ BuiltinInputType GID) Nothing
-    , InputObjectFieldDefinition "value" (TypeNamed $ BuiltinInputType GBool) Nothing
-    , InputObjectFieldDefinition "description" (TypeNamed $ BuiltinInputType GString) Nothing
+  getAnnotatedInputType = inputType "AssertTraitInput"
+    [ ("spaceId",     BuiltinInputType GID)
+    , ("propertyId",  BuiltinInputType GID)
+    , ("value",       BuiltinInputType GBool)
+    , ("description", BuiltinInputType GString)
+    , ("references",  BuiltinInputType GString)
     ]
 instance Defaultable AssertTraitInput where
   defaultFor _ = panic "No default for AssertTraitInput"
 
 instance FromValue AssertTheoremInput where
-  fromValue (ValueObject o) = AssertTheoremInput
-    <$> field "uid" o
-    <*> field "antecedent" o
-    <*> field "consequent" o
+  fromValue = withObject "AssertTheoremInput" $ \o -> AssertTheoremInput
+    <$> field "uid"         o
+    <*> field "antecedent"  o
+    <*> field "consequent"  o
     <*> field "description" o
-  fromValue v = wrongType "Object" v
+    <*> field "references"  o
 instance HasAnnotatedInputType AssertTheoremInput where
-  getAnnotatedInputType = Right $ TypeNamed $ DefinedInputType $ InputTypeDefinitionObject $ InputObjectTypeDefinition "AssertTraitInput" $ NonEmpty.fromList
-    [ InputObjectFieldDefinition "uid" (TypeNamed $ BuiltinInputType GID) Nothing
-    , InputObjectFieldDefinition "antecedent" (TypeNamed $ BuiltinInputType GString) Nothing
-    , InputObjectFieldDefinition "consequent" (TypeNamed $ BuiltinInputType GString) Nothing
-    , InputObjectFieldDefinition "description" (TypeNamed $ BuiltinInputType GString) Nothing
+  getAnnotatedInputType = inputType "AssertTraitInput"
+    [ ("uid",         BuiltinInputType GID)
+    , ("antecedent",  BuiltinInputType GString)
+    , ("consequent",  BuiltinInputType GString)
+    , ("description", BuiltinInputType GString)
+    , ("references",  BuiltinInputType GString)
     ]
 instance Defaultable AssertTheoremInput where
   defaultFor _ = panic "No default for AssertTheoremInput"
@@ -140,8 +204,20 @@ instance HasAnnotatedInputType UpdateTheoremInput
 instance Defaultable UpdateTheoremInput where
   defaultFor _ = panic "No default for UpdateTheoremInput"
 
-instance FromValue UpdateTraitInput
-instance HasAnnotatedInputType UpdateTraitInput
+instance FromValue UpdateTraitInput where
+  fromValue = withObject "UpdateTraitInput" $ \o -> UpdateTraitInput
+    <$> field "spaceId"     o
+    <*> field "propertyId"  o
+    <*> field "description" o
+    <*> field "references"  o
+instance HasAnnotatedInputType UpdateTraitInput where
+  getAnnotatedInputType = inputType "UpdateTraitInput"
+    [ ("spaceId",     BuiltinInputType GID)
+    , ("propertyId",  BuiltinInputType GID)
+    , ("description", BuiltinInputType GString)
+    , ("references",  BuiltinInputType GString)
+    ]
+
 instance Defaultable UpdateTraitInput where
   defaultFor _ = panic "No default for UpdateTraitInput"
 
@@ -159,7 +235,7 @@ instance FromValue (Id a) where
 instance HasAnnotatedInputType (Formula PropertyId) where
   getAnnotatedInputType = Right $ TypeNamed $ BuiltinInputType GString
 instance FromValue (Formula PropertyId) where
-  fromValue (ValueString (GraphQL.Value.String s)) = case eitherDecode $ BSL.fromStrict $ encodeUtf8 s of
+  fromValue (ValueString (GraphQL.Value.String s)) = case Aeson.eitherDecode $ BSL.fromStrict $ encodeUtf8 s of
     Left err -> Left $ "Could not parse formula: " <> show err
     Right f  -> Right $ Id <$> f
   fromValue v = wrongType "String" v
@@ -171,3 +247,11 @@ field :: FromValue a => Name -> Object' ConstScalar -> Either Text a
 field name (Object' fieldMap) = case OM.lookup name fieldMap of
   Nothing -> Left $ "Key not found: " <> show name
   Just v  -> fromValue v
+
+inputType :: Name -> [(Name, InputType)] -> Either a (AnnotatedType InputType)
+inputType name pairs = Right . TypeNamed . DefinedInputType . InputTypeDefinitionObject . InputObjectTypeDefinition name . NonEmpty.fromList
+  $ map (\(fieldName, fieldType) -> InputObjectFieldDefinition fieldName (TypeNamed fieldType) Nothing) pairs
+
+withObject :: Show t => Text -> (Object' t -> Either Text b) -> Value' t -> Either Text b
+withObject _ parser (ValueObject o) = parser o
+withObject name _ v = wrongType (name <> " should be an Object") v

@@ -8,7 +8,8 @@ import GraphQL.API
 import GraphQL.Internal.Validation (QueryDocument, VariableValue)
 import GraphQL.Value               (Name)
 
-import Core (Generic, Text, SpaceId, PropertyId, TheoremId, Formula)
+import Core (Generic, SpaceId, PropertyId, TheoremId, Formula)
+import qualified Core
 
 type Query = QueryDocument VariableValue
 
@@ -158,12 +159,14 @@ data CreateSpaceInput = CreateSpaceInput
   { uid         :: SpaceId
   , name        :: Text
   , description :: Text
+  , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data CreatePropertyInput = CreatePropertyInput
   { uid         :: PropertyId
   , name        :: Text
   , description :: Text
+  , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data AssertTraitInput = AssertTraitInput
@@ -171,6 +174,7 @@ data AssertTraitInput = AssertTraitInput
   , propertyId  :: PropertyId
   , value       :: Bool
   , description :: Text
+  , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data AssertTheoremInput = AssertTheoremInput
@@ -178,6 +182,7 @@ data AssertTheoremInput = AssertTheoremInput
   , antecedent  :: Formula PropertyId
   , consequent  :: Formula PropertyId
   , description :: Text
+  , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data ResetBranchInput = ResetBranchInput
@@ -191,23 +196,27 @@ data SubmitBranchInput = SubmitBranchInput
 
 data UpdateSpaceInput = UpdateSpaceInput
   { uid         :: SpaceId
-  , description :: Text
+  , description :: Maybe Text
+  , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data UpdatePropertyInput = UpdatePropertyInput
   { uid         :: PropertyId
-  , description :: Text
+  , description :: Maybe Text
+  , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data UpdateTheoremInput = UpdateTheoremInput
   { uid         :: TheoremId
-  , description :: Text
+  , description :: Maybe Text
+  , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data UpdateTraitInput = UpdateTraitInput
   { spaceId     :: SpaceId
   , propertyId  :: PropertyId
-  , description :: Text
+  , description :: Maybe Text
+  , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data PatchInput = PatchInput

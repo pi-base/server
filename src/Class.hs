@@ -47,6 +47,7 @@ instance Show Version where
 -}
 
 deriving instance (Eq s, Eq p) => Eq (Trait s p)
+deriving instance Generic CitationType
 
 instance Exception ConflictError
 instance Exception ForcedError
