@@ -18,19 +18,37 @@ jobs:
           command: |
             git clone --bare https://github.com/pi-base/data.git /data/repo/.git
 
+      # Build and cached dependencies up to yesod
+      # This and the full dependency build being split is soley a concession to the
+      #   time and space limitations on a CircleCI build step
+      - restore_cache:
+          keys:
+            - v1-stack-deps-{{ checksum "package.yaml" }}-yesod
+            - v1-stack-deps-
+      - run:
+          name: Build yesod
+          command: stack build yesod
+          timeout: 1200
+      - save_cache:
+          key: v1-stack-deps-{{ checksum "package.yaml" }}-yesod
+          paths: 
+            - ~/.stack
+            - .stack-work
+
       # Build and cache installed dependencies based on package.yml
       - restore_cache:
           keys:
-            - v1-stack-deps-{{ checksum "package.yaml" }}
+            - v1-stack-deps-{{ checksum "package.yaml" }}-all
             - v1-stack-deps-
       - run:
           name: Build deps
           command: stack build --only-dependencies
+          timeout: 1200
       - run:
           name: Build test deps
           command: stack build --test --only-dependencies
       - save_cache:
-          key: v1-stack-deps-{{ checksum "package.yaml" }}
+          key: v1-stack-deps-{{ checksum "package.yaml" }}-all
           paths: 
             - ~/.stack
             - .stack-work
