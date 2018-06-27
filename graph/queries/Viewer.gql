@@ -5,6 +5,7 @@ query Viewer($version: String) {
       uid
       name
       references {
+        // TODO: these should be fragments
         type
         ref
         name
