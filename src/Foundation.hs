@@ -27,7 +27,7 @@ import Control.Monad.Catch as MC (MonadCatch(..), MonadMask(..))
 
 import Class
 import Git.Libgit2 (HasLgRepo(..))
-import Data.Branch (claimUserBranches, ensureUserBranch)
+import Data.Branch (ensureUserBranch)
 import Data.Store  (Store, storeRepo)
 import Services.Rollbar as Rollbar
 import qualified Graph.Queries.Cache as GQ

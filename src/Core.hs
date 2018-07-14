@@ -31,7 +31,6 @@ import Types.Store  as Core (Store)
 
 import           Control.Lens hiding ((.=))
 import qualified Data.Set     as S
-import qualified Data.Text    as T
 
 import qualified Formula as F
 
@@ -48,7 +47,9 @@ theoremProperties :: Ord p => Theorem p -> S.Set p
 theoremProperties = implicationProperties . theoremImplication
 
 theoremName :: Theorem Property -> Text
-theoremName = T.pack . show . theoremImplication
+theoremName t = (F.format propertyName $ theoremIf t) 
+             <> " ⇒ "
+             <> (F.format propertyName $ theoremThen t)
 
 traitId :: Trait Space Property -> TraitId
 traitId = (,) <$> traitSpaceId <*> traitPropertyId

@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Formula
   ( Formula(..)
@@ -21,21 +22,20 @@ import           Data.Aeson hiding ((.=))
 import qualified Data.Aeson as A
 import           Data.Attoparsec.Text hiding (parse)
 import qualified Data.HashMap.Strict as HM
-import           Data.List (intercalate)
 import qualified Data.Map.Strict as M
 import           Data.Monoid ((<>))
 import qualified Data.Set as S
 import           Data.String (IsString)
-import           Data.Text (Text, strip)
+import           Data.Text (Text, intercalate, strip)
 
 import Util (unionN)
 
 enclose :: (IsString s, Monoid s) => s -> s
 enclose s = "(" <> s <> ")"
 
-format :: (p -> String) -> Formula p -> String
+format :: (p -> Text) -> Formula p -> Text
 format f (Atom p True ) = f p
-format f (Atom p False) = "~" ++ f p
+format f (Atom p False) = "~" <> f p
 format f (And fs) = enclose . intercalate " + " $ map (format f) fs
 format f (Or  fs) = enclose . intercalate " | " $ map (format f) fs
 
