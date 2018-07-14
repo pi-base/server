@@ -2,21 +2,39 @@ module Handler.Home where
 
 import Import
 
-import Data.Store      (getStoreBaseVersion)
-import Handler.Helpers (generateToken)
-import Services.Github (checkPullRequest, webhookHandler)
-import Core            (View(..), unVersion)
+import Data.Store                  (getStoreBaseVersion)
+import Database.Persist.Postgresql (PostgresConf(..))
+import Handler.Helpers             (generateToken)
+import Services.Github             (checkPullRequest, webhookHandler)
+import Core                        (View(..), unVersion)
 
 getHomeR :: Handler Value
 getHomeR = do
-  version <- getStoreBaseVersion
-  build   <- getSetting appBuild
-  render  <- getUrlRender
+  version  <- getStoreBaseVersion
+  build    <- getSetting appBuild
+  render   <- getUrlRender
+  settings <- appSettings <$> getYesod
   return $ object 
     [ "version" .= version
     , "build"   .= build
     , "root"    .= render HomeR
+#if DEVELOPMENT
+    , "settings" .= debugSettings settings
+#endif
     ]
+
+debugSettings :: AppSettings -> Value
+debugSettings AppSettings{..} = object
+  [ "database" .= object
+    [ "conn" .= (tshow $ pgConnStr appDatabaseConf)
+    , "pool" .= pgPoolSize appDatabaseConf
+    ]
+  , "repo" .= object
+    [ "path"       .= rsPath appRepo
+    , "upstream"   .= rsUpstream appRepo
+    , "downstream" .= rsDownstream appRepo
+    ]
+  ]
 
 postHooksR :: Handler Value
 postHooksR = do

@@ -86,6 +86,7 @@ presentTrait Trait{..} = pure $ pure "Trait"
   :<> pure _traitValue
   :<> pure (map presentCitation _traitRefs)
   :<> pure _traitDescription
+  :<> pure False
 
 presentTheorem :: Monad m => Theorem PropertyId -> Handler m G.Theorem
 presentTheorem t@Theorem{..} = pure $ pure "Theorem"
@@ -176,6 +177,7 @@ loadTrait loader space (pid, tval) = do
     :<> pure tval
     :<> pure (map presentCitation $ _traitRefs trait)
     :<> pure (_traitDescription trait)
+    :<> pure False
 
 encodeFormula :: Formula PropertyId -> Text
 encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unId

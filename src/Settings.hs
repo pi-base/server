@@ -134,7 +134,6 @@ instance FromJSON AppSettings where
 
         return AppSettings {..}
 
-
 logLevel :: String -> LogLevel
 logLevel "error" = LevelError
 logLevel "warn"  = LevelWarn

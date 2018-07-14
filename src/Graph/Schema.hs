@@ -55,6 +55,7 @@ type Trait = Object "Trait" '[]
    , Field "value"       Bool
    , Field "references"  (List Citation)
    , Field "description" Text
+   , Field "deduced"     Bool
    ]
 
 type Theorem = Object "Theorem" '[]

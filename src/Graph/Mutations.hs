@@ -68,8 +68,8 @@ assertTheorem patch G.AssertTheoremInput{..} = do
         }
   theorem' <- mapM (Property.fetch branch) theorem
   let meta = CommitMeta user $ "Add " <> theoremName theorem'
-  view <- Theorem.put branch meta theorem
-  G.presentView view
+  (t, sha) <- Theorem.put branch meta theorem
+  G.presentView $ View.build [] [] [] [t] $ Just $ Version sha
 
 createSpace :: MonadGraph m => G.PatchInput -> G.CreateSpaceInput -> Handler m G.Viewer
 createSpace patch G.CreateSpaceInput{..} = do
@@ -167,7 +167,8 @@ updateTheorem patch G.UpdateTheoremInput{..} = do
         , theoremRefs        = fromMaybe (theoremRefs old) references
         }
       meta    = CommitMeta user $ "Update " <> theoremName updated
-  Theorem.put branch meta (propertyId <$> updated) >>= G.presentView
+  (t, sha) <- Theorem.put branch meta (propertyId <$> updated)
+  G.presentView $ View.build [] [] [] [t] $ Just $ Version sha
 
 updateTrait :: (MonadGraph m, MonadLogger m)
             => G.PatchInput -> G.UpdateTraitInput -> Handler m G.Viewer

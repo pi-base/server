@@ -8,11 +8,12 @@ module Data.Theorem
 import Protolude hiding (find, put)
 
 import           Core
-import           Data  (findParsed, makeId, required, updateView)
+import           Data (findParsed, makeId, required, updateBranch)
+import           Data.Git (writePages)
 import qualified Data.Parse as Parse
 import qualified Data.Property
-import qualified Data.Loader as Load
-import qualified View
+import qualified Page
+import           Page.Theorem (page)
 
 find :: MonadStore m => Branch -> TheoremId -> m (Maybe (Theorem Property))
 find branch _id = findParsed Parse.theorem branch _id >>= \case
@@ -30,20 +31,15 @@ put :: (MonadStore m, MonadLogger m)
     => Branch 
     -> CommitMeta 
     -> Theorem PropertyId 
-    -> m View
+    -> m (Theorem Property, Sha)
 put branch meta theorem' = do
   theorem <- assignId theorem'
-  updateView branch meta $ \loader -> do
-    -- $(logDebug) $ "Asserting " <> show (theoremImplication theorem)
-    -- result <- L.runLogicT loader $ L.assertTheorem theorem
-    -- $(logDebug) $ "Assertion yielded: " <> show result
-    -- case result of
-    --   Left      err -> throw $ LogicError err
-    --   Right updates -> do
-    --     view <- viewDeductions loader updates
-    --     return view
-    loaded <- mapM (Load.property loader) theorem
-    return $ View.build [] [] [] [loaded] Nothing
+  -- TODO: verify deductions here?
+  (_, sha) <- updateBranch branch meta $ \_ ->
+    writePages [Page.write page theorem]
+  -- TODO: don't go back to store?
+  loaded <- fetch branch $ theoremId theorem
+  return (loaded, sha)
 
 assignId :: MonadIO m => Theorem p -> m (Theorem p)
 assignId t = if theoremId t == pending
