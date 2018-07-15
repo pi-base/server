@@ -13,7 +13,9 @@ getHomeR = do
   version  <- getStoreBaseVersion
   build    <- getSetting appBuild
   render   <- getUrlRender
+#if DEVELOPMENT
   settings <- appSettings <$> getYesod
+#endif
   return $ object 
     [ "version" .= version
     , "build"   .= build

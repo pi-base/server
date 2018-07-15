@@ -1,4 +1,7 @@
+{-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 module Data.Store
   ( Store
   , currentLoader
@@ -25,34 +28,25 @@ import           Git
 import           Git.Libgit2         (openLgRepository, runLgRepository)
 import           Types
 import           Types.Store
+import           Shelly
 import           System.Directory    (doesDirectoryExist)
-import           System.Process      (callCommand)
 import           UnliftIO
+
+default (T.Text)
 
 initializeStore :: (MonadIO m, MonadUnliftIO m, MonadMask m, MonadLogger m)
                 => RepoSettings -> m Store
 initializeStore RepoSettings{..} = do
   repo <- do
     $(logInfo) $ "Initializing repository at " ++ tshow rsPath
+    let repoPath = fromText $ T.pack rsPath
     exists <- liftIO $ doesDirectoryExist rsPath
-    unless exists $ do
-      {- 
-        Clone initial repository along with all remote branches, from https://stackoverflow.com/questions/67699
-
-        $ git clone --mirror <url> <path>
-        $ cd path
-        $ git config --bool core.bare false
-        $ git checkout master
-
-        We probably don't want to actually --mirror here because we don't want remote PR
-        branches or anything to cause errors when we do a push
-      -}
-      run "Cloning initial repository" $ 
-        "git clone --mirror " <> rsUpstream <> " " <> T.pack rsPath
-      run "Configuring remotes" $
-           "cd " <> T.pack rsPath 
-        <> " && git remote add downstream " <> rsDownstream 
-        <> " && git remote add upstream " <> rsUpstream
+    unless exists $ 
+      shell "Initializing repository" $ do
+        void $ git "clone" "--mirror" rsUpstream repoPath
+        cd repoPath
+        void $ git "remote" "add" "downstream" rsDownstream
+        git "remote" "add" "upstream" rsDownstream
     liftIO $ openLgRepository $ RepositoryOptions
       { repoPath       = rsPath
       , repoWorkingDir = Nothing
@@ -79,28 +73,31 @@ initializeStore RepoSettings{..} = do
 initializeDownstream :: (MonadLogger m, MonadIO m) => RepoSettings -> m ()
 initializeDownstream RepoSettings{..} = do
   exists <- liftIO $ doesDirectoryExist $ T.unpack rsDownstream
+  let repoPath = fromText $ T.pack rsPath
   unless exists $
-    run "Initialize downstream" $
-      "git clone --mirror " <> T.pack rsPath <> " " <> rsDownstream
+    shell "Initialize downstream" $ do
+      git "clone" "--mirror" repoPath rsDownstream
 
 fetchBranches :: (MonadStore m, MonadLogger m) => m ()
 fetchBranches = do
   repoPath <- storeRepoPath <$> getStore
-  run "Pulling updates for repo" $ 
-    "cd " <> T.pack repoPath <> " && git fetch upstream"
+  shell "Pulling updates for repo" $ do
+    cd $ fromText $ T.pack repoPath
+    git "fetch"
 
 pushBranches :: (MonadStore m, MonadLogger m) => m ()
 pushBranches = do
   repoPath <- storeRepoPath <$> getStore
   -- FIXME: replace w/ shelly, check for errors, capture / handle output
-  run "Pushing user branches" $ 
-    "cd " <> T.pack repoPath <> " && git push --mirror downstream >/dev/null 2>&1"
+  shell "Pushing user branches" $ do
+    cd $ fromText $ T.pack repoPath
+    git "push" "--mirror" "downstream"
 
-run :: (MonadLogger m, MonadIO m) => Text -> Text -> m ()
-run desc cmd = do
-  $(logInfo) desc
-  $(logDebug) cmd
-  liftIO . callCommand $ T.unpack cmd
+shell :: (MonadLogger m, MonadIO m) => Text -> Sh a -> m ()
+shell _ = void . shelly . silently
+
+git :: ShellCmd result => Shelly.FilePath -> result
+git = cmd "git"
 
 getStoreBaseVersion :: MonadStore m => m Version
 getStoreBaseVersion = do
