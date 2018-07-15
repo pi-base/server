@@ -44,7 +44,6 @@ withErrorHandling = flip U.catchesDeep errorHandlers
 errorHandlers :: [U.Handler Handler Value]
 errorHandlers =
   [ h status400 parse
-  , h status400 forced
   , h status400 graph
   , h status400 load
   , h status403 permission
@@ -60,9 +59,6 @@ errorHandlers =
 
 conflict :: ConflictError -> Text
 conflict ConflictError{..} = "Expected sha " <> expectedSha <> ", but found " <> actualSha
-
-forced :: ForcedError -> Text
-forced _ = "Forced error"
 
 graph :: GraphError -> Text
 graph (ExecutionErrors errs) = "Execution errors: " <> tshow errs
