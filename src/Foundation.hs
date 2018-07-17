@@ -171,9 +171,10 @@ instance Yesod App where
         120    -- timeout in minutes
         "config/client_session_key.aes"
 
-    errorHandler err@(InternalError e) = do
-      rollbar Rollbar.Error (tshow e) mempty
-      defaultErrorHandler err
+    errorHandler (InternalError e) = do
+      rollbar Rollbar.Error e mempty
+      $(logError) e
+      defaultErrorHandler $ InternalError "Interal Server Error"
     errorHandler err = defaultErrorHandler err
 
     -- Yesod Middleware allows you to run code before and after each handler function.
