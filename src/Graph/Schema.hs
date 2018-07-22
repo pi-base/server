@@ -100,12 +100,6 @@ type Viewer = Object "Viewer" '[]
    , Field "theorems"   (List Theorem)
    ]
 
-type ResetBranchResponse = Object "ResetBranchResponse" '[]
-  '[ Field "__typename" Text
-   , Field "branch"     Text
-   , Field "sha"        Text
-   ]
-
 type SubmitBranchResponse = Object "SubmitBranchResponse" '[]
   '[ Field "__typename" Text
    , Field "branch"     Text
@@ -150,22 +144,21 @@ type Root = Object "QueryRoot" '[]
      :> Argument "theorem" AssertTheoremInput
      :> Field "assertTheorem" Viewer
 
-   , Argument "input" ResetBranchInput :> Field "resetBranch" ResetBranchResponse
-   , Argument "input" SubmitBranchInput :> Field "submitBranch" SubmitBranchResponse
+   , Argument "input" ResetBranchInput :> Field "resetBranch" Viewer
+   , Argument "input" BranchInput :> Field "submitBranch" SubmitBranchResponse
+   , Argument "input" BranchInput :> Field "approveBranch" Viewer
    ]
 
 -- Inputs
 
 data CreateSpaceInput = CreateSpaceInput
-  { uid         :: SpaceId
-  , name        :: Text
+  { name        :: Text
   , description :: Text
   , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
 
 data CreatePropertyInput = CreatePropertyInput
-  { uid         :: PropertyId
-  , name        :: Text
+  { name        :: Text
   , description :: Text
   , references  :: Maybe [Core.Citation]
   } deriving (Show, Generic)
@@ -179,8 +172,7 @@ data AssertTraitInput = AssertTraitInput
   } deriving (Show, Generic)
 
 data AssertTheoremInput = AssertTheoremInput
-  { uid :: TheoremId
-  , antecedent  :: Formula PropertyId
+  { antecedent  :: Formula PropertyId
   , consequent  :: Formula PropertyId
   , description :: Text
   , references  :: Maybe [Core.Citation]
@@ -191,7 +183,7 @@ data ResetBranchInput = ResetBranchInput
   , to     :: Text -- ref or sha
   } deriving (Show, Generic)
 
-data SubmitBranchInput = SubmitBranchInput
+data BranchInput = BranchInput
   { branch :: Text
   } deriving (Show, Generic)
 

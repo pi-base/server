@@ -7,6 +7,7 @@ module Data.Git
   , commitFromLabel
   , commitSha
   , createBranchFromBase
+  , fetchRefHead
   , getDir
   , headSha
   , lookupCommittish
@@ -34,8 +35,7 @@ updateBranch :: MonadStore m
              -> m (a, Sha)
 updateBranch branch meta handler = do
   let ref = branchRef branch
-  resolved <- fetchRef ref
-  parent   <- lookupCommit $ Tagged resolved
+  parent   <- fetchRefHead ref
   tree     <- lookupTree $ commitTree parent
   loader   <- mkLoader parent
   (result, newTree) <- withTree tree $ handler loader
@@ -43,10 +43,10 @@ updateBranch branch meta handler = do
   commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
   return (result, commitSha commit)
 
-fetchRef :: MonadStore m => Ref -> m (Oid LgRepo)
-fetchRef ref = resolveReference (refHead ref) >>= \case
+fetchRefHead :: MonadStore m => Ref -> m (Commit LgRepo)
+fetchRefHead ref = resolveReference (refHead ref) >>= \case
   Nothing    -> notFound "Ref" ref
-  Just found -> return found
+  Just found -> lookupCommit $ Tagged found
 
 commitSha :: Commit LgRepo -> Sha
 commitSha cmt = case commitOid cmt of

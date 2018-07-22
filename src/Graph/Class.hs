@@ -92,14 +92,12 @@ instance ToValue BranchAccess where
 
 instance FromValue CreateSpaceInput where
   fromValue = withObject "CreateSpaceInput" $ \o -> CreateSpaceInput
-    <$> field "uid"         o
-    <*> field "name"        o
+    <$> field "name"        o
     <*> field "description" o
     <*> field "references"  o
 instance HasAnnotatedInputType CreateSpaceInput where
   getAnnotatedInputType = inputType "CreateSpaceInput"
-    [ ("uid",         BuiltinInputType GID)
-    , ("name",        BuiltinInputType GString)
+    [ ("name",        BuiltinInputType GString)
     , ("description", BuiltinInputType GString)
     , ("references",  BuiltinInputType GString)
     ]
@@ -108,14 +106,12 @@ instance Defaultable CreateSpaceInput where
 
 instance FromValue CreatePropertyInput where
   fromValue = withObject "CreatePropertyInput" $ \o -> CreatePropertyInput
-    <$> field "uid"         o
-    <*> field "name"        o
+    <$> field "name"        o
     <*> field "description" o
     <*> field "references"  o
 instance HasAnnotatedInputType CreatePropertyInput where
   getAnnotatedInputType = inputType "CreatePropertyInput"
-    [ ("uid",         BuiltinInputType GID)
-    , ("name",        BuiltinInputType GString)
+    [ ("name",        BuiltinInputType GString)
     , ("description", BuiltinInputType GString)
     , ("references",  BuiltinInputType GString)
     ]
@@ -163,8 +159,7 @@ instance Defaultable AssertTraitInput where
 
 instance FromValue AssertTheoremInput where
   fromValue = withObject "AssertTheoremInput" $ \o -> AssertTheoremInput
-    <$> field "uid"         o
-    <*> field "antecedent"  o
+    <$> field "antecedent"  o
     <*> field "consequent"  o
     <*> field "description" o
     <*> field "references"  o
@@ -184,9 +179,9 @@ instance HasAnnotatedInputType ResetBranchInput
 instance Defaultable ResetBranchInput where
   defaultFor _ = panic "No default for ResetBranchInput"
 
-instance FromValue SubmitBranchInput
-instance HasAnnotatedInputType SubmitBranchInput
-instance Defaultable SubmitBranchInput where
+instance FromValue BranchInput
+instance HasAnnotatedInputType BranchInput
+instance Defaultable BranchInput where
   defaultFor _ = panic "No default for ResetBranchInput"
 
 instance FromValue UpdateSpaceInput

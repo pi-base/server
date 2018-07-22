@@ -7,7 +7,7 @@ module Services.Github
 
 import Import
 import Core       hiding (Id, Commit)
-import Data.Store (storeBaseBranch, fetchBranches, pushBranches)
+import Data.Store (storeBaseBranch, fetchBranches, pushBranch)
 
 import           Crypto.Hash
 import           Data.Aeson                       (eitherDecode)
@@ -21,15 +21,16 @@ import qualified GitHub.Endpoints.Repos.Statuses  as GH
 import qualified GitHub.Endpoints.PullRequests    as GH
 
 createPullRequest :: (MonadStore m, MonadLogger m) 
-                  => GithubSettings -> BranchName -> m (Either Text Text) -- FIXME
+                  => GithubSettings -> Core.Branch -> m (Either Text Text) -- FIXME
 createPullRequest GithubSettings{..} branch = do
-  pushBranches -- should already happen on branch update, but just to be sure
+  pushBranch branch -- should already happen on branch update, but just to be sure
 
   base <- storeBaseBranch <$> getStore
-  let request = CreatePullRequest
-        { createPullRequestTitle = branch
+  let name = Core.branchName branch
+      request = CreatePullRequest
+        { createPullRequestTitle = name
         , createPullRequestBody = ""
-        , createPullRequestHead = branch
+        , createPullRequestHead = name
         , createPullRequestBase = base
         }
   epr <- liftIO $ GH.createPullRequest gsToken gsOwner gsRepo request

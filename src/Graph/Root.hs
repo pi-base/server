@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, DeriveGeneric, ExistentialQuantification, TemplateHaskell, TypeApplications, TypeOperators #-}
+{-# LANGUAGE DataKinds , DeriveGeneric, ExistentialQuantification, TemplateHaskell, TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Graph.Root
   ( Root
@@ -32,6 +32,7 @@ handler settings = pure $ pure "Query"
   :<> assertTheorem
   :<> resetBranch
   :<> submitBranch (appGithub settings)
+  :<> approveBranch
 
 schema :: Either QueryError Schema
 schema = makeSchema @Root

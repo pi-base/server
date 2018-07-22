@@ -1,14 +1,14 @@
 module Data.Space
   ( fetch
   , find
-  , pending
   , put
   ) where
 
 import Protolude hiding (find, put)
 
 import Core
-import Data        (findParsed, makeId, required, updateBranch)
+import Data        (findParsed, required, updateBranch)
+import Data.Id     (assignId)
 import Data.Git    (writePages)
 
 import qualified Data.Parse as Parse
@@ -21,9 +21,6 @@ find = Data.findParsed Parse.space
 fetch :: MonadStore m => Branch -> SpaceId -> m Space
 fetch sha _id = find sha _id >>= Data.required "Space" (unId _id)
 
-pending :: SpaceId
-pending = Id ""
-
 put :: (MonadStore m, MonadLogger m) 
     => Branch -> CommitMeta -> Space -> m (Space, Sha)
 put branch meta space' = do
@@ -31,11 +28,3 @@ put branch meta space' = do
   updateBranch branch meta $ \_ -> do
     writePages [Page.write page space]
     return space
-
-assignId :: MonadIO m => Space -> m Space
-assignId p = if spaceId p == pending
-  then do
-    _id <- makeId "s"
-    return $ p { spaceId = _id }
-  else return p
-

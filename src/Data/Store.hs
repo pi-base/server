@@ -5,12 +5,13 @@
 module Data.Store
   ( Store
   , currentLoader
+  , fetchBranch
   , fetchBranches
   , getStoreBaseVersion
-  , initializeStore
   , initializeDownstream
+  , initializeStore
   , loaderAt
-  , pushBranches
+  , pushBranch
   , storeAutoSync
   , storeBaseBranch
   , storeLoader
@@ -37,7 +38,7 @@ default (T.Text)
 initializeStore :: (MonadIO m, MonadUnliftIO m, MonadMask m, MonadLogger m)
                 => RepoSettings -> m Store
 initializeStore RepoSettings{..} = do
-  repo <- do
+  lgRepo <- do
     $(logInfo) $ "Initializing repository at " ++ tshow rsPath
     let repoPath = fromText $ T.pack rsPath
     exists <- liftIO $ doesDirectoryExist rsPath
@@ -54,12 +55,12 @@ initializeStore RepoSettings{..} = do
       , repoAutoCreate = False
       }
 
-  (Just commit) <- runLgRepository repo $ 
+  (Just commit) <- runLgRepository lgRepo $ 
     resolveCommittish $ CommitRef $ Ref rsDefaultBranch
   loader <- mkLoader commit >>= newMVar
 
   return Store 
-    { storeRepo       = repo
+    { storeRepo       = lgRepo
     , storeLoader     = loader
     , storeRepoPath   = rsPath
     , storeBaseBranch = rsDefaultBranch
@@ -79,19 +80,23 @@ initializeDownstream RepoSettings{..} = do
       git "clone" "--mirror" repoPath rsDownstream
 
 fetchBranches :: (MonadStore m, MonadLogger m) => m ()
-fetchBranches = do
-  repoPath <- storeRepoPath <$> getStore
-  shell "Pulling updates for repo" $ do
-    cd $ fromText $ T.pack repoPath
-    git "fetch"
+fetchBranches = repo "Fetching updates for repo" $ do
+  git "fetch"
 
-pushBranches :: (MonadStore m, MonadLogger m) => m ()
-pushBranches = do
+pushBranch :: (MonadStore m, MonadLogger m) => Branch -> m ()
+pushBranch Branch{..} = repo ("Pushing " <> branchName) $ do
+  git "push" "downstream" branchName
+
+fetchBranch :: (MonadStore m, MonadLogger m) => Branch -> m ()
+fetchBranch Branch{..} =  repo ("Fetching " <> branchName) $ do
+  git "fetch" "origin" branchName
+
+repo :: (MonadLogger m, MonadStore m) => Text -> Sh a -> m ()
+repo msg handler = do
   repoPath <- storeRepoPath <$> getStore
-  -- FIXME: replace w/ shelly, check for errors, capture / handle output
-  shell "Pushing user branches" $ do
+  shell msg $ do
     cd $ fromText $ T.pack repoPath
-    git "push" "--mirror" "downstream"
+    handler
 
 shell :: (MonadLogger m, MonadIO m) => Text -> Sh a -> m ()
 shell _ = void . shelly . silently

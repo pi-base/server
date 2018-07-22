@@ -5,8 +5,11 @@ module Data.Branch
   , commit
   , ensureBaseBranch
   , ensureUserBranch
+  , fetch
   , find
   , headSha
+  , push
+  , ref
   , reset
   , userBranches
   ) where
@@ -23,7 +26,7 @@ import qualified Data.Map.Strict as M
 import           Git
 
 import           Data.Helpers (findOrCreate, repsertBy)
-import           Data.Store   (storeBaseBranch)
+import           Data.Store   (fetchBranch, pushBranch, storeBaseBranch)
 import           Model        (Unique(..))
 
 type Name = Text
@@ -148,5 +151,15 @@ refParser = do
       name <- takeText
       return (name, Nothing)
 
+-- TODO: lower-level functions should take a BranchName; only these should take a Branch
 headSha :: MonadStore m => Branch -> m Sha
 headSha = Git.headSha
+
+fetch :: (MonadStore m, MonadLogger m) => Branch -> m ()
+fetch = fetchBranch
+
+push :: (MonadStore m, MonadLogger m) => Branch -> m ()
+push = pushBranch
+
+ref :: Branch -> Ref
+ref = Git.branchRef

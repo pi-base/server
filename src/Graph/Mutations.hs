@@ -4,12 +4,14 @@ module Graph.Mutations
   , assertTrait
   , createProperty
   , createSpace
-  , resetBranch
-  , submitBranch
   , updateProperty
   , updateSpace
   , updateTheorem
   , updateTrait
+  -- Branch tools
+  , resetBranch
+  , submitBranch
+  , approveBranch
   ) where
 
 import Protolude hiding (throwIO, to)
@@ -19,17 +21,20 @@ import           Database.Persist (Entity(..))
 import           GraphQL.Resolver
 
 import           Core
-import           Data            (slugify)
-import qualified Data.Branch     as Branch
-import qualified Data.Git        as Git
-import qualified Data.Property   as Property
-import qualified Data.Space      as Space
-import qualified Data.Theorem    as Theorem
-import qualified Data.Trait      as Trait
-import qualified Graph.Queries   as G
-import qualified Graph.Schema    as G
-import qualified Services.Github as Github
-import qualified View            as View
+import           Data              (slugify)
+import           Data.Store        (storeBaseBranch)
+import qualified Data.Branch       as Branch
+import qualified Data.Branch.Merge as Branch
+import qualified Data.Git          as Git
+import qualified Data.Id           as Id
+import qualified Data.Property     as Property
+import qualified Data.Space        as Space
+import qualified Data.Theorem      as Theorem
+import qualified Data.Trait        as Trait
+import qualified Graph.Queries     as G
+import qualified Graph.Schema      as G
+import qualified Services.Github   as Github
+import qualified View              as View
 
 assertTrait :: MonadGraph m => G.PatchInput -> G.AssertTraitInput -> Handler m G.Viewer
 assertTrait patch G.AssertTraitInput{..} = do
@@ -60,7 +65,7 @@ assertTheorem patch G.AssertTheoremInput{..} = do
   (user, branch) <- checkPatch patch
 
   let theorem = Theorem
-        { theoremId          = uid
+        { theoremId          = Id.pending
         , theoremImplication = (Implication antecedent consequent)
         , theoremConverse    = Nothing -- FIXME
         , theoremRefs        = fromMaybe [] references
@@ -76,7 +81,7 @@ createSpace patch G.CreateSpaceInput{..} = do
   (user, branch) <- checkPatch patch
 
   let space = Space
-        { spaceId          = uid
+        { spaceId          = Id.pending
         , spaceName        = name
         , spaceAliases     = []
         , spaceRefs        = fromMaybe [] references
@@ -94,7 +99,7 @@ createProperty patch G.CreatePropertyInput{..} = do
   (user, branch) <- checkPatch patch
 
   let property = Property
-        { propertyId          = uid
+        { propertyId          = Id.pending
         , propertyName        = name
         , propertySlug        = slugify name
         , propertyAliases     = []
@@ -105,27 +110,41 @@ createProperty patch G.CreatePropertyInput{..} = do
   (p, sha) <- Property.put branch commit property
   G.presentView $ View.build [] [p] [] [] $ Just $ Version sha
 
-resetBranch :: MonadGraph m => G.ResetBranchInput -> Handler m G.ResetBranchResponse
+resetBranch :: MonadGraph m => G.ResetBranchInput -> Handler m G.Viewer
 resetBranch G.ResetBranchInput{..} = do
   (_, branch') <- requireBranchAccess branch BranchAdmin
   -- TODO: better handling when `to` is not found
   commit <- Git.commitFromLabel $ Just to
   sha <- Branch.reset branch' $ CommitSha $ Git.commitSha commit
 
-  return $ pure "ResetBranchResponse"
-    :<> pure branch
-    :<> pure sha
+  G.viewer $ Just sha
 
-submitBranch :: MonadGraph m => GithubSettings -> G.SubmitBranchInput -> Handler m G.SubmitBranchResponse
-submitBranch settings G.SubmitBranchInput{..} = do
-  _ <- requireBranchAccess branch BranchAdmin
+submitBranch :: MonadGraph m => GithubSettings -> G.BranchInput -> Handler m G.SubmitBranchResponse
+submitBranch settings G.BranchInput{..} = do
+  (_, b) <- requireBranchAccess branch BranchAdmin
 
-  Github.createPullRequest settings branch >>= \case
+  Github.createPullRequest settings b >>= \case
     Left e -> throwIO $ ValidationMessage e
     Right url -> 
       return $ pure "SubmitBranchResponse"
         :<> pure branch
         :<> pure url
+
+approveBranch :: MonadGraph m => G.BranchInput -> Handler m G.Viewer
+approveBranch G.BranchInput{..} = do
+  base <- storeBaseBranch <$> getStore
+  (user, master) <- requireBranchAccess base BranchAdmin
+  (_, pr) <- requireBranchAccess branch BranchAdmin
+
+  let 
+    merge = Branch.Merge
+      { from = pr
+      , into = master
+      }
+    meta = CommitMeta (entityVal user) $ "Merge " <> branch <> " into " <> base
+  sha <- Branch.merge merge meta
+
+  G.viewer $ Just sha
 
 updateProperty :: MonadGraph m => G.PatchInput -> G.UpdatePropertyInput -> Handler m G.Viewer
 updateProperty patch G.UpdatePropertyInput{..} = do

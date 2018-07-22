@@ -341,6 +341,25 @@ spec getApp = do
         actualSha `shouldBe` initial
         expectedSha `shouldBe` "mismatch"
 
+  -- testSpec "Handlers" $ do
+  --   describe "branch submit flow" $ do
+  --     let branch = userBranch cody
+
+  --     as cody $ do
+  --       checkout branch
+
+  --       v <- update createProperty $ CreateProperty "P" "Description of P" []
+  --       let pid = v ^. key "createProperty" . key "properties" . nth 0 . key "uid" . _String
+
+  --       v' <- update assertTheorem $ AssertTheorem 
+  --         { antecedent = compact .= True
+  --         , consequent = pid .= True
+  --         }
+  --       let tid = v' ^. key "assertTheorem" . key "theorems" . nth 0 . key "uid" . _String
+
+  --     as steven $ do
+  --       v <- update approveBranch branch
+
 testUser :: User
 testUser = User "github:1234" "test" "test@example.com" "xxx"
 

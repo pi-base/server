@@ -3,7 +3,6 @@ module Data
   ( initializeStore
   , findParsed
   , required
-  , makeId
   , slugify
   , Data.updateBranch
   , updateView
@@ -15,8 +14,6 @@ import Protolude hiding (handle)
 import           Control.Monad.Logger (MonadLogger)
 import qualified Data.Map             as M
 import qualified Data.Set             as S
-import qualified Data.UUID            as UUID
-import qualified Data.UUID.V4         as UUID
 import           Git
 
 import qualified Data.Loader as Loader
@@ -32,11 +29,6 @@ import qualified Data.Branch as Branch
 import           Data.Git    as Git (updateBranch, writePages)
 import           Data.Store
 import           Util        (indexBy)
-
-makeId :: MonadIO m => Text -> m (Id a)
-makeId prefix = do
-  uuid <- liftIO UUID.nextRandom
-  return . Id $ prefix <> UUID.toText uuid
 
 slugify :: Text -> Text
 slugify t = t -- TODO
@@ -77,7 +69,7 @@ updateBranch :: (MonadStore m, MonadLogger m)
 updateBranch branch meta handler = do
   result <- Git.updateBranch branch meta handler
   sync   <- storeAutoSync <$> getStore
-  when sync $ background pushBranches
+  when sync $ background $ pushBranch branch
   return result
 
 updateView :: (MonadStore m, MonadLogger m)

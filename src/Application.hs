@@ -1,7 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
-    ( getApplicationDev
+    ( getAppSettings
+    , getApplicationDev
     , appMain
     , develMain
     , makeFoundation
@@ -31,10 +32,10 @@ import System.Exit                          (die)
 import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
                                              toLogStr)
 
-import           Data       (initializeStore)
-import qualified Data.Branch
-import           Data.Store (Store, initializeDownstream)
-import           Logging    (makeLogWare)
+import           Data        (initializeStore)
+import qualified Data.Branch as Branch
+import           Data.Store  (Store, initializeDownstream)
+import           Logging     (makeLogWare)
 import           Types
 
 -- Import all relevant handler modules here.
@@ -152,8 +153,8 @@ warpSettings foundation =
 setupBranches :: Handler ()
 setupBranches = do
   $(logInfo) "Setting up branches"
-  void Data.Branch.ensureBaseBranch
-  void Data.Branch.claimUserBranches
+  void Branch.ensureBaseBranch
+  void Branch.claimUserBranches
 
 -- | For yesod devel, return the Warp settings and WAI Application.
 getApplicationDev :: IO (Settings, Application)

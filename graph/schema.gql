@@ -53,12 +53,12 @@ type Viewer {
   version: String!
 }
 
-type ResetBranchResponse {
+type SubmitBranchResponse {
   branch: String!
-  sha: String!
+  url: String!
 }
 
-type SubmitBranchResponse {
+type ApproveBranchResponse {
   branch: String!
   url: String!
 }
@@ -106,7 +106,7 @@ input ResetBranchInput {
   to: String!
 }
 
-input SubmitBranchInput {
+input BranchInput {
   branch: String!
 }
 
@@ -156,8 +156,9 @@ type Mutation {
   updateTrait(patch: PatchInput!, trait: UpdateTraitInput!): Viewer!
   assertTrait(patch: PatchInput!, trait: AssertTraitInput!): Viewer!
   assertTheorem(patch: PatchInput!, theorem: AssertTheoremInput!): Viewer!
-  resetBranch(input: ResetBranchInput!): ResetBranchResponse!
-  submitBranch(input: SubmitBranchInput!): SubmitBranchResponse!
+  resetBranch(input: ResetBranchInput!): Viewer!
+  submitBranch(input: BranchInput!): SubmitBranchResponse!
+  approveBranch(input: BranchInput!): Viewer!
 }
 
 schema {
