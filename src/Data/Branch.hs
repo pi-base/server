@@ -11,6 +11,7 @@ module Data.Branch
   , push
   , ref
   , reset
+  , tree
   , userBranches
   ) where
 
@@ -163,3 +164,8 @@ push = pushBranch
 
 ref :: Branch -> Ref
 ref = Git.branchRef
+
+tree :: MonadStore m => Branch -> m (Tree LgRepo)
+tree branch = do
+  c <- commit branch
+  lookupTree $ commitTree c

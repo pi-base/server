@@ -20,8 +20,8 @@ find :: MonadStore m
      -> PropertyId 
      -> m (Maybe (Trait Space Property))
 find branch sid pid = do
-  commit   <- Branch.commit branch
-  parsed   <- Parse.trait commit sid pid
+  tree     <- Branch.tree branch
+  parsed   <- Parse.trait tree sid pid
   space    <- Data.Space.find branch sid
   property <- Data.Property.find branch pid
   return $ Trait

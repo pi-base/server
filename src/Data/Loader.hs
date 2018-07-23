@@ -23,6 +23,7 @@ import           Conduit         (sourceToList)
 import qualified Data.Parse      as Parse
 import           Data.Git        (commitSha)
 import qualified Data.Map.Strict as M
+import           Git             (Tree, commitTree, lookupTree)
 import           Types.Loader    (Loader, Field(..))
 import qualified Types.Loader    as Loader
 import           UnliftIO        (MonadUnliftIO)
@@ -30,6 +31,9 @@ import           UnliftIO.MVar   (modifyMVar)
 
 version :: Loader -> Version
 version = Version . commitSha . Loader.commit
+
+tree :: MonadStore m => Loader -> m (Tree LgRepo)
+tree = lookupTree . commitTree . Loader.commit
 
 cache :: (MonadUnliftIO m, Ord x)
       => Field x a -> x -> m a -> m a
@@ -44,13 +48,13 @@ cache field key action = modifyMVar (ref field) $ \index ->
 
 fetch :: (MonadStore m, Ord k)
       => (Loader -> Field k a)
-      -> (Commit LgRepo -> k -> m a)
+      -> (Tree LgRepo -> k -> m a)
       -> Loader
       -> k
       -> m a
-fetch field parser loader _id =
-    cache  (field loader)         _id 
-  $ parser (Loader.commit loader) _id
+fetch field parser loader _id = cache (field loader) _id $ do
+  t <- tree loader
+  parser t _id
 
 space :: MonadStore m => Loader -> SpaceId -> m Space
 space = fetch Loader.spaces Parse.space
@@ -69,22 +73,22 @@ trait :: MonadStore m
 trait loader sid pid = fetch Loader.traits parser loader (sid, pid)
   where
     parser :: MonadStore m
-           => Commit LgRepo 
+           => Tree LgRepo 
            -> (SpaceId, PropertyId) 
            -> m (Trait SpaceId PropertyId)
     parser c (s, p) = Parse.trait c s p
 
 spaceIds :: MonadStore m => Loader -> m [SpaceId]
-spaceIds = sourceToList . Parse.spaceIds . Loader.commit
+spaceIds = tree >=> sourceToList . Parse.spaceIds
 
 propertyIds :: MonadStore m => Loader -> m [PropertyId]
-propertyIds = sourceToList . Parse.propertyIds . Loader.commit
+propertyIds = tree >=> sourceToList . Parse.propertyIds
 
 theoremIds :: MonadStore m => Loader -> m [TheoremId]
-theoremIds = sourceToList . Parse.theoremIds . Loader.commit
+theoremIds = tree >=> sourceToList . Parse.theoremIds
 
 spaceTraitIds :: MonadStore m => Loader -> SpaceId -> m [PropertyId]
-spaceTraitIds loader _id = sourceToList $ Parse.spaceTraitIds _id $ Loader.commit loader
+spaceTraitIds loader _id = tree loader >>= sourceToList . Parse.spaceTraitIds _id
 
 implications :: MonadStore m => Loader -> m [(TheoremId, Implication PropertyId)]
 implications loader = do

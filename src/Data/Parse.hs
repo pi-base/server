@@ -13,7 +13,7 @@ module Data.Parse
   , blobs
   ) where
 
-import Protolude hiding (throwIO)
+import Protolude hiding (find, throwIO)
 import Conduit
 import qualified Data.ByteString.Char8 as BS8
 import Data.Attoparsec.Text hiding (space)
@@ -27,55 +27,53 @@ import qualified Page.Space
 import qualified Page.Theorem
 import qualified Page.Trait
 
-space :: MonadStore m => Commit LgRepo -> SpaceId -> m Space
-space commit sid = load commit path Page.Space.page
+space :: MonadStore m => Tree LgRepo -> SpaceId -> m Space
+space tree sid = load tree path Page.Space.page
   where path = "spaces/" <> unId sid <> "/README.md"
 
-property :: MonadStore m => Commit LgRepo -> PropertyId -> m Property
-property commit pid = load commit path Page.Property.page
+property :: MonadStore m => Tree LgRepo -> PropertyId -> m Property
+property tree pid = load tree path Page.Property.page
   where path = "properties/" <> unId pid <> ".md"
 
-theorem :: MonadStore m => Commit LgRepo -> TheoremId -> m (Theorem PropertyId)
-theorem commit tid = load commit path Page.Theorem.page
+theorem :: MonadStore m => Tree LgRepo -> TheoremId -> m (Theorem PropertyId)
+theorem tree tid = load tree path Page.Theorem.page
   where path = "theorems/" <> unId tid <> ".md"
 
 trait :: MonadStore m
-      => Commit LgRepo
+      => Tree LgRepo
       -> SpaceId
       -> PropertyId
       -> m (Trait SpaceId PropertyId)
-trait commit sid pid = load commit path Page.Trait.page
+trait tree sid pid = load tree path Page.Trait.page
   where path = "spaces/" <> unId sid <> "/properties/" <> unId pid <> ".md"
 
-propertyIds :: MonadStore m => Commit LgRepo -> ConduitM () PropertyId m ()
-propertyIds commit = sourceCommitEntries commit ["properties"]
-                  .| parsePath propertyIdParser
+propertyIds :: MonadStore m => Tree LgRepo -> ConduitM () PropertyId m ()
+propertyIds tree = find tree ["properties"]
+                .| parsePath propertyIdParser
 
-spaceIds :: MonadStore m => Commit LgRepo -> ConduitM () SpaceId m ()
-spaceIds commit = sourceCommitEntries commit ["spaces"]
-               .| parsePath spaceIdParser
+spaceIds :: MonadStore m => Tree LgRepo -> ConduitM () SpaceId m ()
+spaceIds tree = find tree ["spaces"]
+             .| parsePath spaceIdParser
 
-theoremIds :: MonadStore m => Commit LgRepo -> ConduitM () TheoremId m ()
-theoremIds commit = sourceCommitEntries commit ["theorems"]
-                 .| parsePath theoremIdParser
+theoremIds :: MonadStore m => Tree LgRepo -> ConduitM () TheoremId m ()
+theoremIds tree = find tree ["theorems"]
+               .| parsePath theoremIdParser
 
-traitIds :: MonadStore m => Commit LgRepo -> ConduitM () (SpaceId, PropertyId) m ()
-traitIds commit = sourceCommitEntries commit ["spaces"]
-               .| parsePath traitIdParser
+traitIds :: MonadStore m => Tree LgRepo -> ConduitM () (SpaceId, PropertyId) m ()
+traitIds tree = find tree ["spaces"]
+             .| parsePath traitIdParser
 
-spaceTraitIds :: MonadStore m => SpaceId -> Commit LgRepo -> ConduitM () PropertyId m ()
-spaceTraitIds _id commit = sourceCommitEntries commit ["spaces", encodeUtf8 (unId _id), "properties"]
-                        .| parsePath traitIdParser
-                        .| mapC snd
+spaceTraitIds :: MonadStore m => SpaceId -> Tree LgRepo -> ConduitM () PropertyId m ()
+spaceTraitIds _id tree = find tree ["spaces", encodeUtf8 (unId _id), "properties"]
+                      .| parsePath traitIdParser
+                      .| mapC snd
 
-load :: MonadStore m => Commit LgRepo -> Text -> Page a -> m a
-load commit path page = do
-  tree <- lookupTree $ commitTree commit
-  treeEntry tree (encodeUtf8 path) >>= \case
-    Just (BlobEntry oid _) -> do
-      blob <- catBlobUtf8 oid
-      either throwIO return $ Page.parse page (encodeUtf8 path, blob)
-    _ -> notFound "Tree" path
+load :: MonadStore m => Tree LgRepo -> Text -> Page a -> m a
+load tree path page = treeEntry tree (encodeUtf8 path) >>= \case
+  Just (BlobEntry oid _) -> do
+    blob <- catBlobUtf8 oid
+    either throwIO return $ Page.parse page (encodeUtf8 path, blob)
+  _ -> notFound "Tree" path
 
 parsePath :: Monad m => Parser a -> ConduitM (TreeFilePath, b) a m ()
 parsePath parser = awaitForever $ \(path, _) -> case parseOnly parser (decodeUtf8 path) of
@@ -106,21 +104,24 @@ traitIdParser = do
   _   <- ".md"
   return (Id sid, Id pid)
 
+find :: MonadGit r m
+     => Tree r
+     -> [TreeFilePath]
+     -> ConduitM i (TreeFilePath, TreeEntry r) m ()
+find tree path = lift (getDir tree path) >>= \case
+  Nothing  -> return ()
+  Just dir -> sourceTreeEntries dir .| mapC (\(p,t) -> (format p, t))
+  where 
+    format :: TreeFilePath -> TreeFilePath
+    format part = BS8.intercalate "/" $ path ++ [part]
+
 sourceCommitEntries :: MonadGit r m
                     => Commit r
                     -> [TreeFilePath]
                     -> ConduitM i (TreeFilePath, TreeEntry r) m ()
 sourceCommitEntries commit path = do
-  mdir <- lift $ do
-    tree <- lookupTree $ commitTree commit
-    getDir tree path
-  case mdir of
-    Nothing  -> return ()
-    Just dir -> sourceTreeEntries dir 
-      .| mapC (\(p,t) -> (format p, t))
-  where 
-    format :: TreeFilePath -> TreeFilePath
-    format part = BS8.intercalate "/" $ path ++ [part]
+  tree <- lift $ lookupTree $ commitTree commit
+  find tree path
 
 blobs :: MonadGit r m => ConduitM (TreeFilePath, TreeEntry r) (TreeFilePath, Text) m ()
 blobs = awaitForever $ \(path, entry) -> case entry of

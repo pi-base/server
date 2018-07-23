@@ -14,8 +14,9 @@ import           Data.Tagged
 import           Git         as Git
 
 import           Data.Branch
-import qualified Data.Id     as Id
-import           Data.Parse  (propertyIds, spaceIds, theoremIds)
+import           Data.Branch.Move (moveMaps)
+import qualified Data.Id          as Id
+import           Data.Parse       (propertyIds, spaceIds, theoremIds)
 import           Types
 
 data Merge a = Merge
@@ -27,32 +28,32 @@ merge :: (MonadStore m, MonadLogger m) => Merge Branch -> CommitMeta -> m Sha
 merge patch@Merge{..} meta = do
   fetch into
 
-  fromCommit <- fetchRefHead $ ref from
-  intoCommit <- fetchRefHead $ ref into
-  let commitMerge = Merge { from = fromCommit, into = intoCommit }
+  fromBranch <- treeBranch from
+  intoBranch <- treeBranch into
+  let branchMerge = Merge { from = fromBranch, into = intoBranch }
 
-  propMap <- buildIdMap propertyIds commitMerge
+  propMap    <- buildIdMap propertyIds branchMerge
+  spaceMap   <- buildIdMap spaceIds    branchMerge
+  theoremMap <- buildIdMap theoremIds  branchMerge
+
   traceM "propMap"
   traceM $ show propMap
-
-  spaceMap <- buildIdMap spaceIds commitMerge
+  traceM ""
   traceM "spaceMap"
   traceM $ show spaceMap
-
-  theoremMap <- buildIdMap theoremIds commitMerge
+  traceM ""
   traceM "theoremMap"
   traceM $ show theoremMap
+  traceM ""
 
-  -- Git.merge commitMerge meta $ do
-  --   renumberSpaces spaceMap
-  --   renumberProperties propertyMap
-  --   renumberTheorems theoremMap
-
-  Data.Branch.headSha into
+  -- undefined $ do -- do the commit
+  --   moveMaps spaceMap propMap theoremMap
+  --   -- and actually do the merge
+  undefined
 
 buildIdMap :: (Id.Identifiable a, MonadIO m) 
-           => (Commit LgRepo -> Source m (Id a))
-           -> Merge (Commit LgRepo)
+           => (Tree LgRepo -> Source m (Id a))
+           -> Merge (Tree LgRepo)
            -> m (Map (Id a) (Id a))
 buildIdMap parser Merge{..} = do
   fromIds <- sourceToList $ parser from
@@ -77,3 +78,8 @@ buildIdMap parser Merge{..} = do
     (idMap, _) = foldr' processId (M.empty, 1) $ reverse $ sort fromIds
 
   return idMap
+
+treeBranch :: MonadStore m => Branch -> m (Tree LgRepo)
+treeBranch branch = do
+  commit <- fetchRefHead $ ref branch
+  lookupTree $ commitTree commit

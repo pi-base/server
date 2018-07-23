@@ -29,12 +29,12 @@ import Types.Loader (Loader, mkLoader)
 import Types.Store  (storeBaseBranch)
 
 updateBranch :: MonadStore m
-             => Branch
+             => BranchName
              -> CommitMeta
              -> (Loader -> TreeT LgRepo m a)
              -> m (a, Sha)
 updateBranch branch meta handler = do
-  let ref = branchRef branch
+  let ref = Ref branch
   parent   <- fetchRefHead ref
   tree     <- lookupTree $ commitTree parent
   loader   <- mkLoader parent
@@ -109,7 +109,7 @@ commitSignatures CommitMeta{..} = do
       , signatureWhen  = time
       }
     committer = defaultSignature
-      { signatureEmail = "system@pi-base.org"
+      { signatureEmail = "hausdorff@pi-base.org"
       , signatureName  = "Pi-Base"
       , signatureWhen  = time
       }

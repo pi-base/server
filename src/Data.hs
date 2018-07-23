@@ -60,14 +60,13 @@ viewDeductions loader L.Deductions{..} = do
 
   return View{..}
 
-          
 updateBranch :: (MonadStore m, MonadLogger m)
              => Branch
              -> CommitMeta
              -> (Loader.Loader -> TreeT LgRepo m a)
              -> m (a, Sha)
 updateBranch branch meta handler = do
-  result <- Git.updateBranch branch meta handler
+  result <- Git.updateBranch (branchName branch) meta handler
   sync   <- storeAutoSync <$> getStore
   when sync $ background $ pushBranch branch
   return result
@@ -98,13 +97,14 @@ insertNested :: (Ord k1, Ord k2) => k1 -> k2 -> v -> Map k1 (Map k2 v) -> Map k1
 insertNested k1 k2 v = M.alter (Just . M.insert k2 v . maybe mempty identity) k1
 
 findParsed :: MonadStore m
-           => (Commit LgRepo -> a -> m b)
+           => (Tree LgRepo -> a -> m b)
            -> Branch
            -> a
            -> m (Maybe b)
 findParsed parser branch id = handle fail $ do
   commit <- Branch.commit branch
-  parsed <- parser commit id
+  tree   <- lookupTree $ commitTree commit
+  parsed <- parser tree id
   return $ Just parsed
   where
     fail :: Monad m => NotFoundError -> m (Maybe b)

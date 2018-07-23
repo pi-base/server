@@ -135,6 +135,7 @@ executables:
     - fast-logger
     - optparse-applicative
     - protolude
+    - shelly
     - text
 tests:
   test:

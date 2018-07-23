@@ -1,11 +1,15 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExplicitForAll #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 import Import
 import Core
 
 import qualified Data.Map            as M
 import qualified Data.Text           as T
 import           Options.Applicative
+import qualified Shelly              as Sh
 import           System.Log.FastLogger (flushLogStr)
 
 import           Application         (getAppSettings, makeFoundation)
@@ -77,26 +81,43 @@ commandsP = subparser $ mconcat
   ]
 
 data Move = Move
-  { branch :: BranchName
-  , from   :: Uid
-  , to     :: Uid
+  { branch  :: BranchName
+  , message :: Text
+  , updates :: [Text]
   }
 
 mvP :: Parser Move
 mvP = Move
-  <$> argument str (metavar "BRANCH" <> help "Branch to update")
-  <*> argument str (metavar "FROM" <> help "Current path")
-  <*> argument str (metavar "TO" <> help "Path to move to")
+  <$> option str
+      ( long "branch"
+      <> metavar "BRANCH"
+      <> help "Branch to update"
+      )
+  -- <*> argument str (metavar "FROM"    <> help "Current path")
+  -- <*> argument str (metavar "TO"      <> help "Path to move to")
+  <*> option str
+      ( long "message"
+      <> metavar "MESSAGE"
+      <> help "Text of commit message"
+      )
+  <*> some 
+      ( argument str 
+        ( metavar "UPDATES..."
+        <> help "Space-separated list of FROM TO pairs"
+        )
+      )
 
 data Merge = Merge
-  { from :: Text
-  , into :: Text
+  { from    :: Text
+  , into    :: Text
+  , message :: Text
   }
 
 mergeP :: Parser Merge
 mergeP = Merge
-  <$> argument str (metavar "FROM" <> help "Branch to merge from")
-  <*> argument str (metavar "INTO" <> help "Branch to merge into")
+  <$> argument str (metavar "FROM"    <> help "Branch to merge from")
+  <*> argument str (metavar "INTO"    <> help "Branch to merge into")
+  <*> argument str (metavar "MESSAGE" <> help "Full commit message text")
 
 data Validate = Validate
   { branch :: Text
@@ -105,8 +126,6 @@ data Validate = Validate
 validateP :: Parser Validate
 validateP = Validate
   <$> argument str (metavar "BRANCH" <> help "Branch to check")
-
--- Branch.merge merge meta
 
 main :: IO ()
 main = do
@@ -122,26 +141,31 @@ main = do
         flushLogStr $ loggerSet $ appLogger foundation
 
   case cmd of
-    -- mv branch from to
+    -- mv files on a branch, while keeping references consistent
     MoveCmd Move{..} -> h $ do
-      Branch.move branch $ M.fromList [(from, to)]
+      meta <- getCommitMeta message
+      Branch.moveIds branch meta $ gatherUpdates M.empty updates
+      where
+        gatherUpdates :: Map Uid Uid -> [Text] -> Map Uid Uid
+        gatherUpdates acc [] = acc
+        gatherUpdates acc (from : to : rest) = gatherUpdates (M.insert from to $ acc) rest
+        gatherUpdates _ _ = panic "Received odd number of updates"
 
-    -- merge from into
+    -- merge one branch into another, collapsing ids
+    -- TODO: this should probably just always assume that `into` is the base branch
     MergeCmd Merge{..} -> h $ do
       f <- branchByName from
       i <- branchByName into
 
-      -- TODO:
-      let user = User "jamesdabbs" "jamesdabbs" "users/jamesdabbs@gmail.com" ""
-          meta = CommitMeta user "Test Merge"
-          merge = Branch.Merge
+      let merge = Branch.Merge
             { Branch.from = f
             , Branch.into = i
             }
 
+      meta <- getCommitMeta message
       Branch.merge merge meta
 
-    -- schema
+    -- print GraphQL schema
     SchemaCmd -> void $ case Graph.renderSchema of
       Left err -> do
         putStrLn "Error when rendering schema"
@@ -172,3 +196,30 @@ configureFoundation Config{..} = do
 
 panic :: Text -> a 
 panic = error . T.unpack
+
+user :: User
+user = User "jamesdabbs" "jamesdabbs" "users/jamesdabbs@gmail.com" ""
+
+getCommitUser :: MonadIO m => m User
+getCommitUser = do
+  name <- gitConfig "user.name"
+    "Please set a name in your global git config:\n  git.config --global user.name \"Your Name\""
+  email <- gitConfig "user.email" 
+    "Please set an email in your global git config:\n  git.config --global user.email \"email@example.com\""
+  return User
+    { userName        = name
+    , userEmail       = email
+    -- TODO: separate User / Identity models; we should be able to generate a User
+    --   without having Github OAuth credentials
+    , userIdent       = "cli:" <> name
+    , userGithubToken = ""
+    }
+
+getCommitMeta :: MonadIO m => Text -> m CommitMeta
+getCommitMeta message = CommitMeta <$> getCommitUser <*> pure message
+
+-- TODO: if lookup fails, display a helpful message instead of the Shelly trace
+gitConfig :: MonadIO m => Text -> Text -> m Text
+gitConfig attribute _ = do
+  out <- Sh.shelly . Sh.silently $ Sh.run "git" ["config", "--global", attribute]
+  return $ T.strip out

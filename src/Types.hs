@@ -44,7 +44,7 @@ newtype Page a = Page (Prism' PageData a)
 data CommitMeta = CommitMeta
   { commitUser    :: User
   , commitMessage :: Text
-  }
+  } deriving Show
 
 data BranchStatus = BranchStatus
   { branch       :: Branch
