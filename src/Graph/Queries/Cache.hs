@@ -1,86 +1,98 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 module Graph.Queries.Cache
   ( Cache
-  , loadAll
   , mkCache
-  , mutation
-  , Graph.Queries.Cache.query
+  , query
+  , schema
   ) where
 
-import Protolude
+import Protolude hiding (check, throwIO)
 
-import Graph.Schema hiding (Error)
-import GraphQL
-
-import           Data.Attoparsec.Text
 import qualified Data.Map              as M
 import qualified Data.Text             as T
 import           Data.Text.IO          (readFile)
-import           GraphQL.Internal.Name (Name(..), makeName)
-import           UnliftIO
+import           GraphQL
+import           GraphQL.Internal.Name (Name(..))
+import           GraphQL.Introspection (serialize)
+import           System.FilePath       (takeBaseName)
 
-import Util (traverseDir)
-
-data CacheError = InvalidPathName FilePath | CompilationError QueryError
-  deriving (Eq, Show)
+import           Graph.Class         ()
+import           Graph.Schema        (Query)
+import qualified Graph.Schema        as G
+import           Graph.Serialization (writeSchema)
+import           Util                (traverseDir)
 
 data Cache = Cache
-  { root :: FilePath
-  , schema :: Schema
-  , queries :: IORef (Map Name Query)
+  { root           :: FilePath
+  , querySchema    :: Schema
+  , mutationSchema :: Schema
+  , queries        :: Map Text Query
   }
 
-mkCache :: MonadIO m => Schema -> FilePath -> m Cache
-mkCache schema root = Cache 
-  <$> pure root
-  <*> pure schema
-  <*> newIORef mempty
+{-
+  This is a bit of an abuse, but we want to be sure that the schema file
+  on disk always represents the compiled schema
+-}
+schema :: Text
+schema = $(writeSchema $ serialize @(G.Root Identity)) -- I don't love that we need a concrete monad here ...
 
-loadAll :: MonadIO m => Cache -> m (Map FilePath CacheError)
-loadAll cache = liftIO $ traverseDir f (root cache) mempty
+{-
+  Assumes a file structure of
+    - <root>
+      - queries
+        - Viewer.gql
+        - Me.gql
+      - mutations
+        - AssertSpace.gql
+        - ...
+  with each file having the same name as the query or mutation it defines
+
+  TODO: check operation names of parsed documents
+  TODO: make this a TemplateHaskell loader that watches files
+-}
+mkCache :: MonadIO m => FilePath -> m (Either [QueryError] Cache)
+mkCache root = runExceptT $ do
+  querySchema    <- check $ makeSchema @G.QueryRoot
+  qs             <- compile querySchema (root <> "/queries")
+  mutationSchema <- check $ makeSchema @G.MutationRoot
+  ms             <- compile mutationSchema (root <> "/mutations")
+  queries        <- validate $ qs <> ms
+  return Cache{..}
   where
-    f :: Map FilePath CacheError -> FilePath -> IO (Map FilePath CacheError)
-    f acc path = case parseName (root cache) path of
-      Nothing   -> return $ M.insert path (InvalidPathName path) acc
-      Just name -> do
-        result <- load cache name path
-        case result of
-          Left err -> return $ M.insert path (CompilationError err) acc
-          Right  _ -> return $ acc
+    check :: Monad m => Either e a -> ExceptT [e] m a
+    check (Left  e) = ExceptT . return $ Left [e]
+    check (Right a) = return a
 
-query :: MonadIO m => Cache -> Name -> m (Maybe Query)
-query cache name = do
-  qs <- readIORef (queries cache)
-  case M.lookup name qs of
-    Just q  -> return $ Just q
-    Nothing ->
-      let path = root cache ++ "/" ++ (T.unpack $ unName name) ++ ".gql"
-      in rightToMaybe <$> load cache name path
+    compile :: MonadIO m => Schema -> FilePath -> m (Map Text (Either QueryError Query))
+    compile s dir = liftIO $ traverseDir (add s) dir mempty 
 
-mutation :: MonadIO m => Cache -> Name -> m (Maybe Query)
-mutation = Graph.Queries.Cache.query -- for now at least
+    add :: Schema 
+        -> Map Text (Either QueryError Query)
+        -> FilePath 
+        -> IO (Map Text (Either QueryError Query))
+    add s acc path = do
+      result <- load s path
+      return $ M.insert (T.pack $ takeBaseName path) result acc
+
+    validate :: (Monad m, Ord k) 
+             => Map k (Either e a) 
+             -> ExceptT [e] m (Map k a)
+    validate m = case M.foldrWithKey gather (mempty, mempty) m of
+      ([], queries) -> return queries
+      (errs, _) -> ExceptT . return $ Left errs
+
+    gather :: Ord k => k -> Either e a -> ([e], Map k a) -> ([e], Map k a)
+    gather _ (Left  e) (es, m) = (e:es, m)
+    gather k (Right a) (es, m) = (es, M.insert k a m)
+
+query :: Cache -> Name -> Maybe Query
+query Cache{..} name = M.lookup (unName name) queries
 
 -- Helpers
 
 load :: MonadIO m
-     => Cache 
-     -> Name
+     => Schema
      -> FilePath 
      -> m (Either QueryError Query)
-load Cache{..} name path = do
-  contents <- liftIO . readFile $ path
-  case compileQuery schema contents of
-    Left err -> return $ Left err
-    Right q  -> do
-      modifyIORef' queries $ M.insert name q
-      return $ Right q
-
-parseName :: FilePath -> [Char] -> Maybe Name
-parseName root str = do
-  let parser = do
-        _ <- string (T.pack root)
-        _ <- "/"
-        name <- takeTill (== '.')
-        _ <- ".gql"
-        return name
-  parsed <- maybeResult . parse parser $ T.pack str
-  rightToMaybe $ makeName parsed
+load s path = compileQuery s <$> liftIO (readFile path)

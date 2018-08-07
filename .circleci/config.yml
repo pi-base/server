@@ -56,14 +56,19 @@ jobs:
       # Run the tests
       - run:
           name: Run tests
-          command: stack test --coverage
+          command: stack test --no-terminal --coverage
 
       # Build and store artifacts
       - run:
           name: Build binary
-          command: stack build && mkdir /tmp/artifacts && cp $(stack path --local-install-root)/bin/pi-base-server /tmp/artifacts
+          command: stack build && mkdir /tmp/artifacts && cp $(stack path --local-install-root)/bin/* /tmp/artifacts
       - run:
           name: Copy coverage reports
           command: cp -r $(stack path --local-hpc-root) /tmp/artifacts
       - store_artifacts:
           path: /tmp/artifacts
+      - run:
+          name: Upload reports to coveralls.io
+          command: |
+            curl -L https://github.com/rubik/stack-hpc-coveralls/releases/download/v0.0.3.0/shc-linux-x64-$GHCVER.tar.bz2 | tar -xj
+            ./shc pi-base-server test

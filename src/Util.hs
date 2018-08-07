@@ -9,6 +9,7 @@ module Util
   , insertNested
   , mapRightC
   , memoized
+  , throwLeft
   , traverseDir
   , unionN
   ) where
@@ -73,7 +74,6 @@ mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
 discardLeftC :: Monad m => ConduitM (Either a b) b m ()
 discardLeftC = awaitForever $ either (const $ return ()) yield
 
-
 traverseDir :: (a -> FilePath -> IO a) -> FilePath -> a -> IO a
 traverseDir f top = go [top]
   where
@@ -93,3 +93,7 @@ memoized ref action = readIORef ref >>= \case
     val <- action
     writeIORef ref $ Just val
     return val
+
+throwLeft :: (MonadIO m, Exception e) => Either e a -> m a
+throwLeft (Left  e) = throwIO e
+throwLeft (Right a) = return a 

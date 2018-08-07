@@ -4,6 +4,7 @@ module Data.ParseSpec (spec) where
 import TestImport
 
 import Conduit
+import Git         (commitTree, lookupTree)
 import Git.Libgit2 (HasLgRepo(..))
 
 import Core
@@ -27,17 +28,19 @@ spec :: IO (TestApp App) -> IO TestTree
 spec getApp = do
   store <- appStore . fst <$> getApp
 
-  Just commit <- runM store $ Git.resolveCommittish $ CommitRef "master"
+  tree <- runM store $ do
+    Just commit <- Git.resolveCommittish $ CommitRef "master"
+    lookupTree $ commitTree commit
 
   testSpec "Data.ParseSpec" $ do
     it "can parse spaceIds" $ do
-      ids <- runM store $ sourceToList $ spaceIds commit
+      ids <- runM store $ sourceToList $ spaceIds tree
       length ids `shouldBe` 135
 
     it "can parse a space object" $ do
-      s <- runM store $ space commit $ Id "S000001"
+      s <- runM store $ space tree $ Id "S000001"
       spaceName s `shouldBe` "Discrete topology on a two-point set"
 
     it "can parse traits for a space" $ do
-      ids <- runM store $ sourceToList $ spaceTraitIds (Id "S000001") commit
+      ids <- runM store $ sourceToList $ spaceTraitIds (Id "S000001") tree
       ids `shouldBe` map Id ["P000016", "P000024", "P000036", "P000042", "P000052", "P000078"]

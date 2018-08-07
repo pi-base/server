@@ -1,15 +1,22 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Handler.Graph 
-  ( postGraphR
+  ( getSchemaR
+  , postGraphR
   ) where
 
 import Import
+
 import Control.Lens    hiding ((.=))
 import Data.Aeson.Lens
-import Graph.Root      (asJSON, compiled, interpreted)
-import Graph.Schema    (QueryData)
 import GraphQL         as GQL (Response)
-import Handler.Errors  (withErrorHandling)
+
+import Graph.Root          (asJSON, compiled, interpreted)
+import Graph.Schema        (QueryData)
+import Graph.Queries.Cache (schema)
+import Handler.Errors      (withErrorHandling)
+
+getSchemaR :: Handler Text
+getSchemaR = return schema
 
 postGraphR :: Handler Value
 postGraphR = withErrorHandling $ do

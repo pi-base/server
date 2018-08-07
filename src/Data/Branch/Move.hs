@@ -1,4 +1,3 @@
-{-# LANGUAGE ExplicitForAll      #-} 
 {-# LANGUAGE ScopedTypeVariables #-} 
 {-# LANGUAGE TemplateHaskell     #-} 
 {-# LANGUAGE TypeApplications    #-} 
@@ -45,7 +44,7 @@ moveIds branch meta mapping = do
 
   $(logInfo) $ "Updated " <> branch <> " to " <> tshow sha
 
-moveMaps :: MonadStore m 
+moveMaps :: (MonadStore m, MonadLogger m)
          => Map SpaceId    SpaceId 
          -> Map PropertyId PropertyId
          -> Map TheoremId  TheoremId
@@ -56,21 +55,21 @@ moveMaps ss ps ts = do
   properties ps
   theorems   ts ps
 
-properties :: MonadStore m
+properties :: (MonadStore m, MonadLogger m)
            => Map PropertyId PropertyId 
            -> TreeT LgRepo m ()
 properties mapping = forM_ (M.toList mapping) $ \(from, to) -> do
   transform ("properties/" <> unId from <> ".md") Page.Property.page $ \p ->
     p { propertyId = to }
 
-spaces :: MonadStore m
+spaces :: (MonadStore m, MonadLogger m)
        => Map SpaceId SpaceId 
        -> TreeT LgRepo m ()
 spaces mapping = forM_ (M.toList mapping) $ \(from, to) -> do
   transform ("spaces/" <> unId from <> "/README.md") Page.Space.page $ \s ->
     s { spaceId = to }
 
-theorems :: MonadStore m
+theorems :: (MonadStore m, MonadLogger m)
          => Map TheoremId TheoremId 
          -> Map PropertyId PropertyId
          -> TreeT LgRepo m ()
@@ -88,7 +87,7 @@ theorems ts ps = do
         , theoremImplication = fmap (\p -> M.findWithDefault p p ps) $ theoremImplication t
         }
 
-traits :: MonadStore m
+traits :: (MonadStore m, MonadLogger m)
        => Map SpaceId SpaceId
        -> Map PropertyId PropertyId
        -> TreeT LgRepo m ()
@@ -114,7 +113,7 @@ extract = foldr add M.empty . M.toList
       then M.insert (Id k) (Id v)
       else id
 
-transform :: (MonadStore m, Eq a)
+transform :: (MonadStore m, MonadLogger m, Eq a)
           => Text -> Page a -> (a -> a) -> TreeT LgRepo m ()
 transform path' page f = do
   let path = encodeUtf8 path'
@@ -125,9 +124,10 @@ transform path' page f = do
       parsed <- either throwIO return $ Page.parse page (path, blob)
       let transformed = f parsed
       unless (transformed == parsed) $ do
+        $(logDebug) $ "Updating refs " <> tshow path
         dropEntry path
         writePages [Page.write page transformed]
-    -- FIXME:
+    -- TODO:
     -- we probably want to raise if we fail to find a path in general,
     --   but some of the trait lookups are likely to fail, so we can't
     _ -> return ()

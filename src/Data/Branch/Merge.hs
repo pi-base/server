@@ -1,58 +1,62 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Data.Branch.Merge
   ( Merge(..)
   , merge
   ) where
 
-import Protolude
+import Protolude hiding (from)
 import Core
 
-import           Conduit     (Source, sourceToList)
+import           Conduit
 import           Data.Git    as Git
 import qualified Data.Map    as M
 import qualified Data.Set    as S
-import           Data.Tagged
 import           Git         as Git
 
-import           Data.Branch
+import           Data.Branch      as Branch
 import           Data.Branch.Move (moveMaps)
 import qualified Data.Id          as Id
 import           Data.Parse       (propertyIds, spaceIds, theoremIds)
-import           Types
 
 data Merge a = Merge
   { from :: a
   , into :: a
   }
 
-merge :: (MonadStore m, MonadLogger m) => Merge Branch -> CommitMeta -> m Sha
-merge patch@Merge{..} meta = do
+merge :: (MonadStore m, MonadDB m, MonadLogger m) => Merge Branch -> CommitMeta -> m Sha
+merge Merge{..} meta = storeLocked $ do
   fetch into
 
-  fromBranch <- treeBranch from
-  intoBranch <- treeBranch into
-  let branchMerge = Merge { from = fromBranch, into = intoBranch }
+  Branch.claimUserBranches
+
+  (fromCommit, fromTree) <- branchTree from
+  (intoCommit, intoTree) <- branchTree into
+  let branchMerge = Merge { from = fromTree, into = intoTree }
 
   propMap    <- buildIdMap propertyIds branchMerge
   spaceMap   <- buildIdMap spaceIds    branchMerge
   theoremMap <- buildIdMap theoremIds  branchMerge
 
-  traceM "propMap"
-  traceM $ show propMap
-  traceM ""
-  traceM "spaceMap"
-  traceM $ show spaceMap
-  traceM ""
-  traceM "theoremMap"
-  traceM $ show theoremMap
-  traceM ""
+  -- TODO: this could definitely be more efficient
+  -- * stream entries one at a time
+  -- * check if there's a better way to skip writing
+  entries <- sourceToList $ sourceTreeEntries fromTree
+  (_, merged) <- withTree intoTree $ do
+    forM_ entries $ uncurry mergeBlob
+    moveMaps spaceMap propMap theoremMap
+  commitBranch (branchName into) merged meta [fromCommit, intoCommit]
 
-  -- undefined $ do -- do the commit
-  --   moveMaps spaceMap propMap theoremMap
-  --   -- and actually do the merge
-  undefined
+mergeBlob :: (MonadGit LgRepo m, MonadLogger m) => TreeFilePath -> TreeEntry LgRepo -> TreeT LgRepo m ()
+mergeBlob path (BlobEntry oid kind) = getEntry path >>= \case
+  Just (BlobEntry oid' _) -> 
+    unless (oid == oid') $ do
+      $(logDebug) $ "Copying " <> show path
+      putBlob' path oid kind
+  _ -> return ()
+mergeBlob _ _ = return ()
 
 buildIdMap :: (Id.Identifiable a, MonadIO m) 
-           => (Tree LgRepo -> Source m (Id a))
+           => (Tree LgRepo -> ConduitT () (Id a) m ())
            -> Merge (Tree LgRepo)
            -> m (Map (Id a) (Id a))
 buildIdMap parser Merge{..} = do
@@ -79,7 +83,8 @@ buildIdMap parser Merge{..} = do
 
   return idMap
 
-treeBranch :: MonadStore m => Branch -> m (Tree LgRepo)
-treeBranch branch = do
-  commit <- fetchRefHead $ ref branch
-  lookupTree $ commitTree commit
+branchTree :: MonadStore m => Branch -> m (Commit LgRepo, Tree LgRepo)
+branchTree branch = do
+  c <- fetchRefHead $ ref branch
+  t <- lookupTree $ commitTree c
+  return (c, t)

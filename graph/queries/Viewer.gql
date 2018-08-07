@@ -2,23 +2,28 @@ query Viewer($version: String) {
   viewer(version: $version) {
     version
     spaces {
+      __typename
       uid
       name
       references { 
         # TODO: these should be fragments
+        __typename
         type
         ref
         name
       }
       description
       traits {
+        __typename
         property {
+          __typename
           uid
         }
         value
         description
         deduced
         references {
+          __typename
           type
           ref
           name
@@ -26,9 +31,11 @@ query Viewer($version: String) {
       }
     }
     properties {
+      __typename
       uid
       name
       references {
+        __typename
         type
         ref
         name
@@ -36,10 +43,12 @@ query Viewer($version: String) {
       description
     }
     theorems {
+      __typename
       uid
       if
       then
       references {
+        __typename
         type
         ref
         name

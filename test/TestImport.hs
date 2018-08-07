@@ -11,19 +11,21 @@ import ClassyPrelude         as X hiding (delete, deleteBy, Handler)
 #else
 import ClassyPrelude         as X hiding (delete, deleteBy)
 #endif
+import Control.Monad.Catch       as X (MonadCatch, MonadMask, MonadThrow)
+import Control.Monad.IO.Unlift   as X (MonadUnliftIO)
 import Control.Monad.Trans.State as X (StateT)
-import Database.Persist      as X hiding (get)
-import Foundation            as X
-import Logging               as X
-import Model                 as X
-import Test.Hspec            as X
-import Test.Tasty            as X (TestTree)
-import Test.Tasty.Hspec      as X (testSpec)
-import UnliftIO.Exception    as X hiding (Handler)
-import Yesod.Default.Config2 (useEnv, loadYamlSettings)
-import Yesod.Auth            as X
-import Yesod.Test            as X
+import Database.Persist          as X hiding (get)
+import Foundation                as X
+import Logging                   as X
+import Model                     as X
+import Test.Hspec                as X
+import Test.Tasty                as X (TestTree)
+import Test.Tasty.Hspec          as X (testSpec)
+import Yesod.Default.Config2     (useEnv, loadYamlSettings)
+import Yesod.Auth                as X
+import Yesod.Test                as X
 
+import           Control.Monad.Logger  (runStdoutLoggingT)
 import           Data.Aeson            (Value(..), decode)
 import qualified Data.ByteString.Lazy  as LBS
 import qualified Data.Text             as T
@@ -37,8 +39,8 @@ import           Text.Shakespeare.Text (st)
 
 import "pi-base-server" Debug as X
 
-import Data.Store (initializeDownstream)
-import Settings   (appRepo)
+import Data.Store (initializeStore)
+import Settings   (RepoSettings(..), appRepo)
 
 -- Wiping the database
 
@@ -52,16 +54,22 @@ runDB query = do
 runDBWithApp :: App -> SqlPersistM a -> IO a
 runDBWithApp app query = runSqlPersistMPool query (appConnPool app)
 
+initializeLocalOrigin :: RepoSettings -> IO ()
+initializeLocalOrigin r@RepoSettings{..} = void $
+  runStdoutLoggingT $ initializeStore $ r
+    { rsPath     = T.unpack rsUpstream
+    , rsUpstream = "https://github.com/pi-base/data.git" 
+    }
+
 buildApp :: IO (TestApp App)
 buildApp = do
   settings <- loadYamlSettings
       ["config/test-settings.yml", "config/settings.yml"]
       []
       useEnv
+  initializeLocalOrigin $ appRepo settings
   foundation <- makeFoundation settings
   wipeDB foundation
-  -- This assumes that we're testing with downstream pointed to a local dir
-  unsafeHandler foundation $ initializeDownstream $ appRepo settings
   return (foundation, id)
 
 withApp :: SpecWith (TestApp App) -> Spec
@@ -137,11 +145,11 @@ shouldHaveKey (Object _map) key = liftIO $ H.assertBool msg (HM.member key _map)
   where msg = "Value does not contain key: " ++ T.unpack key
 shouldHaveKey _ _ = liftIO $ H.assertBool "Value is not an object" False
 
-slow :: (Arg a ~ (), Example a) 
+ci :: (Arg a ~ (), Example a) 
      => String
      -> a
      -> SpecM (Arg a) ()
-slow title action = do
+ci title action = do
   ci <- runIO $ lookupEnv "CI"
   if (ci == Just "true")
     then it title action

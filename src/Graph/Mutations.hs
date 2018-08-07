@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Graph.Mutations
-  ( assertTheorem
+  ( mutations
+  , assertTheorem
   , assertTrait
   , createProperty
   , createSpace
@@ -36,6 +37,20 @@ import qualified Graph.Schema      as G
 import qualified Services.Github   as Github
 import qualified View              as View
 
+mutations :: MonadGraph m => GithubSettings -> Handler m G.MutationRoot
+mutations settings = 
+  pure $ createSpace
+     :<> createProperty
+     :<> updateSpace
+     :<> updateProperty
+     :<> updateTheorem
+     :<> updateTrait
+     :<> assertTrait 
+     :<> assertTheorem
+     :<> resetBranch
+     :<> submitBranch settings
+     :<> approveBranch
+
 assertTrait :: MonadGraph m => G.PatchInput -> G.AssertTraitInput -> Handler m G.Viewer
 assertTrait patch G.AssertTraitInput{..} = do
   (user, branch) <- checkPatch patch
@@ -46,7 +61,7 @@ assertTrait patch G.AssertTraitInput{..} = do
         { _traitSpace       = space
         , _traitProperty    = property
         , _traitValue       = value
-        , _traitRefs        = fromMaybe [] references
+        , _traitRefs        = citations $ fromMaybe [] references
         , _traitDescription = description
         }
 
@@ -67,8 +82,8 @@ assertTheorem patch G.AssertTheoremInput{..} = do
   let theorem = Theorem
         { theoremId          = Id.pending
         , theoremImplication = (Implication antecedent consequent)
-        , theoremConverse    = Nothing -- FIXME
-        , theoremRefs        = fromMaybe [] references
+        , theoremConverse    = Nothing -- TODO
+        , theoremRefs        = citations $ fromMaybe [] references
         , theoremDescription = description
         }
   theorem' <- mapM (Property.fetch branch) theorem
@@ -84,7 +99,7 @@ createSpace patch G.CreateSpaceInput{..} = do
         { spaceId          = Id.pending
         , spaceName        = name
         , spaceAliases     = []
-        , spaceRefs        = fromMaybe [] references
+        , spaceRefs        = citations $ fromMaybe [] references
         , spaceSlug        = slugify name
         , spaceTopology    = Nothing
         , spaceDescription = description
@@ -103,7 +118,7 @@ createProperty patch G.CreatePropertyInput{..} = do
         , propertyName        = name
         , propertySlug        = slugify name
         , propertyAliases     = []
-        , propertyRefs        = fromMaybe [] references
+        , propertyRefs        = citations $ fromMaybe [] references
         , propertyDescription = description
         }
       commit = CommitMeta user $ "Add " <> name
@@ -126,9 +141,7 @@ submitBranch settings G.BranchInput{..} = do
   Github.createPullRequest settings b >>= \case
     Left e -> throwIO $ ValidationMessage e
     Right url -> 
-      return $ pure "SubmitBranchResponse"
-        :<> pure branch
-        :<> pure url
+      return $ pure branch :<> pure url
 
 approveBranch :: MonadGraph m => G.BranchInput -> Handler m G.Viewer
 approveBranch G.BranchInput{..} = do
@@ -153,7 +166,7 @@ updateProperty patch G.UpdatePropertyInput{..} = do
   old <- Property.fetch branch uid
   let updated = old 
         { propertyDescription = fromMaybe (propertyDescription old) description 
-        , propertyRefs        = fromMaybe (propertyRefs old) references
+        , propertyRefs        = maybe (propertyRefs old) citations references
         }
       commit  = CommitMeta user $ "Update " <> propertyName updated
   (p, sha) <- Property.put branch commit updated
@@ -169,7 +182,7 @@ updateSpace patch G.UpdateSpaceInput{..} = do
   -- - skip updates if nothing has changed
   let updated = old 
         { spaceDescription = fromMaybe (spaceDescription old) description 
-        , spaceRefs        = fromMaybe (spaceRefs old) references
+        , spaceRefs        = maybe (spaceRefs old) citations references
         }
       meta = CommitMeta user $ "Update " <> spaceName updated
   (s, sha) <- Space.put branch meta updated
@@ -183,7 +196,7 @@ updateTheorem patch G.UpdateTheoremInput{..} = do
   old <- Theorem.fetch branch uid
   let updated = old 
         { theoremDescription = fromMaybe (theoremDescription old) description 
-        , theoremRefs        = fromMaybe (theoremRefs old) references
+        , theoremRefs        = maybe (theoremRefs old) citations references
         }
       meta    = CommitMeta user $ "Update " <> theoremName updated
   (t, sha) <- Theorem.put branch meta (propertyId <$> updated)
@@ -198,13 +211,16 @@ updateTrait patch G.UpdateTraitInput{..} = do
   let meta = CommitMeta user $ "Update " <> traitName old
       updated = old 
         { _traitDescription = fromMaybe (_traitDescription old) description 
-        , _traitRefs        = fromMaybe (_traitRefs old) references
+        , _traitRefs        = maybe (_traitRefs old) citations references
         , _traitSpace       = spaceId
         , _traitProperty    = propertyId
         }
   Trait.put branch meta updated >>= G.presentView
 
 -- Helpers
+
+citations :: [G.CitationInput] -> [Citation]
+citations = map (\(G.CitationInput name ct ref) -> Citation name ct ref)
 
 -- TODO: should this return a loader for the branch?
 checkPatch :: MonadGraph m => G.PatchInput -> m (User, Branch)
@@ -227,6 +243,6 @@ requireBranchAccess name minLevel = do
   Branch.access user branch >>= \case
     Just access -> do
       unless (access >= minLevel) $
-        throwIO $ BranchPermissionRequired (entityVal branch) minLevel
+        throwIO $ BranchPermissionRequired (entityVal branch) minLevel (Just access)
       return (user, entityVal branch)
-    _ -> throwIO $ BranchPermissionRequired (entityVal branch) minLevel
+    _ -> throwIO $ BranchPermissionRequired (entityVal branch) minLevel Nothing

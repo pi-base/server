@@ -8,13 +8,13 @@ module Data.Store
   , fetchBranch
   , fetchBranches
   , getStoreBaseVersion
-  , initializeDownstream
   , initializeStore
   , loaderAt
   , pushBranch
   , storeAutoSync
   , storeBaseBranch
   , storeLoader
+  , storeLocked
   , storeRepo
   ) where
 
@@ -43,11 +43,8 @@ initializeStore RepoSettings{..} = do
     let repoPath = fromText $ T.pack rsPath
     exists <- liftIO $ doesDirectoryExist rsPath
     unless exists $ 
-      shell "Initializing repository" $ do
+      shell "Initializing repository" $
         void $ git "clone" "--mirror" rsUpstream repoPath
-        cd repoPath
-        void $ git "remote" "add" "downstream" rsDownstream
-        git "remote" "add" "upstream" rsDownstream
     liftIO $ openLgRepository $ RepositoryOptions
       { repoPath       = rsPath
       , repoWorkingDir = Nothing
@@ -59,6 +56,8 @@ initializeStore RepoSettings{..} = do
     resolveCommittish $ CommitRef $ Ref rsDefaultBranch
   loader <- mkLoader commit >>= newMVar
 
+  mutex <- newMVar ()
+
   return Store 
     { storeRepo       = lgRepo
     , storeLoader     = loader
@@ -66,18 +65,8 @@ initializeStore RepoSettings{..} = do
     , storeBaseBranch = rsDefaultBranch
     , storeAutoSync   = rsAutoPush
     , storeUpstream   = rsUpstream
-    , storeDownstream = rsDownstream
+    , storeWriteLock  = mutex
     }
-
--- N.B. This tacitly assumes that downstream is a local filepath
--- This is mostly intended for testing
-initializeDownstream :: (MonadLogger m, MonadIO m) => RepoSettings -> m ()
-initializeDownstream RepoSettings{..} = do
-  exists <- liftIO $ doesDirectoryExist $ T.unpack rsDownstream
-  let repoPath = fromText $ T.pack rsPath
-  unless exists $
-    shell "Initialize downstream" $ do
-      git "clone" "--mirror" repoPath rsDownstream
 
 fetchBranches :: (MonadStore m, MonadLogger m) => m ()
 fetchBranches = repo "Fetching updates for repo" $ do
@@ -85,7 +74,7 @@ fetchBranches = repo "Fetching updates for repo" $ do
 
 pushBranch :: (MonadStore m, MonadLogger m) => Branch -> m ()
 pushBranch Branch{..} = repo ("Pushing " <> branchName) $ do
-  git "push" "downstream" branchName
+  git "push" "origin" -- branchName -- we assume this is a --mirror just push everything
 
 fetchBranch :: (MonadStore m, MonadLogger m) => Branch -> m ()
 fetchBranch Branch{..} =  repo ("Fetching " <> branchName) $ do

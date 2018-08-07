@@ -29,8 +29,7 @@ data RepoSettings = RepoSettings
   , rsDefaultBranch :: Text
   , rsAutoPush      :: Bool
   , rsUpstream      :: Text
-  , rsDownstream    :: Text
-  }
+  } deriving (Show, Eq)
 
 data GithubSettings = GithubSettings
   { gsToken         :: GH.Auth
@@ -39,7 +38,7 @@ data GithubSettings = GithubSettings
   , gsClientId      :: Text
   , gsClientSecret  :: Text
   , gsWebhookSecret :: Text
-  }
+  } deriving (Show, Eq)
 
 -- | Runtime settings to configure this application. These settings can be
 -- loaded from various sources: defaults, environment variables, config files,
@@ -109,7 +108,6 @@ instance FromJSON AppSettings where
           <*> repo .: "default-branch"
           <*> repo .: "auto-push"
           <*> repo .: "upstream"
-          <*> repo .: "downstream"
 
         rollbar      <- o .: "rollbar"
         rollbarToken <- rollbar .:? "token"

@@ -1,8 +1,14 @@
-name: pi-base-server
-version: '0.0.2'
-license: MIT
+name:        pi-base-server
+version:     '0.0.2'
+homepage:    http://github.com/pi-base/server
+bug-reports: http://github.com/pi-base/server/issues
+author:      James Dabbs
+maintainer:  jamesdabbs@gmail.com
+copyright:   2018 James Dabbs
+license:     MIT
 default-extensions:
   - CPP
+  - ExplicitForAll
   - FlexibleContexts
   - FlexibleInstances
   - GeneralizedNewtypeDeriving
@@ -38,6 +44,7 @@ library:
     - exceptions
     - fast-logger
     - file-embed
+    - filepath
     - foreign-store
     - github
     - github-types
@@ -141,18 +148,22 @@ tests:
   test:
     main: Spec.hs
     source-dirs: test
-    ghc-options: -Wall
+    ghc-options: 
+      - -Wall
     dependencies:
     - base
     - pi-base-server
     - aeson
     - aeson-pretty
+    - aeson-qq
     - bytestring
     - classy-prelude
     - classy-prelude-yesod
     - containers
     - conduit
     - conduit-combinators
+    - exceptions
+    - gitlib
     - gitlib-libgit2
     - hspec
     - hspec-core
@@ -170,8 +181,10 @@ tests:
     - shakespeare
     - tasty
     - tasty-hspec
+    - template-haskell
     - text
     - transformers
+    - unliftio-core
     - unliftio
     - unordered-containers
     - wai-extra

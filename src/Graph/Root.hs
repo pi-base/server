@@ -1,41 +1,22 @@
-{-# LANGUAGE DataKinds , DeriveGeneric, ExistentialQuantification, TemplateHaskell, TypeApplications, TypeOperators #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Graph.Root
-  ( Root
-  , handler
-  , schema
+  ( handler
   , asJSON
   , compiled
   , interpreted
   ) where
 
 import Graph.Import
-import Graph.Mutations
+import Graph.Queries       as G (queries)
+import Graph.Mutations     as G (mutations)
 
 import           Data.Aeson          as Aeson
 import qualified Graph.Queries.Cache as Cache
-import           Graph.Queries       as G
 import           Graph.Schema        as G
 
-handler :: (MonadGraph m, MonadLogger m) => AppSettings -> Handler m Root
-handler settings = pure $ pure "Query"
-  :<> G.viewer
-  :<> G.user
-  -- Mutations
-  :<> createSpace
-  :<> createProperty
-  :<> updateSpace
-  :<> updateProperty
-  :<> updateTheorem
-  :<> updateTrait
-  :<> assertTrait 
-  :<> assertTheorem
-  :<> resetBranch
-  :<> submitBranch (appGithub settings)
-  :<> approveBranch
-
-schema :: Either QueryError Schema
-schema = makeSchema @Root
+handler :: (MonadGraph m, MonadLogger m) => AppSettings -> SchemaRoot m QueryRoot MutationRoot
+handler settings = SchemaRoot G.queries (G.mutations $ appGithub settings)
 
 asJSON :: MonadIO m
        => (QueryData -> m Response) 
@@ -49,13 +30,14 @@ asJSON executor request = case fromJSON request of
     (PartialSuccess _    errs) -> throwIO $ ExecutionErrors errs
     r -> return $ Aeson.toJSON r
 
-interpreted :: (MonadGraph m, MonadLogger m) => AppSettings -> QueryData -> m Response
-interpreted settings QueryData{..} = interpretQuery @Root (handler settings) query (unOp operation) (unVar variables)
+interpreted :: forall m. (MonadGraph m, MonadLogger m) 
+            => AppSettings -> QueryData -> m Response
+interpreted settings QueryData{..} = interpretRequest @(G.Root m) (handler settings) query (unOp operation) (unVar variables)
 
-compiled :: (MonadGraph m, MonadLogger m) 
+compiled :: forall m. (MonadGraph m, MonadLogger m) 
          => AppSettings -> Cache.Cache -> QueryData -> m Response
 compiled settings cache QueryData{..} = case unOp operation of
   Nothing -> throwIO QueryNameRequired
-  Just name -> Cache.query cache name >>= \case
+  Just name -> case Cache.query cache name of
     Nothing -> throwIO $ QueryNotFound name
-    Just q  -> executeQuery @Root (handler settings) q (Just name) (unVar variables)
+    Just q  -> executeRequest @(G.Root m) (handler settings) q (Just name) (unVar variables)

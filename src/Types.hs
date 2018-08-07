@@ -1,10 +1,9 @@
-{-# LANGUAGE
-    DeriveFunctor
-  , DeriveTraversable
-  , FunctionalDependencies
-  , Rank2Types
-  , TemplateHaskell
-#-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Types
   ( module Types
   , module X
@@ -170,8 +169,13 @@ data NotFoundError = NotFoundError
 data ParseError = ParseError TreeFilePath Text
   deriving (Eq, Show, Typeable)
 
-data PermissionError = BranchPermissionRequired Branch BranchAccess
+data PermissionError = 
+  BranchPermissionRequired 
+    { branch   :: Branch
+    , required :: BranchAccess
+    , actual   :: Maybe BranchAccess
+    }
   deriving (Show, Typeable)
 
 data ValidationError = ValidationMessage Text -- TODO: specify structure
-  deriving (Show, Typeable)
+  deriving (Show, Eq, Typeable)

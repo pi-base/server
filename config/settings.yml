@@ -17,7 +17,6 @@ repo:
   default-branch: "_env:REPO_DEFAULT_BRANCH:master"
   auto-push:      "_env:REPO_AUTO_PUSH:false"
   upstream:       "_env:REPO_UPSTREAM:git@github.com:pi-base/data.git"
-  downstream:     "_env:REPO_DOWNSTREAM:xxx"
 
 github:
   token:          "_env:GITHUB_TOKEN:xxx"

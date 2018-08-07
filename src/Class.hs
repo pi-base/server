@@ -6,9 +6,9 @@ import Protolude
 
 import Control.Monad.Catch    (MonadMask)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Logger   (MonadLogger)
+import Control.Monad.Logger   (MonadLogger(..))
 import Database.Persist.Sql   (Entity, SqlBackend)
-import Git                    (MonadGit)
+import Git                    (MonadGit, TreeT)
 import Git.Libgit2            (LgRepo)
 import UnliftIO               (MonadUnliftIO)
 
@@ -30,6 +30,9 @@ class (MonadIO m, MonadUnliftIO m, MonadMask m, MonadGit LgRepo m) => MonadStore
 class (MonadStore m, MonadDB m, MonadLogger m) => MonadGraph m where
   getSettings :: m AppSettings
   requireUser :: m (Entity User)
+
+instance MonadLogger m => MonadLogger (TreeT r m) where
+  monadLoggerLog a b c d = lift $ monadLoggerLog a b c d
 
 {-
 instance Show (Id a) where
@@ -90,4 +93,3 @@ instance FromJSON Citation where
       getRef c text type' = do
         citationRef <- c .: text
         return $ (type', citationRef)
-    

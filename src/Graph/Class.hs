@@ -5,6 +5,7 @@
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE ViewPatterns          #-}
@@ -90,11 +91,25 @@ instance ToValue Aeson.Value where
 instance ToValue BranchAccess where
   toValue = ValueEnum . enumToValue
 
+{- INPUT TYPES -}
+
+instance FromValue CitationInput where
+  fromValue = withObject "CitationInput" $ \o -> CitationInput
+    <$> field "name" o
+    <*> field "type" o
+    <*> field "ref"  o
+instance HasAnnotatedInputType CitationInput where
+  getAnnotatedInputType = inputType "CitationInput"
+    [ ("name", BuiltinInputType GString)
+    , ("type", BuiltinInputType GString)
+    , ("ref",  BuiltinInputType GString)
+    ]
+
 instance FromValue CreateSpaceInput where
   fromValue = withObject "CreateSpaceInput" $ \o -> CreateSpaceInput
-    <$> field "name"        o
-    <*> field "description" o
-    <*> field "references"  o
+    <$> field    "name"        o
+    <*> fieldDef "description" o ""
+    <*> fieldDef "references"  o Nothing
 instance HasAnnotatedInputType CreateSpaceInput where
   getAnnotatedInputType = inputType "CreateSpaceInput"
     [ ("name",        BuiltinInputType GString)
@@ -106,9 +121,9 @@ instance Defaultable CreateSpaceInput where
 
 instance FromValue CreatePropertyInput where
   fromValue = withObject "CreatePropertyInput" $ \o -> CreatePropertyInput
-    <$> field "name"        o
-    <*> field "description" o
-    <*> field "references"  o
+    <$> field    "name"        o
+    <*> fieldDef "description" o ""
+    <*> fieldDef "references"  o Nothing
 instance HasAnnotatedInputType CreatePropertyInput where
   getAnnotatedInputType = inputType "CreatePropertyInput"
     [ ("name",        BuiltinInputType GString)
@@ -130,7 +145,7 @@ instance FromValue Core.Citation where
   fromValue (ValueObject o) = Citation
     <$> field "name" o
     <*> field "type" o
-    <*> field "ref" o
+    <*> field "ref"  o
   fromValue v = wrongType "Object" v
 instance HasAnnotatedInputType Core.Citation where
   getAnnotatedInputType = inputType "Citation"
@@ -141,11 +156,11 @@ instance HasAnnotatedInputType Core.Citation where
 
 instance FromValue AssertTraitInput where
   fromValue = withObject "AssertTraitInput" $ \o -> AssertTraitInput
-    <$> field "spaceId"     o
-    <*> field "propertyId"  o
-    <*> field "value"       o
-    <*> field "description" o
-    <*> field "references"  o
+    <$> field    "spaceId"     o
+    <*> field    "propertyId"  o
+    <*> field    "value"       o
+    <*> fieldDef "description" o ""
+    <*> fieldDef "references"  o Nothing
 instance HasAnnotatedInputType AssertTraitInput where
   getAnnotatedInputType = inputType "AssertTraitInput"
     [ ("spaceId",     BuiltinInputType GID)
@@ -159,12 +174,12 @@ instance Defaultable AssertTraitInput where
 
 instance FromValue AssertTheoremInput where
   fromValue = withObject "AssertTheoremInput" $ \o -> AssertTheoremInput
-    <$> field "antecedent"  o
-    <*> field "consequent"  o
-    <*> field "description" o
-    <*> field "references"  o
+    <$> field    "antecedent"  o
+    <*> field    "consequent"  o
+    <*> fieldDef "description" o ""
+    <*> fieldDef "references"  o Nothing
 instance HasAnnotatedInputType AssertTheoremInput where
-  getAnnotatedInputType = inputType "AssertTraitInput"
+  getAnnotatedInputType = inputType "AssertTheoremInput"
     [ ("uid",         BuiltinInputType GID)
     , ("antecedent",  BuiltinInputType GString)
     , ("consequent",  BuiltinInputType GString)
@@ -216,6 +231,7 @@ instance HasAnnotatedInputType UpdateTraitInput where
 instance Defaultable UpdateTraitInput where
   defaultFor _ = panic "No default for UpdateTraitInput"
 
+instance ToJSON PatchInput
 instance FromValue PatchInput
 instance HasAnnotatedInputType PatchInput
 instance Defaultable PatchInput where
@@ -243,8 +259,13 @@ field name (Object' fieldMap) = case OM.lookup name fieldMap of
   Nothing -> Left $ "Key not found: " <> show name
   Just v  -> fromValue v
 
+fieldDef :: FromValue a => Name -> Object' ConstScalar -> a -> Either Text a
+fieldDef name (Object' fieldMap) def = case OM.lookup name fieldMap of
+  Nothing -> Right def
+  Just v  -> fromValue v
+
 inputType :: Name -> [(Name, InputType)] -> Either a (AnnotatedType InputType)
-inputType name pairs = Right . TypeNamed . DefinedInputType . InputTypeDefinitionObject . InputObjectTypeDefinition name . NonEmpty.fromList
+inputType name pairs = Right . TypeNonNull . NonNullTypeNamed . DefinedInputType . InputTypeDefinitionObject . InputObjectTypeDefinition name . NonEmpty.fromList
   $ map (\(fieldName, fieldType) -> InputObjectFieldDefinition fieldName (TypeNamed fieldType) Nothing) pairs
 
 withObject :: Show t => Text -> (Object' t -> Either Text b) -> Value' t -> Either Text b

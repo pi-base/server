@@ -15,5 +15,5 @@ data Store = Store
   , storeLoader     :: MVar Loader
   , storeAutoSync   :: Bool
   , storeUpstream   :: RemoteURL
-  , storeDownstream :: RemoteURL
+  , storeWriteLock  :: MVar ()
   }

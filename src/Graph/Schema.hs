@@ -1,12 +1,18 @@
-{-# LANGUAGE DataKinds, DeriveGeneric, DuplicateRecordFields, OverloadedStrings, PatternSynonyms, TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeOperators #-}
 module Graph.Schema where
 
 import Protolude
 
-import GraphQL                     (VariableValues)
+import GraphQL                         (SchemaRoot, VariableValues)
 import GraphQL.API
-import GraphQL.Internal.Validation (QueryDocument, VariableValue)
-import GraphQL.Value               (Name)
+import GraphQL.Internal.Validation     (QueryDocument, VariableValue)
+import GraphQL.Value                   (Name)
+import qualified GraphQL.Introspection as Introspection
 
 import Core (Generic, SpaceId, PropertyId, TheoremId, Formula)
 import qualified Core
@@ -28,8 +34,7 @@ data QueryData = QueryData
 -- Graph Types
 
 type Space = Object "Space" '[]
-  '[ Field "__typename"      Text
-   , Field "uid"             Text
+  '[ Field "uid"             Text
    , Field "slug"            Text
    , Field "name"            Text
    , Field "aliases"         (List Text)
@@ -40,8 +45,7 @@ type Space = Object "Space" '[]
    ]
 
 type Property = Object "Property" '[]
-  '[ Field "__typename"      Text
-   , Field "uid"             Text
+  '[ Field "uid"             Text
    , Field "slug"            Text
    , Field "name"            Text
    , Field "aliases"         (List Text)
@@ -50,8 +54,7 @@ type Property = Object "Property" '[]
    ]
 
 type Trait = Object "Trait" '[]
-  '[ Field "__typename"  Text
-   , Field "property"    Property
+  '[ Field "property"    Property
    , Field "value"       Bool
    , Field "references"  (List Citation)
    , Field "description" Text
@@ -59,8 +62,7 @@ type Trait = Object "Trait" '[]
    ]
 
 type Theorem = Object "Theorem" '[]
-  '[ Field "__typename"  Text
-   , Field "uid"         Text
+  '[ Field "uid"         Text
    , Field "if"          Text
    , Field "then"        Text
    , Field "references"  (List Citation)
@@ -68,51 +70,47 @@ type Theorem = Object "Theorem" '[]
    ]
 
 type Citation = Object "Citation" '[]
-  '[ Field "__typename" Text
-   , Field "type"       Text -- doi | mr | wikipedia
+  '[ Field "type"       Text -- doi | mr | wikipedia
    , Field "ref"        Text
    , Field "name"       Text
    ]
 
 type Branch = Object "Branch" '[]
-  '[ Field "__typename" Text
-   , Field "name"       Text
-   , Field "access"     Text -- FIXME
+  '[ Field "name"       Text
+   , Field "access"     Text -- TODO: enum
    , Field "sha"        Text
    ]
 
 type User = Object "User" '[]
-  '[ Field "__typename" Text
-   , Field "name"       Text
+  '[ Field "name"       Text
    , Field "branches"   (List Branch)
    ]
 
 type Error = Object "Error" '[]
-  '[ Field "__typename" Text
-   , Field "message"    Text
+  '[ Field "message"    Text
    ]
 
 type Viewer = Object "Viewer" '[]
-  '[ Field "__typename" Text
-   , Field "version"    Text
+  '[ Field "version"    Text
    , Field "spaces"     (List Space)
    , Field "properties" (List Property)
    , Field "theorems"   (List Theorem)
    ]
 
 type SubmitBranchResponse = Object "SubmitBranchResponse" '[]
-  '[ Field "__typename" Text
-   , Field "branch"     Text
+  '[ Field "branch"     Text
    , Field "url"        Text
    ]
 
-type Root = Object "QueryRoot" '[]
-  '[ Field "__typename" Text
+type QueryRoot = Object "Query" '[]
+  '[ Introspection.SchemaField
+   , Introspection.TypeField
    , Argument "version" (Maybe Text) :> Field "viewer" Viewer
    , Field "me" User
+   ]
 
-   -- Mutations
-   , Argument "patch" PatchInput 
+type MutationRoot = Object "Mutation" '[]
+  '[ Argument "patch" PatchInput 
      :> Argument "space" CreateSpaceInput
      :> Field "createSpace" Viewer
 
@@ -149,18 +147,26 @@ type Root = Object "QueryRoot" '[]
    , Argument "input" BranchInput :> Field "approveBranch" Viewer
    ]
 
+type Root m = SchemaRoot m QueryRoot MutationRoot
+
 -- Inputs
+
+data CitationInput = CitationInput
+  { name         :: Text
+  , citationType :: Core.CitationType
+  , ref          :: Text
+  } deriving (Show, Generic)
 
 data CreateSpaceInput = CreateSpaceInput
   { name        :: Text
   , description :: Text
-  , references  :: Maybe [Core.Citation]
+  , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data CreatePropertyInput = CreatePropertyInput
   { name        :: Text
   , description :: Text
-  , references  :: Maybe [Core.Citation]
+  , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data AssertTraitInput = AssertTraitInput
@@ -168,14 +174,14 @@ data AssertTraitInput = AssertTraitInput
   , propertyId  :: PropertyId
   , value       :: Bool
   , description :: Text
-  , references  :: Maybe [Core.Citation]
+  , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data AssertTheoremInput = AssertTheoremInput
   { antecedent  :: Formula PropertyId
   , consequent  :: Formula PropertyId
   , description :: Text
-  , references  :: Maybe [Core.Citation]
+  , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data ResetBranchInput = ResetBranchInput
@@ -190,26 +196,26 @@ data BranchInput = BranchInput
 data UpdateSpaceInput = UpdateSpaceInput
   { uid         :: SpaceId
   , description :: Maybe Text
-  , references  :: Maybe [Core.Citation]
+  , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data UpdatePropertyInput = UpdatePropertyInput
   { uid         :: PropertyId
   , description :: Maybe Text
-  , references  :: Maybe [Core.Citation]
+  , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data UpdateTheoremInput = UpdateTheoremInput
   { uid         :: TheoremId
   , description :: Maybe Text
-  , references  :: Maybe [Core.Citation]
+  , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data UpdateTraitInput = UpdateTraitInput
   { spaceId     :: SpaceId
   , propertyId  :: PropertyId
   , description :: Maybe Text
-  , references  :: Maybe [Core.Citation]
+  , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data PatchInput = PatchInput

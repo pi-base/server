@@ -17,16 +17,15 @@ import qualified PageSpec
 main :: IO ()
 main = do
   appRef <- newIORef Nothing
-  let getApp = memoized appRef $ buildApp
-  t <- specs getApp
+  t <- specs $ memoized appRef $ buildApp
   defaultMain . testGroup "Pi-Base" $ t
-  where
-    specs :: IO (TestApp App) -> IO [TestTree]
-    specs app = sequence
-      [ Data.ParseSpec.spec app
-      , GraphSpec.spec app
-      , PageSpec.spec
-      , Handler.CommonSpec.spec app
-      , Handler.GraphSpec.spec app
-      , Handler.HomeSpec.spec app
-      ]
+
+specs :: IO (TestApp App) -> IO [TestTree]
+specs app = sequence
+  [ Data.ParseSpec.spec app
+  , GraphSpec.spec app
+  , PageSpec.spec
+  , Handler.CommonSpec.spec app
+  , Handler.GraphSpec.spec app
+  , Handler.HomeSpec.spec app
+  ]

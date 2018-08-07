@@ -7,6 +7,8 @@ module Data.Branch
   , ensureUserBranch
   , fetch
   , find
+  , forUser
+  , grant
   , headSha
   , push
   , ref
@@ -38,14 +40,17 @@ find = db . getBy . UniqueBranchName
 
 access :: MonadDB m => Entity User -> Entity Branch -> m (Maybe BranchAccess)
 access (Entity userId _) (Entity branchId Branch{..}) = case branchOwnerId of
-  Nothing -> return $ Just BranchRead
+  -- TODO: we can probably remove the ownerId concept entirely
   Just ownerId -> if ownerId == userId
     then return $ Just BranchAdmin
-    else do
+    else checkGrants Nothing
+  Nothing -> checkGrants $ Just BranchRead
+  where
+    checkGrants fallback = do
       mub <- db $ getBy $ UniqueUserBranch userId branchId
       case mub of
         Just (Entity _ ub) -> return $ Just $ userBranchRole ub
-        _ -> return Nothing
+        _ -> return fallback
 
 all :: MonadDB m => m [Branch]
 all = do
@@ -100,11 +105,17 @@ commit branch = do
     Just c  -> return c
     Nothing -> notFound "Branch" $ branchName branch
 
-userBranch :: Entity User -> Branch
-userBranch (Entity _id User{..}) = Branch 
+forUser :: Entity User -> Branch
+forUser (Entity _id User{..}) = Branch 
   { branchName    = "users/" <> userEmail
   , branchOwnerId = Just _id
   }
+
+grant :: MonadDB m => Entity User -> Entity Branch -> BranchAccess -> m ()
+grant u b lvl = void $ repsertBy selector ub
+  where
+    selector UserBranch{..} = UniqueUserBranch userBranchUserId userBranchBranchId
+    ub = UserBranch (entityKey u) (entityKey b) lvl
 
 ensureBranch :: (MonadDB m, MonadStore m) => Branch -> m (Entity Branch)
 ensureBranch branch = do
@@ -119,8 +130,8 @@ ensureBranch branch = do
 
 ensureUserBranch :: (MonadDB m, MonadStore m) => Entity User -> m (Entity Branch)
 ensureUserBranch user = do
-  branch <- ensureBranch $ userBranch user
-  _ <- findOrCreate (\UserBranch{..} -> UniqueUserBranch userBranchUserId userBranchBranchId) $ UserBranch (entityKey user) (entityKey branch) BranchAdmin
+  branch <- ensureBranch $ forUser user
+  grant user branch BranchAdmin
   return branch
 
 ensureBaseBranch :: (MonadDB m, MonadStore m) => m (Entity Branch)

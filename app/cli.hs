@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
@@ -16,7 +15,7 @@ import           Application         (getAppSettings, makeFoundation)
 import qualified Data.Branch         as Branch
 import qualified Data.Branch.Move    as Branch
 import qualified Data.Branch.Merge   as Branch
-import qualified Graph.Introspection as Graph
+import qualified Graph.Queries.Cache as Graph
 
 data Cli = Cli
   { cmd    :: Command
@@ -93,8 +92,6 @@ mvP = Move
       <> metavar "BRANCH"
       <> help "Branch to update"
       )
-  -- <*> argument str (metavar "FROM"    <> help "Current path")
-  -- <*> argument str (metavar "TO"      <> help "Path to move to")
   <*> option str
       ( long "message"
       <> metavar "MESSAGE"
@@ -133,6 +130,9 @@ main = do
 
   Cli{..} <- execParser opts
 
+  -- TODO: run these in a more appropriate custom monad
+  -- See GraphSpec for ideas
+
   let 
     h :: forall a. Handler a -> IO ()
     h action = do
@@ -166,13 +166,7 @@ main = do
       Branch.merge merge meta
 
     -- print GraphQL schema
-    SchemaCmd -> void $ case Graph.renderSchema of
-      Left err -> do
-        putStrLn "Error when rendering schema"
-        panic $ tshow err
-      Right doc -> do
-        putStrLn doc
-        putStrLn "# N.B. schema printing support does not currently include input types"
+    SchemaCmd -> putStrLn Graph.schema
 
     -- validate branch
     ValidateCmd Validate{..} -> h $ putStrLn $ "TODO: validate branch " <> branch

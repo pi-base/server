@@ -56,7 +56,7 @@ loadSpace _id = do
   loader <- getLoader
   load $ Loader.spaceTraits loader _id
 
--- FIXME: catch errors and re-raise as LoadFailures
+-- TODO: catch errors and re-raise as LoadFailures
 load :: Monad m => m b -> LogicT m b
 load f = lift f
 

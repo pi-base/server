@@ -2,7 +2,7 @@
 module Data
   ( initializeStore
   , findParsed
-  , required
+  , Data.required
   , slugify
   , Data.updateBranch
   , updateView

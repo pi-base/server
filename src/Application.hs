@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
     ( getAppSettings
@@ -34,9 +35,8 @@ import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
 
 import           Data        (initializeStore)
 import qualified Data.Branch as Branch
-import           Data.Store  (Store, initializeDownstream)
+import           Data.Store  (Store)
 import           Logging     (makeLogWare)
-import           Types
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
@@ -46,8 +46,7 @@ import Handler.Graph
 import Handler.Home
 import Handler.User
 
-import qualified Graph.Root          as Graph
-import qualified Graph.Queries.Cache as Graph
+import qualified Graph.Queries.Cache as G
 
 -- This line actually creates our YesodDispatch instance. It is the second half
 -- of the call to mkYesodData which occurs in Foundation.hs. Please see the
@@ -68,8 +67,7 @@ makeFoundation appSettings = do
         (if appMutableStatic appSettings then staticDevel else static)
         (appStaticDir appSettings)
 
-    schema <- either (throwIO . SchemaInvalid) return Graph.schema
-    appQueryCache <- Graph.mkCache schema "graph/queries" 
+    appQueryCache <- either (error . show) id <$> G.mkCache "graph"
 
     -- We need a log function to create a connection pool. We need a connection
     -- pool to create our foundation. And we need our foundation to get a
@@ -88,13 +86,9 @@ makeFoundation appSettings = do
           (error "store forced in tempFoundation")
         logFunc = messageLoggerSource tempFoundation appLogger
 
-    -- Set up the git repo(s)
-    store <- flip runLoggingT logFunc $ do
-      s <- initializeStore $ appRepo appSettings
-      -- In test modes, we have a local "downstream" repo
-      when (appTestMode appSettings) $
-        initializeDownstream $ appRepo appSettings
-      return s
+    -- Set up the git repo
+    store <- flip runLoggingT logFunc $
+      initializeStore $ appRepo appSettings
     
     -- Create the database connection pool
     pool <- flip runLoggingT logFunc $ createPostgresqlPool

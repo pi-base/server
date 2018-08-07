@@ -84,8 +84,8 @@ parse :: ParseError -> Text
 parse (ParseError path msg) = "Failed to parse " <> decodeUtf8 path <> ": " <> msg
 
 permission :: PermissionError -> Text
-permission (BranchPermissionRequired Branch{..} level) =
-  "Requires " <> tshow level <> " access on " <> branchName
+permission BranchPermissionRequired{..} =
+  "Requires " <> tshow required <> " access on " <> branchName branch <> ", but found " <> tshow actual
 
 validation :: ValidationError -> Text
 validation (ValidationMessage msg) = msg

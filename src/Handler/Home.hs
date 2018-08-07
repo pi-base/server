@@ -6,7 +6,7 @@ import Data.Store                  (getStoreBaseVersion)
 import Database.Persist.Postgresql (PostgresConf(..))
 import Handler.Helpers             (generateToken)
 import Services.Github             (checkPullRequest, webhookHandler)
-import Core                        (View(..), unVersion)
+import Core                        (View(..), Version(..))
 
 getHomeR :: Handler Value
 getHomeR = do
@@ -32,9 +32,8 @@ debugSettings AppSettings{..} = object
     , "pool" .= pgPoolSize appDatabaseConf
     ]
   , "repo" .= object
-    [ "path"       .= rsPath appRepo
-    , "upstream"   .= rsUpstream appRepo
-    , "downstream" .= rsDownstream appRepo
+    [ "path"     .= rsPath appRepo
+    , "upstream" .= rsUpstream appRepo
     ]
   ]
 

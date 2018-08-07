@@ -21,7 +21,8 @@ import qualified GitHub.Endpoints.Repos.Statuses  as GH
 import qualified GitHub.Endpoints.PullRequests    as GH
 
 createPullRequest :: (MonadStore m, MonadLogger m) 
-                  => GithubSettings -> Core.Branch -> m (Either Text Text) -- FIXME
+                  => GithubSettings -> Core.Branch 
+                  -> m (Either Text Text) -- TODO: error type instead of Text
 createPullRequest GithubSettings{..} branch = do
   pushBranch branch -- should already happen on branch update, but just to be sure
 

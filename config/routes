@@ -8,7 +8,8 @@
 
 /github/hooks HooksR POST
 
-/app     FrontendR GET
-/graphql GraphR    POST
-/users   UsersR    POST
-/error   ErrorR    POST
+/app            FrontendR GET
+/graphql        GraphR    POST
+/graphql/schema SchemaR   GET
+/users          UsersR    POST
+/error          ErrorR    POST

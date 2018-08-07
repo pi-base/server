@@ -6,8 +6,10 @@ resolver: lts-11.14
 packages:
 - '.'
 - location:
-    git: https://github.com/haskell-graphql/graphql-api.git
-    commit: f06c7af1bc0c9e475f88e47448218373eb9686b6
+#     git: https://github.com/haskell-graphql/graphql-api.git
+#     commit: f06c7af1bc0c9e475f88e47448218373eb9686b6
+    git: https://github.com/jamesdabbs/graphql-api.git
+    commit: 3f678222b6a968690fecc8fbd5d98b7cc89d6721
   extra-dep: true
 - location:
     git: https://github.com/thoughtbot/yesod-auth-oauth2.git

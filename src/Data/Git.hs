@@ -4,6 +4,7 @@ module Data.Git
   , baseCommit
   , branchExists
   , branchRef
+  , commitBranch
   , commitFromLabel
   , commitSha
   , createBranchFromBase
@@ -13,11 +14,12 @@ module Data.Git
   , lookupCommittish
   , resetBranch
   , resolveCommittish
+  , storeLocked
   , updateBranch
   , writePages
   ) where
 
-import Protolude
+import Protolude hiding (withMVar)
 import Core
 import Model (User(..))
 
@@ -26,22 +28,45 @@ import Data.Time.LocalTime (getZonedTime)
 import Git
 import Git.Libgit2  (LgRepo)
 import Types.Loader (Loader, mkLoader)
-import Types.Store  (storeBaseBranch)
+import Types.Store  (storeBaseBranch, storeWriteLock)
+import UnliftIO.MVar
+
+-- TODO: evaluate this
+-- It seems like we're either concerned about multiple processes at once, and so
+-- need a filesystem lock, or we're threadsafe and don't need to lock at all.
+storeLocked :: MonadStore m => m a -> m a
+storeLocked action = do
+  lock <- storeWriteLock <$> getStore
+  withMVar lock $ const action
+
+commitBranch :: MonadStore m 
+             => BranchName 
+             -> TreeOid LgRepo 
+             -> CommitMeta 
+             -> [Commit LgRepo] 
+             -> m Sha
+commitBranch branch tree meta parents = do
+  let ref = Ref branch
+  (author, committer, message) <- commitSignatures meta
+  commit <- createCommit 
+    (map commitOid parents)
+    tree author committer message 
+    (Just $ refHead ref)
+  return $ commitSha commit
 
 updateBranch :: MonadStore m
              => BranchName
              -> CommitMeta
              -> (Loader -> TreeT LgRepo m a)
              -> m (a, Sha)
-updateBranch branch meta handler = do
+updateBranch branch meta handler = storeLocked $ do
   let ref = Ref branch
   parent   <- fetchRefHead ref
   tree     <- lookupTree $ commitTree parent
   loader   <- mkLoader parent
   (result, newTree) <- withTree tree $ handler loader
-  (author, committer, message) <- commitSignatures meta
-  commit <- createCommit [commitOid parent] newTree author committer message (Just $ refHead ref)
-  return (result, commitSha commit)
+  sha <- commitBranch branch newTree meta [parent]
+  return (result, sha)
 
 fetchRefHead :: MonadStore m => Ref -> m (Commit LgRepo)
 fetchRefHead ref = resolveReference (refHead ref) >>= \case
