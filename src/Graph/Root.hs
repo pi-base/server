@@ -16,7 +16,8 @@ import qualified Graph.Queries.Cache as Cache
 import           Graph.Schema        as G
 
 handler :: (MonadGraph m, MonadLogger m) => AppSettings -> SchemaRoot m QueryRoot MutationRoot
-handler settings = SchemaRoot G.queries (G.mutations $ appGithub settings)
+handler settings = 
+  SchemaRoot G.queries (G.mutations $ appGithub settings)
 
 asJSON :: MonadIO m
        => (QueryData -> m Response) 

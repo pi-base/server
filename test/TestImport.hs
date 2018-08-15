@@ -58,7 +58,7 @@ initializeLocalOrigin :: RepoSettings -> IO ()
 initializeLocalOrigin r@RepoSettings{..} = void $
   runStdoutLoggingT $ initializeStore $ r
     { rsPath     = T.unpack rsUpstream
-    , rsUpstream = "https://github.com/pi-base/data.git" 
+    , rsUpstream = "https://github.com/pi-base/data.git"
     }
 
 buildApp :: IO (TestApp App)
@@ -145,18 +145,18 @@ shouldHaveKey (Object _map) key = liftIO $ H.assertBool msg (HM.member key _map)
   where msg = "Value does not contain key: " ++ T.unpack key
 shouldHaveKey _ _ = liftIO $ H.assertBool "Value is not an object" False
 
-ci :: (Arg a ~ (), Example a) 
+ci :: (Arg a ~ (), Example a)
      => String
      -> a
      -> SpecM (Arg a) ()
 ci title action = do
-  ci <- runIO $ lookupEnv "CI"
-  if (ci == Just "true")
+  isCI <- runIO $ lookupEnv "CI"
+  if (isCI == Just "true")
     then it title action
     else it title $ do
            putStr $ (colorize Blue "CI") <> " - "
            pass
-           
+
 -- xit / pending currently count as a failure on CI
 todo :: String -> t -> SpecWith ()
 todo msg _ = it msg $ do

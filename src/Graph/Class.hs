@@ -51,7 +51,7 @@ instance Aeson.FromJSON QueryData where
     <*> o .:? "variables" .!= Variables mempty
 
 instance Aeson.FromJSON Name where
-  parseJSON (Aeson.String str) = case makeName str of 
+  parseJSON (Aeson.String str) = case makeName str of
     Right name -> return name
     Left   err -> fail $ show err
   parseJSON _ = fail "expected name to be a string"
@@ -65,7 +65,7 @@ instance FromJSON Variables where
   parseJSON = Aeson.withObject "VariableValues" $ \vs -> do
     converted <- mapM convert $ HM.toList vs
     return . Variables . M.fromList $ converted
-    where 
+    where
       convert (k, v) = do
         name <- case makeName k of
           Right n  -> return $ Variable n
@@ -100,36 +100,26 @@ instance FromValue CitationInput where
     <*> field "ref"  o
 instance HasAnnotatedInputType CitationInput where
   getAnnotatedInputType = inputType "CitationInput"
-    [ ("name", BuiltinInputType GString)
-    , ("type", BuiltinInputType GString)
-    , ("ref",  BuiltinInputType GString)
+    [ ("name", nonNull $ BuiltinInputType GString)
+    , ("type", nonNull $ BuiltinInputType GString)
+    , ("ref",  nonNull $ BuiltinInputType GString)
     ]
 
 instance FromValue CreateSpaceInput where
   fromValue = withObject "CreateSpaceInput" $ \o -> CreateSpaceInput
     <$> field    "name"        o
-    <*> fieldDef "description" o ""
+    <*> fieldDef "description" o Nothing
     <*> fieldDef "references"  o Nothing
-instance HasAnnotatedInputType CreateSpaceInput where
-  getAnnotatedInputType = inputType "CreateSpaceInput"
-    [ ("name",        BuiltinInputType GString)
-    , ("description", BuiltinInputType GString)
-    , ("references",  BuiltinInputType GString)
-    ]
+instance HasAnnotatedInputType CreateSpaceInput
 instance Defaultable CreateSpaceInput where
   defaultFor _ = panic "No default for CreateSpaceInput"
 
 instance FromValue CreatePropertyInput where
   fromValue = withObject "CreatePropertyInput" $ \o -> CreatePropertyInput
     <$> field    "name"        o
-    <*> fieldDef "description" o ""
+    <*> fieldDef "description" o Nothing
     <*> fieldDef "references"  o Nothing
-instance HasAnnotatedInputType CreatePropertyInput where
-  getAnnotatedInputType = inputType "CreatePropertyInput"
-    [ ("name",        BuiltinInputType GString)
-    , ("description", BuiltinInputType GString)
-    , ("references",  BuiltinInputType GString)
-    ]
+instance HasAnnotatedInputType CreatePropertyInput
 instance Defaultable CreatePropertyInput where
   defaultFor _ = panic "No default for CreatePropertyInput"
 
@@ -149,9 +139,9 @@ instance FromValue Core.Citation where
   fromValue v = wrongType "Object" v
 instance HasAnnotatedInputType Core.Citation where
   getAnnotatedInputType = inputType "Citation"
-    [ ("name", BuiltinInputType GString)
-    , ("type", BuiltinInputType GString)
-    , ("ref",  BuiltinInputType GString)
+    [ ("name", nonNull $ BuiltinInputType GString)
+    , ("type", nonNull $ BuiltinInputType GString)
+    , ("ref",  nonNull $ BuiltinInputType GString)
     ]
 
 instance FromValue AssertTraitInput where
@@ -159,15 +149,15 @@ instance FromValue AssertTraitInput where
     <$> field    "spaceId"     o
     <*> field    "propertyId"  o
     <*> field    "value"       o
-    <*> fieldDef "description" o ""
+    <*> fieldDef "description" o Nothing
     <*> fieldDef "references"  o Nothing
 instance HasAnnotatedInputType AssertTraitInput where
   getAnnotatedInputType = inputType "AssertTraitInput"
-    [ ("spaceId",     BuiltinInputType GID)
-    , ("propertyId",  BuiltinInputType GID)
-    , ("value",       BuiltinInputType GBool)
-    , ("description", BuiltinInputType GString)
-    , ("references",  BuiltinInputType GString)
+    [ ("spaceId",     nonNull $ BuiltinInputType GID)
+    , ("propertyId",  nonNull $ BuiltinInputType GID)
+    , ("value",       nonNull $ BuiltinInputType GBool)
+    , ("description", TypeNamed $ BuiltinInputType GString)
+    , ("references",  referencesInputType)
     ]
 instance Defaultable AssertTraitInput where
   defaultFor _ = panic "No default for AssertTraitInput"
@@ -176,15 +166,14 @@ instance FromValue AssertTheoremInput where
   fromValue = withObject "AssertTheoremInput" $ \o -> AssertTheoremInput
     <$> field    "antecedent"  o
     <*> field    "consequent"  o
-    <*> fieldDef "description" o ""
+    <*> fieldDef "description" o Nothing
     <*> fieldDef "references"  o Nothing
 instance HasAnnotatedInputType AssertTheoremInput where
   getAnnotatedInputType = inputType "AssertTheoremInput"
-    [ ("uid",         BuiltinInputType GID)
-    , ("antecedent",  BuiltinInputType GString)
-    , ("consequent",  BuiltinInputType GString)
-    , ("description", BuiltinInputType GString)
-    , ("references",  BuiltinInputType GString)
+    [ ("antecedent",  nonNull $ BuiltinInputType GString)
+    , ("consequent",  nonNull $ BuiltinInputType GString)
+    , ("description", TypeNamed $ BuiltinInputType GString)
+    , ("references",  referencesInputType)
     ]
 instance Defaultable AssertTheoremInput where
   defaultFor _ = panic "No default for AssertTheoremInput"
@@ -214,18 +203,13 @@ instance HasAnnotatedInputType UpdateTheoremInput
 instance Defaultable UpdateTheoremInput where
   defaultFor _ = panic "No default for UpdateTheoremInput"
 
-instance FromValue UpdateTraitInput where
-  fromValue = withObject "UpdateTraitInput" $ \o -> UpdateTraitInput
-    <$> field "spaceId"     o
-    <*> field "propertyId"  o
-    <*> field "description" o
-    <*> field "references"  o
+instance FromValue UpdateTraitInput
 instance HasAnnotatedInputType UpdateTraitInput where
   getAnnotatedInputType = inputType "UpdateTraitInput"
-    [ ("spaceId",     BuiltinInputType GID)
-    , ("propertyId",  BuiltinInputType GID)
-    , ("description", BuiltinInputType GString)
-    , ("references",  BuiltinInputType GString)
+    [ ("spaceId",     nonNull $ BuiltinInputType GID)
+    , ("propertyId",  nonNull $ BuiltinInputType GID)
+    , ("description", TypeNamed $ BuiltinInputType GString)
+    , ("references",  referencesInputType)
     ]
 
 instance Defaultable UpdateTraitInput where
@@ -264,10 +248,22 @@ fieldDef name (Object' fieldMap) def = case OM.lookup name fieldMap of
   Nothing -> Right def
   Just v  -> fromValue v
 
-inputType :: Name -> [(Name, InputType)] -> Either a (AnnotatedType InputType)
-inputType name pairs = Right . TypeNonNull . NonNullTypeNamed . DefinedInputType . InputTypeDefinitionObject . InputObjectTypeDefinition name . NonEmpty.fromList
-  $ map (\(fieldName, fieldType) -> InputObjectFieldDefinition fieldName (TypeNamed fieldType) Nothing) pairs
+-- TODO
+-- * don't irrefutable pattern match
+-- * why isn't this producing [CitationInput!]!
+referencesInputType :: AnnotatedType InputType
+referencesInputType =
+  let Right it = getAnnotatedInputType @CitationInput
+  in TypeNonNull . NonNullTypeList $ ListType it
+
+inputType :: Name -> [(Name, AnnotatedType InputType)] -> Either a (AnnotatedType InputType)
+inputType name pairs = Right . TypeNonNull . NonNullTypeNamed . DefinedInputType .
+  InputTypeDefinitionObject . InputObjectTypeDefinition name . NonEmpty.fromList
+  $ map (\(fieldName, fieldType) -> InputObjectFieldDefinition fieldName fieldType Nothing) pairs
 
 withObject :: Show t => Text -> (Object' t -> Either Text b) -> Value' t -> Either Text b
 withObject _ parser (ValueObject o) = parser o
 withObject name _ v = wrongType (name <> " should be an Object") v
+
+nonNull :: t -> AnnotatedType t
+nonNull = TypeNonNull . NonNullTypeNamed

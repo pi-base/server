@@ -116,27 +116,27 @@ input PatchInput {
 }
 
 input CreateSpaceInput {
-  name: String
+  name: String!
   description: String
-  references: String
+  references: [CitationInput]!
+}
+
+input CitationInput {
+  name: String!
+  type: String!
+  ref: String!
 }
 
 input CreatePropertyInput {
-  name: String
+  name: String!
   description: String
-  references: String
+  references: [CitationInput]!
 }
 
 input UpdateSpaceInput {
   uid: String
   description: String
   references: [CitationInput]!
-}
-
-input CitationInput {
-  name: String
-  type: String
-  ref: String
 }
 
 input UpdatePropertyInput {
@@ -152,26 +152,25 @@ input UpdateTheoremInput {
 }
 
 input UpdateTraitInput {
-  spaceId: ID
-  propertyId: ID
+  spaceId: ID!
+  propertyId: ID!
   description: String
-  references: String
+  references: [CitationInput]!
 }
 
 input AssertTraitInput {
-  spaceId: ID
-  propertyId: ID
-  value: Boolean
+  spaceId: ID!
+  propertyId: ID!
+  value: Boolean!
   description: String
-  references: String
+  references: [CitationInput]!
 }
 
 input AssertTheoremInput {
-  uid: ID
-  antecedent: String
-  consequent: String
+  antecedent: String!
+  consequent: String!
   description: String
-  references: String
+  references: [CitationInput]!
 }
 
 input ResetBranchInput {

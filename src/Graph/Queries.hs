@@ -27,7 +27,7 @@ import           Model        (User(..))
 import           Types        (BranchAccess(..))
 
 queries :: forall m. MonadGraph m => Handler m G.QueryRoot
-queries = 
+queries =
   pure $ Introspection.schema @(G.Root m)
      :<> Introspection.type_  @(G.Root m)
      :<> viewer
@@ -51,7 +51,7 @@ viewer mver = do
 
 -- Pure presenters (unify with m ~ Identity)
 presentBranch :: Monad m => BranchStatus -> Handler m G.Branch
-presentBranch BranchStatus{..} = 
+presentBranch BranchStatus{..} =
   pure $ pure (branchName branch)
      :<> pure (serializeAccess branchAccess)
      :<> pure branchHead
@@ -64,7 +64,7 @@ presentSpace :: Monad m
              => Space
              -> [Trait s Property]
              -> Handler m G.Space
-presentSpace Space{..} traits = 
+presentSpace Space{..} traits =
   pure $ pure (unId spaceId)
      :<> pure spaceSlug
      :<> pure spaceName
@@ -75,7 +75,7 @@ presentSpace Space{..} traits =
      :<> pure (presentTrait <$> traits)
 
 presentProperty :: Monad m => Property -> Handler m G.Property
-presentProperty Property{..} = 
+presentProperty Property{..} =
   pure $ pure (unId propertyId)
      :<> pure propertySlug
      :<> pure propertyName
@@ -86,7 +86,7 @@ presentProperty Property{..} =
 presentTrait :: Monad m
              => Trait s Property
              -> Handler m G.Trait
-presentTrait Trait{..} = 
+presentTrait Trait{..} =
   pure $ presentProperty _traitProperty
      :<> pure _traitValue
      :<> pure (map presentCitation _traitRefs)
@@ -94,7 +94,7 @@ presentTrait Trait{..} =
      :<> pure False
 
 presentTheorem :: Monad m => Theorem PropertyId -> Handler m G.Theorem
-presentTheorem t@Theorem{..} = 
+presentTheorem t@Theorem{..} =
   pure $ pure (unId theoremId)
      :<> pure (encodeFormula $ theoremIf t)
      :<> pure (encodeFormula $ theoremThen t)
@@ -102,8 +102,8 @@ presentTheorem t@Theorem{..} =
      :<> pure theoremDescription
 
 presentCitation :: Monad m => Citation -> Handler m G.Citation
-presentCitation Citation{..} = 
-  pure $ pure 
+presentCitation Citation{..} =
+  pure $ pure
     ( case citationType of
         DOICitation  -> "doi"
         MRCitation   -> "mr"
@@ -114,7 +114,7 @@ presentCitation Citation{..} =
 
 -- IDEA: define View -> PureLoader and re-use?
 presentView :: Monad m => View -> Handler m G.Viewer
-presentView View{..} = 
+presentView View{..} =
   pure $ pure (maybe "" unVersion _viewVersion)
      :<> pure (map presentSpace' $ M.toList _viewSpaces)
      :<> pure (map presentProperty $ M.elems _viewProperties)
@@ -159,7 +159,7 @@ loadSpace :: MonadStore m
           => Loader.Loader
           -> Space
           -> Handler m G.Space
-loadSpace loader s@Space{..} = 
+loadSpace loader s@Space{..} =
   pure $ pure (unId spaceId)
      :<> pure spaceSlug
      :<> pure spaceName

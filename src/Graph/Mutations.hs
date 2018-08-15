@@ -38,14 +38,14 @@ import qualified Services.Github   as Github
 import qualified View              as View
 
 mutations :: MonadGraph m => GithubSettings -> Handler m G.MutationRoot
-mutations settings = 
+mutations settings =
   pure $ createSpace
      :<> createProperty
      :<> updateSpace
      :<> updateProperty
      :<> updateTheorem
      :<> updateTrait
-     :<> assertTrait 
+     :<> assertTrait
      :<> assertTheorem
      :<> resetBranch
      :<> submitBranch settings
@@ -62,10 +62,10 @@ assertTrait patch G.AssertTraitInput{..} = do
         , _traitProperty    = property
         , _traitValue       = value
         , _traitRefs        = citations $ fromMaybe [] references
-        , _traitDescription = description
+        , _traitDescription = fromMaybe "" description
         }
 
-      trait' = trait 
+      trait' = trait
         { _traitSpace = spaceId
         , _traitProperty = propertyId
         }
@@ -84,7 +84,7 @@ assertTheorem patch G.AssertTheoremInput{..} = do
         , theoremImplication = (Implication antecedent consequent)
         , theoremConverse    = Nothing -- TODO
         , theoremRefs        = citations $ fromMaybe [] references
-        , theoremDescription = description
+        , theoremDescription = fromMaybe "" description
         }
   theorem' <- mapM (Property.fetch branch) theorem
   let meta = CommitMeta user $ "Add " <> theoremName theorem'
@@ -102,7 +102,7 @@ createSpace patch G.CreateSpaceInput{..} = do
         , spaceRefs        = citations $ fromMaybe [] references
         , spaceSlug        = slugify name
         , spaceTopology    = Nothing
-        , spaceDescription = description
+        , spaceDescription = fromMaybe "" description
         }
       commit = CommitMeta user $ "Add " <> name
 
@@ -119,7 +119,7 @@ createProperty patch G.CreatePropertyInput{..} = do
         , propertySlug        = slugify name
         , propertyAliases     = []
         , propertyRefs        = citations $ fromMaybe [] references
-        , propertyDescription = description
+        , propertyDescription = fromMaybe "" description
         }
       commit = CommitMeta user $ "Add " <> name
   (p, sha) <- Property.put branch commit property
@@ -140,7 +140,7 @@ submitBranch settings G.BranchInput{..} = do
 
   Github.createPullRequest settings b >>= \case
     Left e -> throwIO $ ValidationMessage e
-    Right url -> 
+    Right url ->
       return $ pure branch :<> pure url
 
 approveBranch :: MonadGraph m => G.BranchInput -> Handler m G.Viewer
@@ -149,7 +149,7 @@ approveBranch G.BranchInput{..} = do
   (user, master) <- requireBranchAccess base BranchAdmin
   (_, pr) <- requireBranchAccess branch BranchAdmin
 
-  let 
+  let
     merge = Branch.Merge
       { from = pr
       , into = master
@@ -164,8 +164,8 @@ updateProperty patch G.UpdatePropertyInput{..} = do
   (user, branch) <- checkPatch patch
 
   old <- Property.fetch branch uid
-  let updated = old 
-        { propertyDescription = fromMaybe (propertyDescription old) description 
+  let updated = old
+        { propertyDescription = fromMaybe (propertyDescription old) description
         , propertyRefs        = maybe (propertyRefs old) citations references
         }
       commit  = CommitMeta user $ "Update " <> propertyName updated
@@ -177,11 +177,11 @@ updateSpace patch G.UpdateSpaceInput{..} = do
   (user, branch) <- checkPatch patch
 
   old <- Space.fetch branch uid
-  -- TODO: 
+  -- TODO:
   -- - HKD and write a generic patch merge
   -- - skip updates if nothing has changed
-  let updated = old 
-        { spaceDescription = fromMaybe (spaceDescription old) description 
+  let updated = old
+        { spaceDescription = fromMaybe (spaceDescription old) description
         , spaceRefs        = maybe (spaceRefs old) citations references
         }
       meta = CommitMeta user $ "Update " <> spaceName updated
@@ -194,8 +194,8 @@ updateTheorem patch G.UpdateTheoremInput{..} = do
   (user, branch) <- checkPatch patch
 
   old <- Theorem.fetch branch uid
-  let updated = old 
-        { theoremDescription = fromMaybe (theoremDescription old) description 
+  let updated = old
+        { theoremDescription = fromMaybe (theoremDescription old) description
         , theoremRefs        = maybe (theoremRefs old) citations references
         }
       meta    = CommitMeta user $ "Update " <> theoremName updated
@@ -209,8 +209,8 @@ updateTrait patch G.UpdateTraitInput{..} = do
 
   old <- Trait.fetch branch spaceId propertyId
   let meta = CommitMeta user $ "Update " <> traitName old
-      updated = old 
-        { _traitDescription = fromMaybe (_traitDescription old) description 
+      updated = old
+        { _traitDescription = fromMaybe (_traitDescription old) description
         , _traitRefs        = maybe (_traitRefs old) citations references
         , _traitSpace       = spaceId
         , _traitProperty    = propertyId

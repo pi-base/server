@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Graph.Common 
+module Graph.Common
   ( G(..)
   , mkGraph
   , runG
@@ -47,7 +47,7 @@ data Config = Config
   , settings :: AppSettings
   , store    :: Store
   , queries  :: Cache
-  , user     :: IORef (Maybe (Entity User)) 
+  , user     :: IORef (Maybe (Entity User))
   , patch    :: IORef PatchInput
   }
 
@@ -100,7 +100,7 @@ getUser = do
   ref <- asks user
   mu  <- liftIO $ readIORef ref
   case mu of
-    Nothing -> notFound "User" "current"
+    Nothing -> notFound "User" ("current" :: Text)
     Just eu -> return eu
 
 setPatch :: PatchInput -> G ()
@@ -140,7 +140,7 @@ checkoutUserBranch = do
 run :: FilePath -> Value -> G Value
 run n vars = do
   Config{..} <- ask
-  let request = object 
+  let request = object
         [ "operationName" .= n
         , "variables"     .= vars
         , "query"         .= ("" :: Text)

@@ -110,35 +110,35 @@ type QueryRoot = Object "Query" '[]
    ]
 
 type MutationRoot = Object "Mutation" '[]
-  '[ Argument "patch" PatchInput 
+  '[ Argument "patch" PatchInput
      :> Argument "space" CreateSpaceInput
      :> Field "createSpace" Viewer
 
-   , Argument "patch" PatchInput 
-     :> Argument "property" CreatePropertyInput 
+   , Argument "patch" PatchInput
+     :> Argument "property" CreatePropertyInput
      :> Field "createProperty" Viewer
 
-   , Argument "patch" PatchInput 
+   , Argument "patch" PatchInput
      :> Argument "space" UpdateSpaceInput
      :> Field "updateSpace" Viewer
 
-   , Argument "patch" PatchInput 
-     :> Argument "property" UpdatePropertyInput 
+   , Argument "patch" PatchInput
+     :> Argument "property" UpdatePropertyInput
      :> Field "updateProperty" Viewer
 
-   , Argument "patch" PatchInput 
-     :> Argument "theorem" UpdateTheoremInput  
+   , Argument "patch" PatchInput
+     :> Argument "theorem" UpdateTheoremInput
      :> Field "updateTheorem"  Viewer
 
    , Argument "patch" PatchInput
      :> Argument "trait" UpdateTraitInput
      :> Field "updateTrait" Viewer
 
-   , Argument "patch" PatchInput 
+   , Argument "patch" PatchInput
      :> Argument "trait" AssertTraitInput
      :> Field "assertTrait" Viewer
 
-   , Argument "patch" PatchInput 
+   , Argument "patch" PatchInput
      :> Argument "theorem" AssertTheoremInput
      :> Field "assertTheorem" Viewer
 
@@ -159,13 +159,13 @@ data CitationInput = CitationInput
 
 data CreateSpaceInput = CreateSpaceInput
   { name        :: Text
-  , description :: Text
+  , description :: Maybe Text
   , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data CreatePropertyInput = CreatePropertyInput
   { name        :: Text
-  , description :: Text
+  , description :: Maybe Text
   , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
@@ -173,14 +173,14 @@ data AssertTraitInput = AssertTraitInput
   { spaceId     :: SpaceId
   , propertyId  :: PropertyId
   , value       :: Bool
-  , description :: Text
+  , description :: Maybe Text
   , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
 data AssertTheoremInput = AssertTheoremInput
   { antecedent  :: Formula PropertyId
   , consequent  :: Formula PropertyId
-  , description :: Text
+  , description :: Maybe Text
   , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 

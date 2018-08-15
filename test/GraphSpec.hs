@@ -11,7 +11,7 @@ import Test.Tasty.Hspec hiding (shouldBe)
 import TestImport       hiding (first, head, json, request, shouldBe, update)
 
 import           Control.Lens       hiding ((.=))
-import           Data.Aeson         (Value(..), (.=), encode, object)
+import           Data.Aeson         (Value(..), (.=), object)
 import           Data.Aeson.Lens    hiding (key)
 import qualified Data.Aeson.Lens    as L (key)
 import qualified Data.Map           as M
@@ -21,8 +21,6 @@ import Graph.Common
 
 import           Core
 import qualified Data.Branch         as Branch
-import qualified Graph.Queries.Cache as Cache
-import qualified Graph.Root          as Root
 import           Util                (encodeText)
 
 initial :: Sha
@@ -34,15 +32,13 @@ reset = void $ do
   Branch.reset (Branch.forUser eu) $ CommitSha initial
 
 setup :: G ()
-setup = do
-  Branch.ensureBaseBranch
-  Branch.claimUserBranches
+setup = Branch.ensureBaseBranch >> Branch.claimUserBranches
 
 spec :: IO (TestApp App) -> IO TestTree
 spec getApp = do
   graph <- mkGraph getApp
 
-  let 
+  let
     g :: forall a. G a -> IO a
     g = runG graph
 
@@ -253,10 +249,10 @@ spec getApp = do
     describe "Branch approval" $ do
       ci "works end-to-end" $ g $ do
         -- User creates a branch
-        cdm <- login cody
+        _ <- login cody
         eb@(Entity _ branch) <- checkoutUserBranch
 
-        update "ResetBranch" [json|{
+        _ <- update "ResetBranch" [json|{
           "input": {
             "branch": #{branchName branch},
             "to":     #{head}
@@ -270,16 +266,15 @@ spec getApp = do
         }|]
         let pid = v ^. createProperty.properties.first.uid
 
-        v' <- update "AssertTheorem" [json|{
+        _ <- update "AssertTheorem" [json|{
           "theorem": {
             "antecedent":  #{encodeText $ object [ pid .= True ]},
             "consequent":  #{encodeText $ object [ compact .= True ]},
             "description": "T"
           }
         }|]
-        let tid = v' ^. assertTheorem.theorems.first.uid
 
-        v'' <- update "AssertTrait" [json|{
+        _ <- update "AssertTrait" [json|{
           "trait": {
             "spaceId":    "S000001",
             "propertyId": #{pid},
@@ -293,17 +288,14 @@ spec getApp = do
         Branch.grant sxc master BranchAdmin
         Branch.grant sxc eb     BranchAdmin
 
-        access <- db $ selectList ([] :: [Filter UserBranch]) []
         checkout branch
-        v <- update "ApproveBranch" [json|{
+        v' <- update "ApproveBranch" [json|{
           "input": {
             "branch": #{branchName branch}
           }
         }|]
 
-        traceJ v
-
-        1 `shouldBe` 2 -- Force output
+        length (v' ^. approveBranch.version) `shouldBe` 40
 
 testUser :: User
 testUser = User "github:1234" "test" "test@example.com" "xxx"
@@ -361,7 +353,8 @@ property    = k "property"
 theorems    = k "theorems"
 traits      = k "traits"
 
-assertTheorem, assertTrait, createProperty, createSpace :: Traversal' Value Value
+approveBranch, assertTheorem, assertTrait, createProperty, createSpace :: Traversal' Value Value
+approveBranch  = k "approveBranch"
 assertTheorem  = k "assertTheorem"
 assertTrait    = k "assertTrait"
 createSpace    = k "createSpace"
