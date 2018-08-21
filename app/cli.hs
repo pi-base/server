@@ -2,7 +2,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-import Import
+import Import hiding (logLevel)
 import Core
 
 import qualified Data.Map            as M
@@ -11,7 +11,7 @@ import           Options.Applicative
 import qualified Shelly              as Sh
 import           System.Log.FastLogger (flushLogStr)
 
-import           Application         (getAppSettings, makeFoundation)
+import           Application         (appMain, getAppSettings, makeFoundation)
 import qualified Data.Branch         as Branch
 import qualified Data.Branch.Move    as Branch
 import qualified Data.Branch.Merge   as Branch
@@ -53,10 +53,11 @@ parseLogLevel "info"  = Right LevelInfo
 parseLogLevel "debug" = Right LevelDebug
 parseLogLevel other = Left $ "Unknown log level: " ++ other
 
-data Command 
+data Command
   = MoveCmd     Move
   | MergeCmd    Merge
   | SchemaCmd
+  | Server
   | ValidateCmd Validate
 
 commandsP :: Parser Command
@@ -72,6 +73,10 @@ commandsP = subparser $ mconcat
   , command "schema"
     ( info (pure SchemaCmd) $
       progDesc "Print GraphQL schema"
+    )
+  , command "server"
+    ( info (pure Server) $
+      progDesc "Start the server"
     )
   , command "validate"
     ( info (ValidateCmd <$> validateP <**> helper) $
@@ -97,8 +102,8 @@ mvP = Move
       <> metavar "MESSAGE"
       <> help "Text of commit message"
       )
-  <*> some 
-      ( argument str 
+  <*> some
+      ( argument str
         ( metavar "UPDATES..."
         <> help "Space-separated list of FROM TO pairs"
         )
@@ -133,11 +138,11 @@ main = do
   -- TODO: run these in a more appropriate custom monad
   -- See GraphSpec for ideas
 
-  let 
+  let
     h :: forall a. Handler a -> IO ()
-    h action = do
+    h m = do
         foundation <- configureFoundation config
-        void $ unsafeHandler foundation action
+        void $ unsafeHandler foundation m
         flushLogStr $ loggerSet $ appLogger foundation
 
   case cmd of
@@ -168,6 +173,9 @@ main = do
     -- print GraphQL schema
     SchemaCmd -> putStrLn Graph.schema
 
+    -- start the server
+    Server -> appMain
+
     -- validate branch
     ValidateCmd Validate{..} -> h $ putStrLn $ "TODO: validate branch " <> branch
 
@@ -180,7 +188,7 @@ configureFoundation :: Config -> IO App
 configureFoundation Config{..} = do
   settings' <- getAppSettings
   -- TODO: lensify settings
-  let settings = settings' 
+  let settings = settings'
         { appRepo = (appRepo settings')
           { rsPath = repoPath
           }
@@ -188,7 +196,7 @@ configureFoundation Config{..} = do
         }
   makeFoundation settings
 
-panic :: Text -> a 
+panic :: Text -> a
 panic = error . T.unpack
 
 user :: User
@@ -198,7 +206,7 @@ getCommitUser :: MonadIO m => m User
 getCommitUser = do
   name <- gitConfig "user.name"
     "Please set a name in your global git config:\n  git.config --global user.name \"Your Name\""
-  email <- gitConfig "user.email" 
+  email <- gitConfig "user.email"
     "Please set an email in your global git config:\n  git.config --global user.email \"email@example.com\""
   return User
     { userName        = name

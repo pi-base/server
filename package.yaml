@@ -6,6 +6,7 @@ author:      James Dabbs
 maintainer:  jamesdabbs@gmail.com
 copyright:   2018 James Dabbs
 license:     MIT
+github:      pi-base/server
 default-extensions:
   - CPP
   - ExplicitForAll
@@ -17,6 +18,10 @@ default-extensions:
   - OverloadedStrings
   - RecordWildCards
   - TypeFamilies
+dependencies:
+  - containers
+  - protolude
+  - text
 library:
   source-dirs:
     - src
@@ -35,7 +40,6 @@ library:
     - conduit
     - conduit-combinators
     - conduit-extra
-    - containers
     - cryptohash
     - data-default
     - directory
@@ -66,14 +70,12 @@ library:
     - persistent
     - persistent-postgresql
     - persistent-template
-    - protolude
     - safe
     - scientific
-    - shelly
     - shakespeare
+    - shelly
     - tagged
     - template-haskell
-    - text
     - time
     - transformers
     - unix
@@ -108,25 +110,7 @@ library:
       - -fwarn-tabs
       - -O2
 executables:
-  pi-base-server:
-    main: main.hs
-    source-dirs: app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - base
-    - pi-base-server
-    # TODO: yesod devel seems not to require these, but running the _tests_ 
-    # fails to build if they aren't included. The tests probably shouldn't
-    # need to build this at all.
-    - foreign-store
-    - warp
-    when:
-    - condition: flag(library-only)
-      buildable: false
-  pi-base-cli:
+  pibase:
     main: cli.hs
     source-dirs: app
     ghc-options:
@@ -138,17 +122,17 @@ executables:
     - pi-base-server
     - foreign-store
     - warp
-    - containers
     - fast-logger
     - optparse-applicative
-    - protolude
     - shelly
-    - text
+    when:
+    - condition: flag(library-only)
+      buildable: false
 tests:
   test:
     main: Spec.hs
     source-dirs: test
-    ghc-options: 
+    ghc-options:
       - -Wall
     dependencies:
     - base
@@ -175,14 +159,12 @@ tests:
     - persistent
     - persistent-postgresql
     - pretty-show
-    - protolude
     - QuickCheck
     - resourcet
     - shakespeare
     - tasty
     - tasty-hspec
     - template-haskell
-    - text
     - transformers
     - unliftio-core
     - unliftio
