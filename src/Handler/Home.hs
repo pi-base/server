@@ -8,20 +8,24 @@ import Handler.Helpers             (generateToken)
 import Services.Github             (checkPullRequest, webhookHandler)
 import Core                        (View(..), Version(..))
 
+#if DEVELOPMENT
+#else
+import Settings (ciSettings)
+#endif
+
 getHomeR :: Handler Value
 getHomeR = do
   version  <- getStoreBaseVersion
-  build    <- getSetting appBuild
   render   <- getUrlRender
-#if DEVELOPMENT
-  settings <- appSettings <$> getYesod
-#endif
-  return $ object 
+  yesod    <- getYesod
+  return $ object
     [ "version" .= version
-    , "build"   .= build
     , "root"    .= render HomeR
+    , "start"   .= appStart yesod
 #if DEVELOPMENT
-    , "settings" .= debugSettings settings
+    , "settings" .= debugSettings (appSettings yesod)
+#else
+    , "settings" .= ciSettings
 #endif
     ]
 

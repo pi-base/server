@@ -14,7 +14,6 @@ import Data.FileEmbed              (embedFile)
 import qualified Data.Text         as T
 import Data.Yaml                   (decodeEither')
 import Database.Persist.Postgresql (PostgresConf)
-import Development.GitRev          (gitHash)
 import Language.Haskell.TH.Syntax  (Exp, Name, Q)
 import Network.Wai.Handler.Warp    (HostPreference)
 import Yesod.Default.Config2       (applyEnvValue, configSettingsYml)
@@ -23,6 +22,7 @@ import Yesod.Default.Util          (WidgetFileSettings, widgetFileNoReload,
 
 import qualified GitHub as GH
 import qualified Services.Rollbar.Types as Rollbar
+import Util.TH (buildEnv)
 
 data RepoSettings = RepoSettings
   { rsPath          :: FilePath
@@ -39,6 +39,16 @@ data GithubSettings = GithubSettings
   , gsClientSecret  :: Text
   , gsWebhookSecret :: Text
   } deriving (Show, Eq)
+
+data CISettings = CISettings
+  { ciBuild :: Text
+  , ciSha :: Text
+  } deriving (Show, Eq)
+
+ciSettings :: CISettings
+ciSettings = CISettings
+  (maybe "" T.pack $(buildEnv "CIRCLE_BUILD_NUM"))
+  (maybe "" T.pack $(buildEnv "CIRCLE_SHA1"))
 
 -- | Runtime settings to configure this application. These settings can be
 -- loaded from various sources: defaults, environment variables, config files,
@@ -65,7 +75,6 @@ data AppSettings = AppSettings
     , appErrorToken          :: Text
     , appCompileQueries      :: Bool
 
-    , appBuild               :: Text
     , appRepo                :: RepoSettings
     , appRollbar             :: Rollbar.Settings
     , appGithub              :: GithubSettings
@@ -100,10 +109,8 @@ instance FromJSON AppSettings where
         appErrorToken     <- o .: "error-token"
         appCompileQueries <- o .: "compile-queries"
 
-        let appBuild = $(gitHash)
-
         repo <- o .: "repo"
-        appRepo <- RepoSettings 
+        appRepo <- RepoSettings
           <$> repo .: "path" .!= error "Repo path should be set in ENV at run time"
           <*> repo .: "default-branch"
           <*> repo .: "auto-push"
@@ -118,7 +125,7 @@ instance FromJSON AppSettings where
               , Rollbar.environment = rollbarEnv
               , Rollbar.hostname    = rollbarHost
               , Rollbar.active      = isJust rollbarToken
-              , Rollbar.build       = appBuild
+              , Rollbar.build       = ciBuild ciSettings
               }
 
         gh <- o .: "github"

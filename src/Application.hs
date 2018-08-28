@@ -18,6 +18,7 @@ module Application
 
 import Control.Monad.Logger                 (liftLoc, runLoggingT)
 import qualified Data.Text                  as T
+import Data.Time.Clock                      (getCurrentTime)
 import Database.Persist.Postgresql          (ConnectionPool, createPostgresqlPool, runSqlPool,
                                              pgConnStr, pgPoolSize)
 import Import
@@ -69,6 +70,8 @@ makeFoundation appSettings = do
 
     appQueryCache <- either (error . show) id <$> G.mkCache "graph"
 
+    appStart <- getCurrentTime
+
     -- We need a log function to create a connection pool. We need a connection
     -- pool to create our foundation. And we need our foundation to get a
     -- logging function. To get out of this loop, we initially create a
@@ -89,7 +92,7 @@ makeFoundation appSettings = do
     -- Set up the git repo
     store <- flip runLoggingT logFunc $
       initializeStore $ appRepo appSettings
-    
+
     -- Create the database connection pool
     pool <- flip runLoggingT logFunc $ createPostgresqlPool
         (pgConnStr  $ appDatabaseConf appSettings)
@@ -174,12 +177,7 @@ develMain = develMainHelper getApplicationDev
 appMain :: IO ()
 appMain = do
     -- Get the settings from all relevant sources
-    settings <- loadYamlSettingsArgs
-        -- fall back to compile-time values, set to [] to require values at runtime
-        [configSettingsYmlValue]
-
-        -- allow environment variables to override
-        useEnv
+    settings <- getAppSettings
 
     -- Generate the foundation from the settings
     foundation <- makeFoundation settings

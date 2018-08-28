@@ -12,6 +12,10 @@ frontend-url:    "_env:VIEWER_REDIRECT_URL:http://localhost:3000"
 log-level:       "_env:LOG_LEVEL:error"
 test-mode:       "_env:TEST_MODE:false"
 
+ci:
+  build: "_env:CIRCLE_BUILD_NUM:xxx"
+  sha: "_env:CIRCLE_SHA1:xxx"
+
 repo:
   path:           "_env:REPO_PATH:xxx"
   default-branch: "_env:REPO_DEFAULT_BRANCH:master"

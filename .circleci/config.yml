@@ -63,6 +63,14 @@ jobs:
           name: Build binary
           command: stack build && mkdir /tmp/artifacts && cp $(stack path --local-install-root)/bin/* /tmp/artifacts
       - run:
+          name: Upload files to S3
+          command: |
+            apt-get -y -qq update
+            apt-get -y -qq install python-pip python-dev
+            pip install awscli --upgrade --user
+            aws --region us-east-2 s3 cp /tmp/artifacts/pibase s3://pi-base/deploy/server/pibase
+            aws --region us-east-2 s3 sync graph s3://pi-base/deploy/graph
+      - run:
           name: Copy coverage reports
           command: cp -r $(stack path --local-hpc-root) /tmp/artifacts
       - store_artifacts:

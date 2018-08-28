@@ -17,7 +17,7 @@ import qualified Data.Map.Strict as SM
 
 import Formula     ()
 import Model
-import Settings     (AppSettings(..))
+import Settings     (AppSettings(..), CISettings(..))
 import Types
 import Types.Store
 
@@ -93,3 +93,6 @@ instance FromJSON Citation where
       getRef c text type' = do
         citationRef <- c .: text
         return $ (type', citationRef)
+
+instance ToJSON CISettings where
+  toJSON CISettings{..} = object [ "build" .= ciBuild, "sha" .= ciSha ]

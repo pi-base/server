@@ -47,6 +47,7 @@ data App = App
     , appHttpManager :: Manager
     , appLogger      :: Logger
     , appStore       :: Store
+    , appStart       :: UTCTime
     }
 
 data MenuItem = MenuItem
@@ -106,15 +107,15 @@ data GithubUserResponse = GithubUserResponse
 
 instance Aeson.FromJSON GithubUserResponse where
   parseJSON = Aeson.withObject "UserResponse" $ \u ->
-    GithubUserResponse 
+    GithubUserResponse
       <$> u .: "login"
       <*> u .: "email"
 
 parseGithubUserResponse :: Text -> Text -> Text -> Either String User
-parseGithubUserResponse _id token response = 
+parseGithubUserResponse _id token response =
   case Aeson.eitherDecode . LBS.fromStrict $ encodeUtf8 response of
     Left err -> Left err
-    Right GithubUserResponse{..} -> Right $ User 
+    Right GithubUserResponse{..} -> Right $ User
       { userIdent       = _id
       , userGithubToken = token
       , userName        = ghLogin
@@ -144,7 +145,7 @@ instance Rollbar.HasRollbar Handler where
     settings <- appRollbar . appSettings <$> getYesod
     request  <- getRequest
     muser    <- maybeAuth
-    forkHandler ($logErrorS "Rollbar.handler" . tshow) $ 
+    forkHandler ($logErrorS "Rollbar.handler" . tshow) $
       Rollbar.send settings $ Rollbar.Report
         { Rollbar.message = message
         , Rollbar.context = Nothing
@@ -285,8 +286,8 @@ instance YesodAuth App where
       let AppSettings{..} = appSettings app
           clientId = gsClientId appGithub
           clientSecret = gsClientSecret appGithub
-          
-          oauth = oauth2GithubScoped ["user:email,public_repo"] clientId clientSecret 
+
+          oauth = oauth2GithubScoped ["user:email,public_repo"] clientId clientSecret
       in [oauth] ++ [authDummy | appAuthDummyLogin]
 
     maybeAuthId :: (MonadHandler m, App ~ HandlerSite m) => m (Maybe (AuthId App))
