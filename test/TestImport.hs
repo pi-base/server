@@ -115,6 +115,7 @@ createUser ident token = do
       , userName        = ident
       , userEmail       = ident
       , userGithubToken = ident
+      , userIsReviewer  = False
       }
 
   now <- liftIO getCurrentTime

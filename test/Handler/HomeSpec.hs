@@ -10,5 +10,5 @@ spec getApp = testSpec "Handler.HomeSpec" $ do
         get HomeR
 
         json $ \j -> do
-          j `shouldHaveKey` "version"
+          j `shouldHaveKey` "HEAD"
         statusIs 200

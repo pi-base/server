@@ -12,13 +12,13 @@ import           Network.HTTP.Types.Method
 import Handler.Helpers (ensureUser, ensureToken)
 
 testUser :: User
-testUser = User "github:5678" "graphtest" "graphtest@example.com" "github-token-xxx"
+testUser = User "github:5678" "graphtest" "graphtest@example.com" "github-token-xxx" False
 
 spec :: IO (TestApp App) -> IO TestTree
 spec getApp = do
   app@(foundation, _) <- getApp
 
-  let 
+  let
     run :: Handler a -> IO a
     run = unsafeHandler foundation
 
@@ -58,7 +58,7 @@ send token body = request $ do
 
 query :: Text -> Text -> YesodExample App LBS.ByteString
 query token q = do
-  send token 
+  send token
     [ "operationName" .= ("" :: Text)
     , "query"         .= q
     ]

@@ -32,6 +32,7 @@ postUsersR = do
         , userName        = maybe ident id name
         , userEmail       = maybe (ident <> "@example.com") id email
         , userGithubToken = "github:" <> ident
+        , userIsReviewer  = False
         }
 
   token <- generateToken $ entityKey user

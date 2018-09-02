@@ -7,8 +7,6 @@ module Util.TH
 import Prelude
 
 import Control.Monad
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import Development.GitRev (gitHash)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (Lift(..))

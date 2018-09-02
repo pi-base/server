@@ -39,12 +39,14 @@ find :: MonadDB m => Text -> m (Maybe (Entity Branch))
 find = db . getBy . UniqueBranchName
 
 access :: MonadDB m => Entity User -> Entity Branch -> m (Maybe BranchAccess)
-access (Entity userId _) (Entity branchId Branch{..}) = case branchOwnerId of
-  -- TODO: we can probably remove the ownerId concept entirely
-  Just ownerId -> if ownerId == userId
-    then return $ Just BranchAdmin
-    else checkGrants Nothing
-  Nothing -> checkGrants $ Just BranchRead
+access (Entity userId User{..}) (Entity branchId Branch{..}) = if userIsReviewer
+  then return $ Just BranchAdmin
+  else case branchOwnerId of
+    -- TODO: we can probably remove the ownerId concept entirely
+    Just ownerId -> if ownerId == userId
+      then return $ Just BranchAdmin
+      else checkGrants Nothing
+    Nothing -> checkGrants $ Just BranchRead
   where
     checkGrants fallback = do
       mub <- db $ getBy $ UniqueUserBranch userId branchId
@@ -58,24 +60,26 @@ all = do
   return $ map entityVal entities
 
 userBranches :: (MonadDB m, MonadStore m) => Entity User -> m [BranchStatus]
-userBranches (Entity _id _) = do
-  grantedPairs <- db $ select $
-    from $ \(branch `InnerJoin` ub) -> do
-    on (branch ^. BranchId ==. ub ^. UserBranchBranchId)
-    where_ $ ub ^. UserBranchUserId ==. val _id
-    return (branch, ub ^. UserBranchRole)
-  unowned <- db $ select $
-    from $ \branch -> do
-    where_ $ isNothing $ branch ^. BranchOwnerId
-    return branch
-  granted <- forM grantedPairs $ \(Entity _ branch, Value role) -> build branch role
-  public  <- forM unowned $ \(Entity _ branch) -> build branch BranchRead
-  return $ public ++ granted
-  where
-    build :: (MonadDB m, MonadStore m) => Branch -> BranchAccess -> m BranchStatus
-    build b r = do
-      sha <- Git.headSha b
-      return $ BranchStatus b sha r
+userBranches (Entity _id User{..}) = if userIsReviewer
+  then all >>= mapM (\b -> b `withAccess` BranchAdmin)
+  else do
+    grantedPairs <- db $ select $
+      from $ \(branch `InnerJoin` ub) -> do
+      on (branch ^. BranchId ==. ub ^. UserBranchBranchId)
+      where_ $ ub ^. UserBranchUserId ==. val _id
+      return (branch, ub ^. UserBranchRole)
+    unowned <- db $ select $
+      from $ \branch -> do
+      where_ $ isNothing $ branch ^. BranchOwnerId
+      return branch
+    granted <- forM grantedPairs $ \(Entity _ branch, Value role) -> branch `withAccess` role
+    public  <- forM unowned $ \(Entity _ branch) -> branch `withAccess` BranchRead
+    return $ public ++ granted
+
+withAccess :: (MonadDB m, MonadStore m) => Branch -> BranchAccess -> m BranchStatus
+withAccess b r = do
+  sha <- Git.headSha b
+  return $ BranchStatus b sha r
 
 claimUserBranches :: (MonadDB m, MonadStore m) => m ()
 claimUserBranches = do
@@ -106,7 +110,7 @@ commit branch = do
     Nothing -> notFound "Branch" $ branchName branch
 
 forUser :: Entity User -> Branch
-forUser (Entity _id User{..}) = Branch 
+forUser (Entity _id User{..}) = Branch
   { branchName    = "users/" <> userEmail
   , branchOwnerId = Just _id
   }

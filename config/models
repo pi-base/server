@@ -3,6 +3,7 @@ User json
   name Text
   email Text
   githubToken Text
+  isReviewer Bool default=False
   UniqueUser ident
   deriving Typeable Show
 

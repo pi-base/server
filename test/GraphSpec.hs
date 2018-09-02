@@ -298,7 +298,7 @@ spec getApp = do
         length (v' ^. approveBranch.version) `shouldBe` 40
 
 testUser :: User
-testUser = User "github:1234" "test" "test@example.com" "xxx"
+testUser = User "github:1234" "test" "test@example.com" "xxx" False
 
 testBranch :: Text
 testBranch = "users/" <> userEmail testUser
@@ -308,7 +308,7 @@ steven = userNamed "steven"
 cody   = userNamed "cody"
 
 userNamed :: Text -> User
-userNamed n = User ("github:" <> n) n (n <> "@example.com") n
+userNamed n = User ("github:" <> n) n (n <> "@example.com") n False
 
 compact, metacompact, metrizable :: Text
 compact           = "P000016"

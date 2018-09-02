@@ -199,7 +199,7 @@ panic :: Text -> a
 panic = error . T.unpack
 
 user :: User
-user = User "jamesdabbs" "jamesdabbs" "users/jamesdabbs@gmail.com" ""
+user = User "jamesdabbs" "jamesdabbs" "users/jamesdabbs@gmail.com" "" True
 
 getCommitUser :: MonadIO m => m User
 getCommitUser = do
@@ -214,6 +214,7 @@ getCommitUser = do
     --   without having Github OAuth credentials
     , userIdent       = "cli:" <> name
     , userGithubToken = ""
+    , userIsReviewer  = True
     }
 
 getCommitMeta :: MonadIO m => Text -> m CommitMeta

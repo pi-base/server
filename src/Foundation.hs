@@ -120,6 +120,7 @@ parseGithubUserResponse _id token response =
       , userGithubToken = token
       , userName        = ghLogin
       , userEmail       = ghEmail
+      , userIsReviewer  = False
       }
 
 createGithubUser :: User -> Handler UserId
