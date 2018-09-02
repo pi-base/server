@@ -167,7 +167,8 @@ getAppSettings :: IO AppSettings
 getAppSettings = do
   loadEnvFrom ".env"
   checkEnv
-  loadYamlSettings [configSettingsYml] [] useEnv
+  settingsPath <- maybe configSettingsYml id <$> lookupEnv "SETTINGS_PATH"
+  loadYamlSettings [settingsPath] [] useEnv
 
 -- | main function for use by yesod devel
 develMain :: IO ()

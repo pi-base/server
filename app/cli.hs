@@ -16,27 +16,28 @@ import qualified Data.Branch         as Branch
 import qualified Data.Branch.Move    as Branch
 import qualified Data.Branch.Merge   as Branch
 import qualified Graph.Queries.Cache as Graph
+import qualified Settings            as S
 
 data Cli = Cli
   { cmd    :: Command
   , config :: Config
   }
 
-opts :: ParserInfo Cli
-opts = info ((Cli <$> commandsP <*> configP) <**> helper) idm
+opts :: AppSettings -> ParserInfo Cli
+opts s = info ((Cli <$> commandsP <*> configP s) <**> helper) idm
 
 data Config = Config
   { repoPath :: FilePath
   , logLevel :: LogLevel
   }
 
-configP :: Parser Config
-configP = Config
+configP :: AppSettings -> Parser Config
+configP s = Config
   <$> option str
         ( long "repo"
         <> metavar "REPO"
         <> help "Path to working repo"
-        <> value "../data/working"
+        <> value (rsPath $ appRepo s)
         )
   <*> option (eitherReader parseLogLevel)
         ( long "verbosity"
@@ -133,7 +134,9 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
 
-  Cli{..} <- execParser opts
+  settings' <- getAppSettings
+  Cli{..} <- execParser $ opts settings'
+  let settings = overrideSettings settings' config
 
   -- TODO: run these in a more appropriate custom monad
   -- See GraphSpec for ideas
@@ -141,7 +144,7 @@ main = do
   let
     h :: forall a. Handler a -> IO ()
     h m = do
-        foundation <- configureFoundation config
+        foundation <- makeFoundation settings
         void $ unsafeHandler foundation m
         flushLogStr $ loggerSet $ appLogger foundation
 
@@ -184,17 +187,13 @@ branchByName name = Branch.find name >>= \case
   Nothing -> panic $ "Could not find branch " <> name
   Just (Entity _ b) -> return b
 
-configureFoundation :: Config -> IO App
-configureFoundation Config{..} = do
-  settings' <- getAppSettings
-  -- TODO: lensify settings
-  let settings = settings'
-        { appRepo = (appRepo settings')
-          { rsPath = repoPath
-          }
-        , appLogLevel = logLevel
-        }
-  makeFoundation settings
+overrideSettings :: AppSettings -> Config -> AppSettings
+overrideSettings settings' Config{..} = settings'
+  { appRepo = (appRepo settings')
+    { rsPath = repoPath
+    }
+  , appLogLevel = logLevel
+  }
 
 panic :: Text -> a
 panic = error . T.unpack

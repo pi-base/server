@@ -19,13 +19,17 @@ getHomeR = do
   render   <- getUrlRender
   yesod    <- getYesod
   return $ object
-    [ "version" .= version
-    , "root"    .= render HomeR
-    , "start"   .= appStart yesod
+    [ "HEAD"       .= version
+    , "start"      .= appStart yesod
+    , "urls" .= object
+      [ "root"   .= render HomeR
+      , "graph"  .= render GraphR
+      , "schema" .= render SchemaR
+      ]
 #if DEVELOPMENT
     , "settings" .= debugSettings (appSettings yesod)
 #else
-    , "settings" .= ciSettings
+    , "build" .= ciSettings
 #endif
     ]
 

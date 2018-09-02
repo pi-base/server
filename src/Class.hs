@@ -95,4 +95,4 @@ instance FromJSON Citation where
         return $ (type', citationRef)
 
 instance ToJSON CISettings where
-  toJSON CISettings{..} = object [ "build" .= ciBuild, "sha" .= ciSha ]
+  toJSON CISettings{..} = object [ "number" .= ciBuild, "sha" .= ciSha ]
