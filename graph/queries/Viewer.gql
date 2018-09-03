@@ -5,7 +5,8 @@ query Viewer($version: String) {
       __typename
       uid
       name
-      references { 
+      aliases
+      references {
         # TODO: these should be fragments
         __typename
         type
@@ -34,6 +35,7 @@ query Viewer($version: String) {
       __typename
       uid
       name
+      aliases
       references {
         __typename
         type
