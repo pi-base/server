@@ -122,7 +122,9 @@ executables:
     - pi-base-server
     - foreign-store
     - warp
+    - directory
     - fast-logger
+    - filepath
     - optparse-applicative
     - shelly
     when:

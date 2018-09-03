@@ -16,19 +16,20 @@ module Application
     , db
     ) where
 
+import Import
+
 import Control.Monad.Logger                 (liftLoc, runLoggingT)
 import qualified Data.Text                  as T
 import Data.Time.Clock                      (getCurrentTime)
 import Database.Persist.Postgresql          (ConnectionPool, createPostgresqlPool, runSqlPool,
                                              pgConnStr, pgPoolSize)
-import Import
 import Language.Haskell.TH.Syntax           (qLocation)
 import LoadEnv                              (loadEnvFrom)
 import Network.Wai.Handler.Warp             (Settings, defaultSettings,
                                              defaultShouldDisplayException,
                                              runSettings, setHost,
                                              setOnException, setPort, getPort)
-import Network.Wai.Middleware.Cors
+import Network.Wai.Middleware.Cors          (CorsResourcePolicy(..), cors, simpleCorsResourcePolicy)
 import System.Environment                   (lookupEnv)
 import System.Exit                          (die)
 import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
@@ -167,8 +168,7 @@ getAppSettings :: IO AppSettings
 getAppSettings = do
   loadEnvFrom ".env"
   checkEnv
-  settingsPath <- maybe configSettingsYml id <$> lookupEnv "SETTINGS_PATH"
-  loadYamlSettings [settingsPath] [] useEnv
+  loadYamlSettings ["config/settings.yml"] [] useEnv
 
 -- | main function for use by yesod devel
 develMain :: IO ()

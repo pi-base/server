@@ -5,10 +5,13 @@
 import Import hiding (logLevel)
 import Core
 
-import qualified Data.Map            as M
-import qualified Data.Text           as T
+import qualified Data.Map              as M
+import qualified Data.Text             as T
 import           Options.Applicative
-import qualified Shelly              as Sh
+import qualified Shelly                as Sh
+import           System.Directory      (setCurrentDirectory)
+import           System.Environment    (getExecutablePath)
+import           System.FilePath       (takeDirectory)
 import           System.Log.FastLogger (flushLogStr)
 
 import           Application         (appMain, getAppSettings, makeFoundation)
@@ -133,6 +136,9 @@ validateP = Validate
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
+
+  workDir <- takeDirectory <$> getExecutablePath
+  setCurrentDirectory workDir
 
   settings' <- getAppSettings
   Cli{..} <- execParser $ opts settings'
