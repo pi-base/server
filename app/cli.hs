@@ -28,7 +28,7 @@ data Cli = Cli
   }
 
 opts :: AppSettings -> ParserInfo Cli
-opts s = info ((Cli <$> commandsP <*> configP s) <**> helper) idm
+opts s = info ((Cli <$> commandsP s <*> configP s) <**> helper) idm
 
 data Config = Config
   { repoPath :: FilePath
@@ -59,15 +59,15 @@ parseLogLevel "debug" = Right LevelDebug
 parseLogLevel other = Left $ "Unknown log level: " ++ other
 
 data Command
-  = BranchCmd   BranchCommand
+  = BranchCmd BranchCommand
   | SchemaCmd
   | Server
   | VersionCmd
 
-commandsP :: Parser Command
-commandsP = subparser $ mconcat
+commandsP :: AppSettings -> Parser Command
+commandsP s = subparser $ mconcat
   [ command "branch"
-    ( info (BranchCmd <$> branchCommandP <**> helper) $
+    ( info (BranchCmd <$> branchCommandP (appRepo s) <**> helper) $
       progDesc "Operate on a branch"
     )
   , command "schema"
@@ -85,18 +85,23 @@ commandsP = subparser $ mconcat
   ]
 
 data BranchCommand
-  = BranchMove     Move
+  = BranchList
+  | BranchMove     Move
   | BranchMerge    Merge
   | BranchValidate Validate
 
-branchCommandP :: Parser BranchCommand
-branchCommandP = subparser $ mconcat
-  [ command "mv"
+branchCommandP :: RepoSettings -> Parser BranchCommand
+branchCommandP s = subparser $ mconcat
+  [ command "ls"
+    ( info (pure BranchList) $
+      progDesc "List branches"
+    )
+  , command "mv"
     ( info (BranchMove <$> mvP <**> helper) $
       progDesc "Rename files"
     )
   , command "merge"
-    ( info (BranchMerge <$> mergeP <**> helper) $
+    ( info (BranchMerge <$> mergeP s <**> helper) $
       progDesc "Merge branches"
     )
   , command "validate"
@@ -136,11 +141,23 @@ data Merge = Merge
   , message :: Text
   }
 
-mergeP :: Parser Merge
-mergeP = Merge
-  <$> argument str (metavar "FROM"    <> help "Branch to merge from")
-  <*> argument str (metavar "INTO"    <> help "Branch to merge into")
-  <*> argument str (metavar "MESSAGE" <> help "Full commit message text")
+mergeP :: RepoSettings -> Parser Merge
+mergeP RepoSettings{..} = Merge
+  <$> option str
+      ( long "from"
+      <> help "Branch to merge from"
+      )
+  <*> option str
+      ( long "into"
+      <> help "Branch to merge into"
+      <> showDefault
+      <> value rsDefaultBranch
+      )
+  <*> option str
+      ( long "message"
+      <> short 'm'
+      <> help "Full commit message text"
+      )
 
 data Validate = Validate
   { branch :: Text
@@ -173,6 +190,10 @@ main = do
 
   case cmd of
     BranchCmd b -> h $ case b of
+      BranchList -> do
+        void $ Branch.claimUserBranches
+        Branch.all >>= mapM_ print
+
       -- mv files on a branch, while keeping references consistent
       BranchMove Move{..} -> do
         meta <- getCommitMeta message
@@ -184,7 +205,6 @@ main = do
           gatherUpdates _ _ = panic "Received odd number of updates"
 
       -- merge one branch into another, collapsing ids
-      -- TODO: this should probably just always assume that `into` is the base branch
       BranchMerge Merge{..} -> void $ do
         f <- branchByName from
         i <- branchByName into
