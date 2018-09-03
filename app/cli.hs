@@ -59,22 +59,16 @@ parseLogLevel "debug" = Right LevelDebug
 parseLogLevel other = Left $ "Unknown log level: " ++ other
 
 data Command
-  = MoveCmd     Move
-  | MergeCmd    Merge
+  = BranchCmd   BranchCommand
   | SchemaCmd
   | Server
-  | ValidateCmd Validate
   | VersionCmd
 
 commandsP :: Parser Command
 commandsP = subparser $ mconcat
-  [ command "mv"
-    ( info (MoveCmd <$> mvP <**> helper) $
-      progDesc "Rename files"
-    )
-  , command "merge"
-    ( info (MergeCmd <$> mergeP <**> helper) $
-      progDesc "Merge branches"
+  [ command "branch"
+    ( info (BranchCmd <$> branchCommandP <**> helper) $
+      progDesc "Operate on a branch"
     )
   , command "schema"
     ( info (pure SchemaCmd) $
@@ -84,13 +78,30 @@ commandsP = subparser $ mconcat
     ( info (pure Server) $
       progDesc "Start the server"
     )
-  , command "validate"
-    ( info (ValidateCmd <$> validateP <**> helper) $
-      progDesc "Validate a branch"
-    )
   , command "version"
     ( info (pure VersionCmd) $
       progDesc "Display version information"
+    )
+  ]
+
+data BranchCommand
+  = BranchMove     Move
+  | BranchMerge    Merge
+  | BranchValidate Validate
+
+branchCommandP :: Parser BranchCommand
+branchCommandP = subparser $ mconcat
+  [ command "mv"
+    ( info (BranchMove <$> mvP <**> helper) $
+      progDesc "Rename files"
+    )
+  , command "merge"
+    ( info (BranchMerge <$> mergeP <**> helper) $
+      progDesc "Merge branches"
+    )
+  , command "validate"
+    ( info (BranchValidate <$> validateP <**> helper) $
+      progDesc "Validate a branch"
     )
   ]
 
@@ -161,29 +172,33 @@ main = do
         flushLogStr $ loggerSet $ appLogger foundation
 
   case cmd of
-    -- mv files on a branch, while keeping references consistent
-    MoveCmd Move{..} -> h $ do
-      meta <- getCommitMeta message
-      Branch.moveIds branch meta $ gatherUpdates M.empty updates
-      where
-        gatherUpdates :: Map Uid Uid -> [Text] -> Map Uid Uid
-        gatherUpdates acc [] = acc
-        gatherUpdates acc (from : to : rest) = gatherUpdates (M.insert from to $ acc) rest
-        gatherUpdates _ _ = panic "Received odd number of updates"
+    BranchCmd b -> h $ case b of
+      -- mv files on a branch, while keeping references consistent
+      BranchMove Move{..} -> do
+        meta <- getCommitMeta message
+        Branch.moveIds branch meta $ gatherUpdates M.empty updates
+        where
+          gatherUpdates :: Map Uid Uid -> [Text] -> Map Uid Uid
+          gatherUpdates acc [] = acc
+          gatherUpdates acc (from : to : rest) = gatherUpdates (M.insert from to $ acc) rest
+          gatherUpdates _ _ = panic "Received odd number of updates"
 
-    -- merge one branch into another, collapsing ids
-    -- TODO: this should probably just always assume that `into` is the base branch
-    MergeCmd Merge{..} -> h $ do
-      f <- branchByName from
-      i <- branchByName into
+      -- merge one branch into another, collapsing ids
+      -- TODO: this should probably just always assume that `into` is the base branch
+      BranchMerge Merge{..} -> void $ do
+        f <- branchByName from
+        i <- branchByName into
 
-      let merge = Branch.Merge
-            { Branch.from = f
-            , Branch.into = i
-            }
+        let merge = Branch.Merge
+              { Branch.from = f
+              , Branch.into = i
+              }
 
-      meta <- getCommitMeta message
-      Branch.merge merge meta
+        meta <- getCommitMeta message
+        Branch.merge merge meta
+
+      -- validate branch
+      BranchValidate Validate{..} -> putStrLn $ "TODO: validate branch " <> branch
 
     -- print GraphQL schema
     SchemaCmd -> putStrLn Graph.schema
@@ -193,9 +208,6 @@ main = do
 
     -- display version
     VersionCmd -> putStrLn $ "Build " <> (tshow $ ciBuild ciSettings) <> ", sha " <> (tshow $ ciSha ciSettings)
-
-    -- validate branch
-    ValidateCmd Validate{..} -> h $ putStrLn $ "TODO: validate branch " <> branch
 
 branchByName :: Text -> Handler Branch
 branchByName name = do
