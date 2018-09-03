@@ -18,6 +18,7 @@ import           Application         (appMain, getAppSettings, makeFoundation)
 import qualified Data.Branch         as Branch
 import qualified Data.Branch.Move    as Branch
 import qualified Data.Branch.Merge   as Branch
+import           Data.Helpers        (findOrCreate)
 import qualified Graph.Queries.Cache as Graph
 import qualified Settings            as S
 
@@ -63,6 +64,7 @@ data Command
   | SchemaCmd
   | Server
   | ValidateCmd Validate
+  | VersionCmd
 
 commandsP :: Parser Command
 commandsP = subparser $ mconcat
@@ -85,6 +87,10 @@ commandsP = subparser $ mconcat
   , command "validate"
     ( info (ValidateCmd <$> validateP <**> helper) $
       progDesc "Validate a branch"
+    )
+  , command "version"
+    ( info (pure VersionCmd) $
+      progDesc "Display version information"
     )
   ]
 
@@ -185,13 +191,16 @@ main = do
     -- start the server
     Server -> appMain
 
+    -- display version
+    VersionCmd -> putStrLn $ "Build " <> (tshow $ ciBuild ciSettings) <> ", sha " <> (tshow $ ciSha ciSettings)
+
     -- validate branch
     ValidateCmd Validate{..} -> h $ putStrLn $ "TODO: validate branch " <> branch
 
 branchByName :: Text -> Handler Branch
-branchByName name = Branch.find name >>= \case
-  Nothing -> panic $ "Could not find branch " <> name
-  Just (Entity _ b) -> return b
+branchByName name = do
+  (Entity _ branch) <- findOrCreate (UniqueBranchName . branchName) $ Branch name Nothing
+  return branch
 
 overrideSettings :: AppSettings -> Config -> AppSettings
 overrideSettings settings' Config{..} = settings'
