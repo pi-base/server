@@ -1,0 +1,6 @@
+.circleci
+.env
+.git
+.stack-work
+tmp
+yesod-devel

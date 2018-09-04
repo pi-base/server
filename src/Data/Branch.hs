@@ -63,18 +63,14 @@ userBranches :: (MonadDB m, MonadStore m) => Entity User -> m [BranchStatus]
 userBranches (Entity _id User{..}) = if userIsReviewer
   then all >>= mapM (\b -> b `withAccess` BranchAdmin)
   else do
+    base <- ensureBaseBranch
     grantedPairs <- db $ select $
       from $ \(branch `InnerJoin` ub) -> do
       on (branch ^. BranchId ==. ub ^. UserBranchBranchId)
       where_ $ ub ^. UserBranchUserId ==. val _id
       return (branch, ub ^. UserBranchRole)
-    unowned <- db $ select $
-      from $ \branch -> do
-      where_ $ isNothing $ branch ^. BranchOwnerId
-      return branch
-    granted <- forM grantedPairs $ \(Entity _ branch, Value role) -> branch `withAccess` role
-    public  <- forM unowned $ \(Entity _ branch) -> branch `withAccess` BranchRead
-    return $ public ++ granted
+    forM ((base, Value BranchRead) : grantedPairs) $
+      \(Entity _ branch, Value role) -> branch `withAccess` role
 
 withAccess :: (MonadDB m, MonadStore m) => Branch -> BranchAccess -> m BranchStatus
 withAccess b r = do
@@ -89,7 +85,8 @@ claimUserBranches = do
   forM_ names $ \(name, mownerName) -> do
     let mownerId = mownerName >>= \ownerName -> M.lookup ownerName ownerMap
     case mownerId of
-      Nothing -> return ()
+      Nothing ->
+        void $ findOrCreate (UniqueBranchName . branchName) $ Branch name Nothing
       Just ownerId -> void $ do
         (Entity branchId _) <- findOrCreate (UniqueBranchName . branchName) $ Branch name (Just ownerId)
         findOrCreate (\UserBranch{..} -> UniqueUserBranch userBranchUserId userBranchBranchId) $ UserBranch ownerId branchId BranchAdmin

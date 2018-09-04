@@ -10,7 +10,7 @@ import qualified Data.Text             as T
 import           Options.Applicative
 import qualified Shelly                as Sh
 import           System.Directory      (setCurrentDirectory)
-import           System.Environment    (getExecutablePath)
+import           System.Environment    (getExecutablePath, lookupEnv)
 import           System.FilePath       (takeDirectory)
 import           System.Log.FastLogger (flushLogStr)
 
@@ -171,8 +171,13 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
 
-  workDir <- takeDirectory <$> getExecutablePath
-  setCurrentDirectory workDir
+  -- We expect that when deployed, the binary will be co-located
+  -- with its config files
+  lookupEnv "AUTO_CD" >>= \case
+    Just "false" -> return ()
+    _ -> do
+      workDir <- takeDirectory <$> getExecutablePath
+      setCurrentDirectory workDir
 
   settings' <- getAppSettings
   Cli{..} <- execParser $ opts settings'
@@ -192,7 +197,14 @@ main = do
     BranchCmd b -> h $ case b of
       BranchList -> do
         void $ Branch.claimUserBranches
-        Branch.all >>= mapM_ print
+        branches <- Branch.all
+
+        lines <- forM branches $ \b -> do
+          sha <- Branch.headSha b
+          return $ branchName b <> " @ " <> sha
+
+        putStrLn ""
+        mapM_ putStrLn $ sort lines
 
       -- mv files on a branch, while keeping references consistent
       BranchMove Move{..} -> do
