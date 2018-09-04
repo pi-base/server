@@ -3,9 +3,10 @@
 {-# LANGUAGE TypeApplications    #-}
 module Data.Id
   ( Identifiable(..)
-  , assignId
+  , assign
   , toInt
   , fromInt
+  , isPermanent
   , pending
   , succ
   ) where
@@ -43,7 +44,7 @@ toInt (Id txt) = either (const Nothing) Just $ flip parseOnly txt $ do
   _ <- A.takeWhile $ \c -> c == '0'
   decimal
 
-fromInt :: forall a. Identifiable a => Int -> Id a
+fromInt :: forall a n. (Identifiable a, Num n, Show n) => n -> Id a
 fromInt i = Id $ singleton (prefix @a) <> num
   where num = justifyRight 6 '0' $ pack $ show i
 
@@ -55,10 +56,13 @@ succ id = case toInt @a id of
 pending :: forall a. Identifiable a => Id a
 pending = Id ""
 
-assignId :: forall a m. (Identifiable a, MonadIO m) => a -> m a
-assignId a = if getId a == pending
+assign :: forall a m. (Identifiable a, MonadIO m) => a -> m a
+assign a = if getId a == pending
   then do
     uuid <- liftIO UUID.nextRandom
     let uid = (toLower . singleton $ prefix @a) <> UUID.toText uuid
     return $ setId a $ Id uid
   else return a
+
+isPermanent :: forall a. Identifiable a => a -> Bool
+isPermanent = isJust . toInt . getId

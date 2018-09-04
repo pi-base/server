@@ -3,7 +3,6 @@ module Data
   ( initializeStore
   , findParsed
   , Data.required
-  , slugify
   , Data.updateBranch
   , updateView
   , viewDeductions
@@ -29,9 +28,6 @@ import qualified Data.Branch as Branch
 import           Data.Git    as Git (updateBranch, writePages)
 import           Data.Store
 import           Util        (indexBy)
-
-slugify :: Text -> Text
-slugify t = t -- TODO
 
 viewPages :: View -> [(TreeFilePath, Text)]
 viewPages v = map (Page.write Page.Theorem.page) theorems

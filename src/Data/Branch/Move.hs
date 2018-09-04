@@ -118,7 +118,9 @@ traits ss ps = do
               else return $ M.keys ps
     forM_ pids $ \pid -> do
       transform ("spaces/" <> unId sid <> "/properties/" <> unId pid <> ".md") Page.Trait.page $ \t ->
-        t { _traitSpace = sid, _traitProperty = pid }
+        t { _traitSpace    = M.findWithDefault sid sid ss
+          , _traitProperty = M.findWithDefault pid pid ps
+          }
 
 extract :: Id.Identifiable a => Map Uid Uid -> Map (Id a) (Id a)
 extract = foldr add M.empty . M.toList
@@ -146,4 +148,6 @@ transform path' page f = do
     -- TODO:
     -- we probably want to raise if we fail to find a path in general,
     --   but some of the trait lookups are likely to fail, so we can't
-    _ -> $(logDebug) $ "Failed to find " <> tshow path
+    _ -> do
+      -- $(logDebug) $ "Failed to find " <> tshow path
+      return ()

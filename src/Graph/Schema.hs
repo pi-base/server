@@ -35,7 +35,6 @@ data QueryData = QueryData
 
 type Space = Object "Space" '[]
   '[ Field "uid"             Text
-   , Field "slug"            Text
    , Field "name"            Text
    , Field "aliases"         (List Text)
    , Field "references"      (List Citation)
@@ -46,7 +45,6 @@ type Space = Object "Space" '[]
 
 type Property = Object "Property" '[]
   '[ Field "uid"             Text
-   , Field "slug"            Text
    , Field "name"            Text
    , Field "aliases"         (List Text)
    , Field "references"      (List Citation)

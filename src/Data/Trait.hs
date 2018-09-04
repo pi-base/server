@@ -1,29 +1,29 @@
 module Data.Trait
-  ( fetch
+  ( find
+  , fetch
   , put
   ) where
 
 import Protolude hiding (find, put)
 
 import           Core
-import           Data  (required, updateView)
-import qualified Data.Branch as Branch
-import qualified Data.Parse as Parse
-import qualified Data.Property
-import qualified Data.Space
-import qualified Data.Loader as Load
+import           Data          (required, updateView)
+import qualified Data.Branch   as Branch
+import qualified Data.Loader   as Load
+import qualified Data.Parse    as Parse
+import qualified Data.Storable as Store
 import qualified View
 
-find :: MonadStore m 
-     => Branch 
-     -> SpaceId 
-     -> PropertyId 
+find :: (MonadStore m, MonadLogger m)
+     => Branch
+     -> SpaceId
+     -> PropertyId
      -> m (Maybe (Trait Space Property))
 find branch sid pid = do
   tree     <- Branch.tree branch
   parsed   <- Parse.trait tree sid pid
-  space    <- Data.Space.find branch sid
-  property <- Data.Property.find branch pid
+  space    <- Store.find branch sid
+  property <- Store.find branch pid
   return $ Trait
     <$> space
     <*> property
@@ -31,7 +31,7 @@ find branch sid pid = do
     <*> Just (_traitRefs parsed)
     <*> Just (_traitDescription parsed)
 
-fetch :: MonadStore m
+fetch :: (MonadStore m, MonadLogger m)
       => Branch
       -> SpaceId
       -> PropertyId

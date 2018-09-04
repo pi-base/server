@@ -27,7 +27,7 @@ instance Arbitrary (Id a) where
 instance Arbitrary Core.Property where
   arbitrary = Property
     <$> arbitrary
-    <*> string
+    <*> arbitrary
     <*> string
     <*> pure []
     <*> pure "description"
@@ -36,7 +36,7 @@ instance Arbitrary Core.Property where
 instance Arbitrary Space where
   arbitrary = Space
     <$> arbitrary
-    <*> string
+    <*> arbitrary
     <*> string
     <*> pure []
     <*> pure "description"

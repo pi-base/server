@@ -1,6 +1,7 @@
 module Data.Branch
   ( access
   , all
+  , base
   , claimUserBranches
   , commit
   , ensureBaseBranch
@@ -10,18 +11,20 @@ module Data.Branch
   , forUser
   , grant
   , headSha
+  , loader
   , push
   , ref
   , reset
   , tree
+  , update
   , userBranches
   ) where
 
 import Protolude hiding (all, find, from, head, on, isNothing)
 
 import Data.Attoparsec.Text
-import Database.Esqueleto
-import Database.Persist (selectList)
+import Database.Esqueleto   hiding (update)
+import Database.Persist     (selectList)
 
 import           Core
 import qualified Data.Git as Git
@@ -29,8 +32,9 @@ import qualified Data.Map.Strict as M
 import           Git
 
 import           Data.Helpers (findOrCreate, repsertBy)
-import           Data.Store   (fetchBranch, pushBranch, storeBaseBranch)
+import           Data.Store   (fetchBranch, pushBranch, storeAutoSync, storeBaseBranch)
 import           Model        (Unique(..))
+import           Types.Loader (Loader, mkLoader)
 
 type Name = Text
 type OwnerName = Text
@@ -63,13 +67,13 @@ userBranches :: (MonadDB m, MonadStore m) => Entity User -> m [BranchStatus]
 userBranches (Entity _id User{..}) = if userIsReviewer
   then all >>= mapM (\b -> b `withAccess` BranchAdmin)
   else do
-    base <- ensureBaseBranch
+    b <- ensureBaseBranch
     grantedPairs <- db $ select $
       from $ \(branch `InnerJoin` ub) -> do
       on (branch ^. BranchId ==. ub ^. UserBranchBranchId)
       where_ $ ub ^. UserBranchUserId ==. val _id
       return (branch, ub ^. UserBranchRole)
-    forM ((base, Value BranchRead) : grantedPairs) $
+    forM ((b, Value BranchRead) : grantedPairs) $
       \(Entity _ branch, Value role) -> branch `withAccess` role
 
 withAccess :: (MonadDB m, MonadStore m) => Branch -> BranchAccess -> m BranchStatus
@@ -106,6 +110,10 @@ commit branch = do
     Just c  -> return c
     Nothing -> notFound "Branch" $ branchName branch
 
+-- TODO: check for an in-memory loader for this branch
+loader :: MonadStore m => Branch -> m Loader
+loader b = commit b >>= mkLoader
+
 forUser :: Entity User -> Branch
 forUser (Entity _id User{..}) = Branch
   { branchName    = "users/" <> userEmail
@@ -123,8 +131,8 @@ ensureBranch branch = do
   -- In git repo
   found <- Git.branchExists branch
   unless found $ do
-    base <- Ref . storeBaseBranch <$> getStore
-    Git.createBranchFromBase branch base
+    b <- Ref . storeBaseBranch <$> getStore
+    Git.createBranchFromBase branch b
 
   -- In database
   repsertBy (UniqueBranchName . branchName) branch
@@ -135,6 +143,9 @@ ensureUserBranch user = do
   grant user branch BranchAdmin
   return branch
 
+base :: (MonadDB m, MonadStore m) => m Branch
+base = entityVal <$> ensureBaseBranch
+
 ensureBaseBranch :: (MonadDB m, MonadStore m) => m (Entity Branch)
 ensureBaseBranch = do
   name <- storeBaseBranch <$> getStore
@@ -142,6 +153,19 @@ ensureBaseBranch = do
 
 reset :: MonadStore m => Branch -> Committish -> m Sha
 reset = Git.resetBranch
+
+update :: (MonadStore m, MonadLogger m)
+       => Branch
+       -> User
+       -> Text
+       -> (Loader -> TreeT LgRepo m a)
+       -> m (a, Sha)
+update branch user message handler = do
+  let meta = CommitMeta user message
+  result <- Git.updateBranch (branchName branch) meta handler
+  sync   <- storeAutoSync <$> getStore
+  when sync $ background $ pushBranch branch
+  return result
 
 scanRepo :: MonadStore m => m [(Name, Maybe OwnerName)]
 scanRepo = do
@@ -181,3 +205,7 @@ tree :: MonadStore m => Branch -> m (Tree LgRepo)
 tree branch = do
   c <- commit branch
   lookupTree $ commitTree c
+
+-- FIXME: this should enqueue work in a persistent queue, retry, ...
+background :: MonadStore m => m () -> m ()
+background action = void action

@@ -48,14 +48,17 @@ merge Merge{..} meta = storeLocked $ do
 
 mergeBlob :: (MonadGit LgRepo m, MonadLogger m) => TreeFilePath -> TreeEntry LgRepo -> TreeT LgRepo m ()
 mergeBlob path (BlobEntry oid kind) = getEntry path >>= \case
-  Just (BlobEntry oid' _) -> 
+  Nothing -> do
+    $(logDebug) $ "Copying " <> show path
+    putBlob' path oid kind
+  Just (BlobEntry oid' _) ->
     unless (oid == oid') $ do
-      $(logDebug) $ "Copying " <> show path
+      $(logDebug) $ "Updating " <> show path
       putBlob' path oid kind
-  _ -> return ()
+  Just _ -> return ()
 mergeBlob _ _ = return ()
 
-buildIdMap :: (Id.Identifiable a, MonadIO m) 
+buildIdMap :: (Id.Identifiable a, MonadIO m)
            => (Tree LgRepo -> ConduitT () (Id a) m ())
            -> Merge (Tree LgRepo)
            -> m (Map (Id a) (Id a))
@@ -63,7 +66,7 @@ buildIdMap parser Merge{..} = do
   fromIds <- sourceToList $ parser from
   baseIds <- sourceToList $ parser into
 
-  let 
+  let
     ids :: S.Set Int
     ids = foldr' (\id -> maybe identity S.insert (Id.toInt id)) S.empty baseIds
 
@@ -75,7 +78,7 @@ buildIdMap parser Merge{..} = do
     processId :: Id.Identifiable a => Id a -> (M.Map (Id a) (Id a), Int) -> (M.Map (Id a) (Id a), Int)
     processId fromId (m, cursor) = case Id.toInt fromId of
       Nothing -> addId (m, cursor) fromId
-      Just i -> if S.member i ids 
+      Just i -> if S.member i ids
         then (m, cursor)
         else (M.insert fromId fromId m, cursor)
 

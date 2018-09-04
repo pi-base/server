@@ -314,8 +314,6 @@ compact, metacompact, metrizable :: Text
 compact           = "P000016"
 metacompact       = "P000031"
 metrizable        = "P000053"
--- paracompact       = "P000030"
--- locallyMetrizable = "P000082"
 
 buildMap :: Ord k
          => Getting k Value k

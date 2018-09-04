@@ -56,7 +56,7 @@ data BranchStatus = BranchStatus
 data CitationType = DOICitation | MRCitation | WikiCitation
   deriving (Show, Eq, Ord)
 
-data Citation = Citation 
+data Citation = Citation
   { citationName :: Text
   , citationType :: CitationType
   , citationRef  :: Text
@@ -74,7 +74,7 @@ type TVal = Bool
 
 data Space = Space
   { spaceId          :: !SpaceId
-  , spaceSlug        :: !Text
+  , spaceCx          :: !(Maybe Int)
   , spaceName        :: !Text
   , spaceAliases     :: ![Text]
   , spaceDescription :: !Text
@@ -84,7 +84,7 @@ data Space = Space
 
 data Property = Property
   { propertyId          :: !PropertyId
-  , propertySlug        :: !Text
+  , propertyCx          :: !(Maybe Int)
   , propertyName        :: !Text
   , propertyAliases     :: ![Text]
   , propertyDescription :: !Text
@@ -153,7 +153,7 @@ data GraphError = ExecutionErrors GraphQL.Errors
                 | QuerySerializationError String
                 | SchemaInvalid GraphQL.QueryError
                 deriving (Show, Typeable)
-                
+
 data LoadError = LoadError TreeFilePath deriving (Show, Typeable)
 
 data LogicError = Contradiction SpaceId PropertyId TVal TVal
@@ -169,8 +169,8 @@ data NotFoundError = NotFoundError
 data ParseError = ParseError TreeFilePath Text
   deriving (Eq, Show, Typeable)
 
-data PermissionError = 
-  BranchPermissionRequired 
+data PermissionError =
+  BranchPermissionRequired
     { branch   :: Branch
     , required :: BranchAccess
     , actual   :: Maybe BranchAccess

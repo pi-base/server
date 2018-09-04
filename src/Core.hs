@@ -20,7 +20,7 @@ import Data.Monoid                 as Core (Monoid)
 import Data.Text                   as Core (Text)
 import Data.Void                   as Core (Void)
 import GHC.Generics                as Core (Generic)
-import Git                         as Core (TreeFilePath, MonadGit, Commit, CommitMessage)
+import Git                         as Core (TreeFilePath, MonadGit, Commit, CommitMessage, TreeT)
 import Git.Libgit2                 as Core (LgRepo)
 import UnliftIO.Exception          as Core hiding (Handler)
 
@@ -47,7 +47,7 @@ theoremProperties :: Ord p => Theorem p -> S.Set p
 theoremProperties = implicationProperties . theoremImplication
 
 theoremName :: Theorem Property -> Text
-theoremName t = (F.format propertyName $ theoremIf t) 
+theoremName t = (F.format propertyName $ theoremIf t)
              <> " ⇒ "
              <> (F.format propertyName $ theoremThen t)
 

@@ -12,6 +12,7 @@ module Data.Loader
   , Data.Loader.spaces
   , Data.Loader.properties
   , Data.Loader.theorems
+  , Data.Loader.traits
   , spaceTraits
   , implications
   ) where
@@ -73,8 +74,8 @@ trait :: MonadStore m
 trait loader sid pid = fetch Loader.traits parser loader (sid, pid)
   where
     parser :: MonadStore m
-           => Tree LgRepo 
-           -> (SpaceId, PropertyId) 
+           => Tree LgRepo
+           -> (SpaceId, PropertyId)
            -> m (Trait SpaceId PropertyId)
     parser c (s, p) = Parse.trait c s p
 
@@ -97,8 +98,8 @@ implications loader = do
 
 spaceTraits :: MonadStore m => Loader -> SpaceId -> m (Map PropertyId TVal)
 spaceTraits loader sid = do
-  traits <- loadAll (\l -> spaceTraitIds l sid) (\l -> trait l sid) loader
-  return $ M.fromList $ map (\t -> (_traitProperty t, _traitValue t)) traits
+  ts <- loadAll (\l -> spaceTraitIds l sid) (\l -> trait l sid) loader
+  return $ M.fromList $ map (\t -> (_traitProperty t, _traitValue t)) ts
 
 loadAll :: Monad m
         => (Loader -> m [a])
@@ -121,3 +122,6 @@ properties = loadAll propertyIds property
 
 theorems :: MonadStore m => Loader -> m [Theorem PropertyId]
 theorems = loadAll theoremIds theorem
+
+traits :: MonadStore m => Loader -> m [Trait SpaceId PropertyId]
+traits = undefined -- FIXME

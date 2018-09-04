@@ -8,6 +8,8 @@ import TestImport (TestApp, App, buildApp)
 import Util       (memoized)
 
 import qualified Data.ParseSpec
+import qualified Data.Branch.MergeSpec
+import qualified Data.Branch.MoveSpec
 import qualified Handler.CommonSpec
 import qualified Handler.GraphSpec
 import qualified Handler.HomeSpec
@@ -25,6 +27,8 @@ specs app = sequence
   [ Data.ParseSpec.spec app
   , GraphSpec.spec app
   , PageSpec.spec
+  , Data.Branch.MergeSpec.spec app
+  , Data.Branch.MoveSpec.spec app
   , Handler.CommonSpec.spec app
   , Handler.GraphSpec.spec app
   , Handler.HomeSpec.spec app
