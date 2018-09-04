@@ -1,0 +1,14 @@
+mutation UpdateTheorem($patch: PatchInput!, $theorem: UpdateTheoremInput!) {
+  updateTheorem(patch: $patch, theorem: $theorem) {
+    version
+    theorems {
+      uid
+      description
+      references {
+        type
+        ref
+        name
+      }
+    }
+  }
+}

@@ -3,4 +3,5 @@
 .git
 .stack-work
 tmp
+viewer/node_modules
 yesod-devel

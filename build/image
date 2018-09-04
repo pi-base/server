@@ -1,0 +1,2 @@
+#!/bin/bash
+docker build --file build/Dockerfile.ci --tag quay.io/jamesdabbs/pibase:ci . && docker push quay.io/jamesdabbs/pibase:ci

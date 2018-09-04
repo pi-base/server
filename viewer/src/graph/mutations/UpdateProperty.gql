@@ -1,0 +1,15 @@
+mutation UpdateProperty($patch: PatchInput!, $property: UpdatePropertyInput!) {
+  updateProperty(patch: $patch, property: $property) {
+    version
+    properties {
+      uid
+      name
+      description
+      references {
+        type
+        ref
+        name
+      }
+    }
+  }
+}

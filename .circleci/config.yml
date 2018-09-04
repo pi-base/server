@@ -1,8 +1,43 @@
+# TODO: cache stack, node build dependencies
 version: 2
 jobs:
-  build:
+  build_server:
     docker:
-      - image: quay.io/jamesdabbs/pibase
+      - image: quay.io/jamesdabbs/pibase:ci
+    steps:
+      - checkout
+      - run:
+          name: Build binary
+          command: |
+            stack build --pedantic
+            mkdir -p /tmp/workspace/server/bin
+            cp -r $(stack path --local-install-root)/bin config static /tmp/workspace/server
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - server
+
+  build_viewer:
+    docker:
+      - image: circleci/node:10.11
+    steps:
+      - checkout
+      - run:
+          name: Build bundle
+          command: |
+            cd viewer
+            yarn install
+            yarn run build
+            mkdir /tmp/workspace
+            cp -r build /tmp/workspace/viewer
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - viewer
+
+  test_server:
+    docker:
+      - image: quay.io/jamesdabbs/pibase:ci
       - image: circleci/postgres:9.6-alpine
         environment:
           POSTGRES_USER: root
@@ -10,68 +45,54 @@ jobs:
     environment:
       CI:        true
       REPO_PATH: /data/repo
-
     steps:
       - checkout
       - run:
           name: Clone data repo
           command: |
             git clone --bare https://github.com/pi-base/data.git /data/repo/.git
-
-      # Build and cached dependencies up to yesod
-      # This and the full dependency build being split is soley a concession to the
-      #   time and space limitations on a CircleCI build step
-      - restore_cache:
-          keys:
-            - v1-stack-deps-{{ checksum "package.yaml" }}-yesod
-            - v1-stack-deps-
-      - run:
-          name: Build yesod
-          command: stack build yesod
-          timeout: 1200
-      - save_cache:
-          key: v1-stack-deps-{{ checksum "package.yaml" }}-yesod
-          paths:
-            - ~/.stack
-            - .stack-work
-
-      # Build and cache installed dependencies based on package.yml
-      - restore_cache:
-          keys:
-            - v1-stack-deps-{{ checksum "package.yaml" }}-all
-            - v1-stack-deps-
-      - run:
-          name: Build deps
-          command: stack build --only-dependencies
-          timeout: 1200
-      - run:
-          name: Build test deps
-          command: stack build --test --only-dependencies
-      - save_cache:
-          key: v1-stack-deps-{{ checksum "package.yaml" }}-all
-          paths:
-            - ~/.stack
-            - .stack-work
-
-      # Run the tests
       - run:
           name: Run tests
-          command: stack test --no-terminal --coverage
+          command: stack test --fast --no-terminal
 
-      # Build and store artifacts
+  test_viewer:
+    docker:
+      - image: circleci/node:10.11
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/workspace
       - run:
-          name: Build binary
-          command: stack build && mkdir /tmp/artifacts && cp $(stack path --local-install-root)/bin/* /tmp/artifacts
-      - run:
-          name: Upload files to S3
+          name: Run tests
           command: |
-            apt-get -y -qq update
-            apt-get -y -qq install python-pip python-dev
-            pip install awscli --upgrade --user
-            aws --region us-east-2 s3 cp /tmp/artifacts/pibase s3://pi-base/deploy/server/pibase
-            aws --region us-east-2 s3 sync graph s3://pi-base/deploy/graph
+            cd viewer
+            yarn install
+            yarn test
+
+  release:
+    docker:
+      - image: quay.io/jamesdabbs/pibase:ci
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
       - run:
-          name: Copy coverage reports
-          command: cp -r $(stack path --local-hpc-root) /tmp/artifacts
-      - store_artifacts:
-          path: /tmp/artifacts
+          name:
+          command: |
+            aws s3 sync --region us-east-2 --delete /tmp/workshop/server s3://pi-base/deploy/server
+            aws s3 sync --region us-east-2 --acl public-read --delete /tmp/workshop/viewer s3://topology.pi-base.org
+
+workflows:
+  version: 2
+  release:
+    jobs:
+      - build_server
+      - build_viewer
+      - test_server
+      - test_frontend:
+          requires:
+            - build_server
+            - build_viewer
+            - test_server
+      - release:
+          requires:
+            - test_frontend

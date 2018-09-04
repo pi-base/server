@@ -9,6 +9,7 @@ module Graph.Common
   , head
   , login
   , logout
+  , master
   , run
   , update
   -- Re-exports
@@ -51,8 +52,12 @@ data Config = Config
   , patch    :: IORef PatchInput
   }
 
+master :: Branch
+master = Branch "master" Nothing
+
 head :: Text
-head = "3d066431b69acbb0713223203b183b0a431d5c9e"
+-- head = "3d066431b69acbb0713223203b183b0a431d5c9e"
+head = "d71e74370ea1d293197fdffd5f89c357ed45a273"
 
 mkGraph :: IO (TestApp App) -> IO Config
 mkGraph getApp = do

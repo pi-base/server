@@ -24,7 +24,7 @@ import qualified Data.Branch         as Branch
 import           Util                (encodeText)
 
 initial :: Sha
-initial = "d71e74370ea1d293197fdffd5f89c357ed45a273"
+initial = head -- "d71e74370ea1d293197fdffd5f89c357ed45a273"
 
 reset :: G ()
 reset = void $ do
@@ -86,13 +86,15 @@ spec getApp = do
 
     describe "branches" $ do
       it "can reset user owned branches" $ do
+        masterSha <- g $ Branch.headSha master
+
         result <- g $ run "ResetBranch" [json|{
           "input": {
             "branch": #{testBranch},
             "to":     "master"
           }
         }|]
-        result^.k "resetBranch".version `shouldBe` head
+        result^.k "resetBranch".version `shouldBe` masterSha
 
       it "cannot reset system branches" $ do
         Left BranchPermissionRequired{..} <- try . g $ run "ResetBranch" [json|{
@@ -225,7 +227,7 @@ spec getApp = do
         Left (ExecutionErrors errs) <- try . g $ run "CreateSpace" [json|{
           "patch": {
             "branch": #{testBranch},
-            "sha":    #{initial}
+            "sha":    #{head}
           },
           "space": {
             "description": ""
@@ -243,7 +245,7 @@ spec getApp = do
             "name": "New Space"
           }
         }|]
-        actualSha   `shouldBe` initial
+        actualSha   `shouldBe` head
         expectedSha `shouldBe` "mismatch"
 
     describe "Branch approval" $ do
@@ -283,10 +285,10 @@ spec getApp = do
         }|]
 
         -- Admin approves the branch
-        sxc    <- login steven
-        master <- Branch.ensureBaseBranch
-        Branch.grant sxc master BranchAdmin
-        Branch.grant sxc eb     BranchAdmin
+        sxc     <- login steven
+        master' <- Branch.ensureBaseBranch
+        Branch.grant sxc master' BranchAdmin
+        Branch.grant sxc eb      BranchAdmin
 
         checkout branch
         v' <- update "ApproveBranch" [json|{
