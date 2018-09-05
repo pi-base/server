@@ -124,4 +124,4 @@ theorems :: MonadStore m => Loader -> m [Theorem PropertyId]
 theorems = loadAll theoremIds theorem
 
 traits :: MonadStore m => Loader -> m [Trait SpaceId PropertyId]
-traits = undefined -- FIXME
+traits _ = return [] -- FIXME

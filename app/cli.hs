@@ -20,7 +20,6 @@ import qualified Data.Branch.Move    as Branch
 import qualified Data.Branch.Merge   as Branch
 import           Data.Helpers        (findOrCreate)
 import qualified Graph.Queries.Cache as Graph
-import qualified Settings            as S
 
 data Cli = Cli
   { cmd    :: Command
@@ -199,12 +198,12 @@ main = do
         void $ Branch.claimUserBranches
         branches <- Branch.all
 
-        lines <- forM branches $ \b -> do
-          sha <- Branch.headSha b
-          return $ branchName b <> " @ " <> sha
+        ls <- forM branches $ \br -> do
+          sha <- Branch.headSha br
+          return $ branchName br <> " @ " <> sha
 
         putStrLn ""
-        mapM_ putStrLn $ sort lines
+        mapM_ putStrLn $ sort ls
 
       -- mv files on a branch, while keeping references consistent
       BranchMove Move{..} -> do
@@ -256,9 +255,6 @@ overrideSettings settings' Config{..} = settings'
 
 panic :: Text -> a
 panic = error . T.unpack
-
-user :: User
-user = User "jamesdabbs" "jamesdabbs" "users/jamesdabbs@gmail.com" "" True
 
 getCommitUser :: MonadIO m => m User
 getCommitUser = do

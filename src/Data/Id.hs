@@ -51,7 +51,7 @@ fromInt i = Id $ singleton (prefix @a) <> num
 succ :: forall a. Identifiable a => Id a -> Id a
 succ id = case toInt @a id of
   Just i  -> fromInt @a $ i + 1
-  Nothing -> fromInt @a 1
+  Nothing -> fromInt @a (1 :: Int)
 
 pending :: forall a. Identifiable a => Id a
 pending = Id ""

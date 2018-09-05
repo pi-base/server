@@ -6,7 +6,7 @@ module Test.Import
   ) where
 
 import Prelude
-import Protolude ((<>), void)
+import Protolude ((<>), void, traceM)
 
 import Database.Persist as X (Entity(..))
 import Test.Fixtures    as X
@@ -20,7 +20,7 @@ import Model        as X
 import Core         as X
 import Graph.Common as X
 
-import           Data.Id         as Id
+import qualified Data.Branch     as Branch
 import qualified Data.Git        as Git
 import           Handler.Helpers (ensureUser)
 
@@ -35,9 +35,6 @@ mkUser name = do
 
 mkBranch :: Text -> Branch -> G Branch
 mkBranch name base = do
-  let branch = Branch name Nothing
-  found <- Git.branchExists branch
-  if found
-    then void $ Git.resetBranch branch $ CommitRef $ Git.branchRef base
-    else void $ Git.createBranchFromBase branch $ Git.branchRef base
+  Entity _ branch <- Branch.ensureBranch $ Branch name Nothing
+  void $ Git.resetBranch branch $ CommitRef $ Git.branchRef base
   return branch

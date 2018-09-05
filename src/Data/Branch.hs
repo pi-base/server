@@ -4,6 +4,7 @@ module Data.Branch
   , base
   , claimUserBranches
   , commit
+  , ensureBranch
   , ensureBaseBranch
   , ensureUserBranch
   , fetch

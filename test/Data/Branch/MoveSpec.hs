@@ -23,7 +23,7 @@ spec getApp = do
   testSpec "Move" $ do
     it "can move by maps" $ g $ do
       user   <- mkUser "move"
-      branch <- Branch.base >>= mkBranch "test/move"
+      branch <- Branch.base >>= mkBranch "testing/move"
 
       void $ Branch.update branch user "Move files" $ \_ -> do
         moveMaps

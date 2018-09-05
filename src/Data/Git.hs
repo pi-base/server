@@ -39,18 +39,18 @@ storeLocked action = do
   lock <- storeWriteLock <$> getStore
   withMVar lock $ const action
 
-commitBranch :: MonadStore m 
-             => BranchName 
-             -> TreeOid LgRepo 
-             -> CommitMeta 
-             -> [Commit LgRepo] 
+commitBranch :: MonadStore m
+             => BranchName
+             -> TreeOid LgRepo
+             -> CommitMeta
+             -> [Commit LgRepo]
              -> m Sha
 commitBranch branch tree meta parents = do
   let ref = Ref branch
   (author, committer, message) <- commitSignatures meta
-  commit <- createCommit 
+  commit <- createCommit
     (map commitOid parents)
-    tree author committer message 
+    tree author committer message
     (Just $ refHead ref)
   return $ commitSha commit
 

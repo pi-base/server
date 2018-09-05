@@ -24,8 +24,8 @@ spec getApp = do
       user  <- mkUser "user"
       admin <- mkUser "admin"
 
-      base <- Branch.base >>= mkBranch "test/merge/into"
-      pr   <- mkBranch "test/merge/pr" base
+      base <- Branch.base >>= mkBranch "testing/merge/into"
+      pr   <- mkBranch "testing/merge/pr" base
 
       {-
         Compact => P
