@@ -133,7 +133,7 @@ submitBranch :: MonadGraph m => GithubSettings -> G.BranchInput -> Handler m G.S
 submitBranch settings G.BranchInput{..} = do
   (_, b) <- requireBranchAccess branch BranchAdmin
 
-  Github.createPullRequest settings b >>= \case
+  Github.openPullRequest settings b >>= \case
     Left e -> throwIO $ ValidationMessage e
     Right url ->
       return $ pure branch :<> pure url

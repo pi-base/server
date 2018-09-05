@@ -50,8 +50,6 @@ library:
     - file-embed
     - filepath
     - foreign-store
-    - github
-    - github-types
     - github-webhook-handler
     - gitlib
     - gitlib-libgit2

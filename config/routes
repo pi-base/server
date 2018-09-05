@@ -6,8 +6,6 @@
 
 / HomeR GET
 
-/github/hooks HooksR POST
-
 /app            FrontendR GET
 /graphql        GraphR    POST
 /graphql/schema SchemaR   GET

@@ -5,8 +5,6 @@ import Import
 import Data.Store                  (getStoreBaseVersion)
 import Database.Persist.Postgresql (PostgresConf(..))
 import Handler.Helpers             (generateToken)
-import Services.Github             (checkPullRequest, webhookHandler)
-import Core                        (View(..), Version(..))
 
 #if DEVELOPMENT
 #else
@@ -44,13 +42,6 @@ debugSettings AppSettings{..} = object
     , "upstream" .= rsUpstream appRepo
     ]
   ]
-
-postHooksR :: Handler Value
-postHooksR = do
-  pullRequest <- webhookHandler
-  result      <- checkPullRequest pullRequest
-  let version = (maybe "??" unVersion . _viewVersion) <$> result
-  either throwIO returnJson version
 
 activeToken :: UserId -> Handler Token
 activeToken userId = do

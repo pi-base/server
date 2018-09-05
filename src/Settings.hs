@@ -20,7 +20,6 @@ import Yesod.Default.Config2       (applyEnvValue, configSettingsYml)
 import Yesod.Default.Util          (WidgetFileSettings, widgetFileNoReload,
                                     widgetFileReload)
 
-import qualified GitHub as GH
 import qualified Services.Rollbar.Types as Rollbar
 import Util.TH (buildEnv)
 
@@ -32,9 +31,9 @@ data RepoSettings = RepoSettings
   } deriving (Show, Eq)
 
 data GithubSettings = GithubSettings
-  { gsToken         :: GH.Auth
-  , gsOwner         :: GH.Name GH.Owner
-  , gsRepo          :: GH.Name GH.Repo
+  { gsToken         :: Text
+  , gsOwner         :: Text
+  , gsRepo          :: Text
   , gsClientId      :: Text
   , gsClientSecret  :: Text
   , gsWebhookSecret :: Text
@@ -130,7 +129,7 @@ instance FromJSON AppSettings where
 
         gh <- o .: "github"
         appGithub <- GithubSettings
-          <$> fmap (GH.OAuth . fromString) (gh .: "token")
+          <$> gh .: "token"
           <*> gh .: "owner"
           <*> gh .: "repo"
           <*> gh .: "client-id"

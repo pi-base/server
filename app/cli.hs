@@ -20,6 +20,7 @@ import qualified Data.Branch.Move    as Branch
 import qualified Data.Branch.Merge   as Branch
 import           Data.Helpers        (findOrCreate)
 import qualified Graph.Queries.Cache as Graph
+import qualified Services.Github     as Github
 
 data Cli = Cli
   { cmd    :: Command
@@ -87,7 +88,8 @@ data BranchCommand
   = BranchList
   | BranchMove     Move
   | BranchMerge    Merge
-  | BranchValidate Validate
+  | BranchSubmit   BranchName
+  | BranchValidate BranchName
 
 branchCommandP :: RepoSettings -> Parser BranchCommand
 branchCommandP s = subparser $ mconcat
@@ -103,11 +105,21 @@ branchCommandP s = subparser $ mconcat
     ( info (BranchMerge <$> mergeP s <**> helper) $
       progDesc "Merge branches"
     )
+  , command "submit"
+    ( info (BranchSubmit <$> branchP <**> helper) $
+      progDesc "Submit branch for approval"
+    )
   , command "validate"
-    ( info (BranchValidate <$> validateP <**> helper) $
+    ( info (BranchValidate <$> branchP <**> helper) $
       progDesc "Validate a branch"
     )
   ]
+
+branchP :: Parser BranchName
+branchP = argument str
+          ( metavar "BRANCH"
+          <> help "Name of branch"
+          )
 
 data Move = Move
   { branch  :: BranchName
@@ -157,14 +169,6 @@ mergeP RepoSettings{..} = Merge
       <> short 'm'
       <> help "Full commit message text"
       )
-
-data Validate = Validate
-  { branch :: Text
-  }
-
-validateP :: Parser Validate
-validateP = Validate
-  <$> argument str (metavar "BRANCH" <> help "Branch to check")
 
 main :: IO ()
 main = do
@@ -228,8 +232,16 @@ main = do
         meta <- getCommitMeta message
         Branch.merge merge meta
 
+      -- Create PR for branch
+      BranchSubmit branchName -> do
+        branch   <- branchByName branchName
+        ghSettings <- getSetting appGithub
+        Github.openPullRequest ghSettings branch >>= \case
+          Right url -> putStrLn $ "Pull request open: " <> url
+          Left err -> putStrLn err
+
       -- validate branch
-      BranchValidate Validate{..} -> putStrLn $ "TODO: validate branch " <> branch
+      BranchValidate branch -> putStrLn $ "TODO: validate branch " <> branch
 
     -- print GraphQL schema
     SchemaCmd -> putStrLn Graph.schema
