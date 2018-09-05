@@ -5,14 +5,15 @@
 import Import hiding (logLevel)
 import Core
 
-import qualified Data.Map              as M
-import qualified Data.Text             as T
+import qualified Data.Map                    as M
+import qualified Data.Text                   as T
+import           Database.Persist.Postgresql (PostgresConf(..))
 import           Options.Applicative
-import qualified Shelly                as Sh
-import           System.Directory      (setCurrentDirectory)
-import           System.Environment    (getExecutablePath, lookupEnv)
-import           System.FilePath       (takeDirectory)
-import           System.Log.FastLogger (flushLogStr)
+import qualified Shelly                      as Sh
+import           System.Directory            (setCurrentDirectory)
+import           System.Environment          (getExecutablePath, lookupEnv)
+import           System.FilePath             (takeDirectory)
+import           System.Log.FastLogger       (flushLogStr)
 
 import           Application         (appMain, getAppSettings, makeFoundation)
 import qualified Data.Branch         as Branch
@@ -60,8 +61,9 @@ parseLogLevel other = Left $ "Unknown log level: " ++ other
 
 data Command
   = BranchCmd BranchCommand
+  | DBCmd
   | SchemaCmd
-  | Server
+  | ServerCmd
   | VersionCmd
 
 commandsP :: AppSettings -> Parser Command
@@ -70,12 +72,16 @@ commandsP s = subparser $ mconcat
     ( info (BranchCmd <$> branchCommandP (appRepo s) <**> helper) $
       progDesc "Operate on a branch"
     )
+  , command "db"
+    ( info (pure DBCmd) $
+      progDesc "Show DB connection information"
+    )
   , command "schema"
     ( info (pure SchemaCmd) $
       progDesc "Print GraphQL schema"
     )
   , command "server"
-    ( info (pure Server) $
+    ( info (pure ServerCmd) $
       progDesc "Start the server"
     )
   , command "version"
@@ -243,11 +249,16 @@ main = do
       -- validate branch
       BranchValidate branch -> putStrLn $ "TODO: validate branch " <> branch
 
+    -- show DB connection information
+    DBCmd -> h $ do
+      PostgresConf{..} <- getSetting appDatabaseConf
+      putStrLn $ decodeUtf8 pgConnStr
+
     -- print GraphQL schema
     SchemaCmd -> putStrLn Graph.schema
 
     -- start the server
-    Server -> appMain
+    ServerCmd -> appMain
 
     -- display version
     VersionCmd -> putStrLn $ "Build " <> (tshow $ ciBuild ciSettings) <> ", sha " <> (tshow $ ciSha ciSettings)

@@ -124,6 +124,7 @@ executables:
     - fast-logger
     - filepath
     - optparse-applicative
+    - persistent-postgresql
     - shelly
     when:
     - condition: flag(library-only)
