@@ -17,11 +17,11 @@ type M = ReaderT Store IO
 
 -- TODO: should have MonadStore m => HasLgRepo m
 instance HasLgRepo M where
-  getRepository = storeRepo <$> ask 
+  getRepository = storeRepo <$> ask
 instance MonadStore M where
   getStore = ask
 
-runM :: Store -> M a -> IO a 
+runM :: Store -> M a -> IO a
 runM = flip runReaderT
 
 spec :: IO (TestApp App) -> IO TestTree

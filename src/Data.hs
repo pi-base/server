@@ -1,7 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Data
   ( initializeStore
-  , findParsed
   , Data.required
   , Data.updateBranch
   , updateView
@@ -24,7 +23,6 @@ import qualified Page.Theorem
 import qualified Page.Trait
 
 import           Core
-import qualified Data.Branch as Branch
 import           Data.Git    as Git (updateBranch, writePages)
 import           Data.Store
 import           Util        (indexBy)
@@ -91,20 +89,6 @@ addProof ((sid, pid), (value, evidence)) (traits, proofs) =
 
 insertNested :: (Ord k1, Ord k2) => k1 -> k2 -> v -> Map k1 (Map k2 v) -> Map k1 (Map k2 v)
 insertNested k1 k2 v = M.alter (Just . M.insert k2 v . maybe mempty identity) k1
-
-findParsed :: MonadStore m
-           => (Tree LgRepo -> a -> m b)
-           -> Branch
-           -> a
-           -> m (Maybe b)
-findParsed parser branch id = handle fail $ do
-  commit <- Branch.commit branch
-  tree   <- lookupTree $ commitTree commit
-  parsed <- parser tree id
-  return $ Just parsed
-  where
-    fail :: Monad m => NotFoundError -> m (Maybe b)
-    fail _ = return Nothing
 
 required :: MonadIO m => Text -> Text -> Maybe a -> m a
 required resource identifier =

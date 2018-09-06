@@ -34,21 +34,6 @@ class (MonadStore m, MonadDB m, MonadLogger m) => MonadGraph m where
 instance MonadLogger m => MonadLogger (TreeT r m) where
   monadLoggerLog a b c d = lift $ monadLoggerLog a b c d
 
-{-
-instance Show (Id a) where
-  show = T.unpack . unId
-instance Show Space where
-  show Space{..} = T.unpack $ "<" <> unId spaceId <> "|" <> spaceName <> ">"
-instance Show Property where
-  show Property{..} = T.unpack $ "<" <> unId propertyId <> "|" <> propertyName <> ">"
-instance Show p => Show (Implication p) where
-  show (Implication a c) = show a ++ " => " ++ show c
-instance Show p => Show (Theorem p) where
-  show Theorem{..} = "<" ++ show theoremId ++ "|" ++ show theoremImplication ++ ">"
-instance Show Version where
-  show = show . unVersion
--}
-
 deriving instance (Eq s, Eq p) => Eq (Trait s p)
 deriving instance Generic CitationType
 
@@ -61,18 +46,6 @@ instance Exception NotFoundError
 instance Exception ParseError
 instance Exception PermissionError
 instance Exception ValidationError
-
-instance Monoid View where
-  mappend a b = View
-    { _viewProperties = mappend (_viewProperties a) (_viewProperties b)
-    , _viewSpaces     = mappend (_viewSpaces a)     (_viewSpaces b)
-    , _viewTheorems   = mappend (_viewTheorems a)   (_viewTheorems b)
-    , _viewProofs     = mappend (_viewProofs a)     (_viewProofs b)
-    , _viewTraits     = SM.unionWith mappend (_viewTraits a) (_viewTraits b)
-    , _viewVersion    = Nothing
-    }
-
-  mempty = View mempty mempty mempty mempty mempty Nothing
 
 instance ToJSON Citation where
   toJSON Citation{..} =

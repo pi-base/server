@@ -8,9 +8,6 @@ module Data.Parse
   , theoremIds
   , trait
   , traitIds
-  --
-  , sourceCommitEntries
-  , blobs
   ) where
 
 import Protolude hiding (find, throwIO)
@@ -111,21 +108,6 @@ find :: MonadGit r m
 find tree path = lift (getDir tree path) >>= \case
   Nothing  -> return ()
   Just dir -> sourceTreeEntries dir .| mapC (\(p,t) -> (format p, t))
-  where 
+  where
     format :: TreeFilePath -> TreeFilePath
     format part = BS8.intercalate "/" $ path ++ [part]
-
-sourceCommitEntries :: MonadGit r m
-                    => Commit r
-                    -> [TreeFilePath]
-                    -> ConduitM i (TreeFilePath, TreeEntry r) m ()
-sourceCommitEntries commit path = do
-  tree <- lift $ lookupTree $ commitTree commit
-  find tree path
-
-blobs :: MonadGit r m => ConduitM (TreeFilePath, TreeEntry r) (TreeFilePath, Text) m ()
-blobs = awaitForever $ \(path, entry) -> case entry of
-  (BlobEntry _id _) -> do
-    blob <- lift $ catBlobUtf8 _id
-    yield (path, blob)
-  _ -> return ()

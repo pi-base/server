@@ -1,9 +1,5 @@
 module Util
   ( discardLeftC
-  , dupes
-  , encodeText
-  , fetch
-  , flatMapM
   , groupBy
   , indexBy
   , insertNested
@@ -16,13 +12,11 @@ module Util
 
 import ClassyPrelude hiding (groupBy)
 
-import           Conduit                  hiding (throwM)
-import           Data.Aeson               (ToJSON, encode)
-import qualified Data.Map                 as M
-import qualified Data.Set                 as S
-import qualified Data.Text.Lazy           as TL
-import           System.Directory         (listDirectory)
-import           System.Posix.Files       (getFileStatus, isDirectory)
+import           Conduit            hiding (throwM)
+import qualified Data.Map           as M
+import qualified Data.Set           as S
+import           System.Directory   (listDirectory)
+import           System.Posix.Files (getFileStatus, isDirectory)
 
 groupBy :: Ord b => (a -> b) -> [a] -> M.Map b [a]
 groupBy f = foldl' add M.empty
@@ -36,32 +30,8 @@ groupBy f = foldl' add M.empty
 indexBy :: Ord b => (a -> b) -> [a] -> M.Map b a
 indexBy f as = M.fromList $ map (\a -> (f a, a)) as
 
-dupes :: Ord a => [a] -> [a]
-dupes = S.toList . snd . foldl' step (S.empty, S.empty)
-  where
-    step :: Ord a => (S.Set a, S.Set a) -> a -> (S.Set a, S.Set a)
-    step (seen, dup) a = if S.member a seen
-      then (seen, S.insert a dup)
-      else (S.insert a seen, dup)
-
 unionN :: Ord a => [S.Set a] -> S.Set a
 unionN = foldl' S.union S.empty
-
-flatMapM :: (Monoid (Element (t b)), MonoFoldable (t b), Traversable t, Monad m)
-         => (a -> m b) -> t a -> m (Element (t b))
-flatMapM f m = mapM f m >>= return . concat
-
-data KeyError k = KeyError k deriving (Typeable, Show)
-
-instance (Show k, Typeable k) => Exception (KeyError k)
-
-fetch :: (MonadIO m, Ord k, Show k, Typeable k) => k -> Map k v -> m v
-fetch k m = case M.lookup k m of
-  Just v  -> return v
-  Nothing -> throwIO $ KeyError k
-
-encodeText :: ToJSON a => a -> Text
-encodeText = TL.toStrict . decodeUtf8 . encode
 
 insertNested :: (Ord a, Ord b) => a -> b -> v -> Map a (Map b v) -> Map a (Map b v)
 insertNested a b v = M.alter add a
@@ -96,4 +66,4 @@ memoized ref action = readIORef ref >>= \case
 
 throwLeft :: (MonadIO m, Exception e) => Either e a -> m a
 throwLeft (Left  e) = throwIO e
-throwLeft (Right a) = return a 
+throwLeft (Right a) = return a
