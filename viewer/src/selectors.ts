@@ -6,7 +6,6 @@ import { Finder } from './models/Finder'
 import { Prover } from './models/Prover'
 import { State } from './reducers'
 import { createSelector } from 'reselect'
-import memoizeOne from 'memoize-one'
 import { union } from './utils'
 
 export const propertyFinder = createSelector(
@@ -103,7 +102,7 @@ type SearchOptions = {
   text?: string
 }
 
-const formulaScan = memoizeOne(
+const formulaScan =
   (
     spaces: Space[],
     traits: State['traits'],
@@ -118,9 +117,8 @@ const formulaScan = memoizeOne(
       return matcher(F.evaluate(formula, map))
     })
   }
-)
 
-const _search = (
+export const search = (
   state: State,
   options: SearchOptions
 ): Space[] => {
@@ -146,8 +144,6 @@ const _search = (
 
   return spaces
 }
-
-export const search = memoizeOne(_search)
 
 export const searchFormula = createSelector(
   (state: State) => state.search.formulaMemo,

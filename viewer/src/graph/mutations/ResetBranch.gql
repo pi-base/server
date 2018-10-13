@@ -1,5 +1,0 @@
-mutation ResetBranch($input: ResetBranchInput!) {
-  resetBranch(input: $input) {
-    version
-  }
-}

@@ -30,6 +30,17 @@ data Cli = Cli
 opts :: AppSettings -> ParserInfo Cli
 opts s = info ((Cli <$> commandsP s <*> configP s) <**> helper) idm
 
+settingsP :: Parser FilePath
+settingsP = option str
+  ( long "config"
+  <> metavar "CONFIG"
+  <> help "Path to settings config file"
+  <> value "config/settings.yml"
+  )
+
+settingsInfo :: ParserInfo FilePath
+settingsInfo = info (settingsP <**> helper) idm
+
 data Config = Config
   { repoPath :: FilePath
   , logLevel :: LogLevel
@@ -179,6 +190,7 @@ main = do
       workDir <- takeDirectory <$> getExecutablePath
       setCurrentDirectory workDir
 
+  settingsPath <- execParser settingsInfo
   settings' <- getAppSettings
   Cli{..} <- execParser $ opts settings'
   let settings = overrideSettings settings' config

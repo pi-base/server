@@ -26,4 +26,6 @@ export const memory = <V>(key: string): Field<V> => {
   }
 }
 
-export default local
+const backend = typeof(localStorage) === 'undefined' ? memory : local
+
+export default backend

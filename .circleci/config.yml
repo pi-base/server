@@ -76,7 +76,7 @@ jobs:
       - attach_workspace:
           at: /tmp/workspace
       - run:
-          name:
+          name: Upload to S3
           command: |
             aws s3 sync --region us-east-2 --delete /tmp/workshop/server s3://pi-base/deploy/server
             aws s3 sync --region us-east-2 --acl public-read --delete /tmp/workshop/viewer s3://topology.pi-base.org
