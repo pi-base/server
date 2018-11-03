@@ -1,84 +1,77 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-import Import hiding (logLevel)
-import Core
+import Core hiding (option)
 
-import qualified Data.Map              as M
-import qualified Data.Text             as T
+import           Control.Lens.Setter         hiding (argument)
+import qualified Data.Map                    as M
+import qualified Data.Text                   as T
+import           LoadEnv                     (loadEnvFrom)
 import           Options.Applicative
-import qualified Shelly                as Sh
-import           System.Directory      (setCurrentDirectory)
-import           System.Environment    (getExecutablePath, lookupEnv)
-import           System.FilePath       (takeDirectory)
-import           System.Log.FastLogger (flushLogStr)
+import qualified Shelly                      as Sh
+import           System.IO                   (BufferMode(..), hSetBuffering)
 
-import           Application         (appMain, getAppSettings, makeFoundation)
+import qualified Build
+import qualified Config
+import qualified Config.Boot         as Config (boot)
 import qualified Data.Branch         as Branch
 import qualified Data.Branch.Move    as Branch
 import qualified Data.Branch.Merge   as Branch
-import           Data.Helpers        (findOrCreate)
+import qualified Data.Store          as Store
+import qualified Logger              as Logger
 import qualified Graph.Queries.Cache as Graph
-import qualified Settings            as S
+import qualified Server
+import           Server.Class        (AppM, runApp)
 
 data Cli = Cli
   { cmd    :: Command
-  , config :: Config
+  , config :: Settings
   }
 
-opts :: AppSettings -> ParserInfo Cli
+opts :: Settings -> ParserInfo Cli
 opts s = info ((Cli <$> commandsP s <*> configP s) <**> helper) idm
 
-settingsP :: Parser FilePath
-settingsP = option str
-  ( long "config"
-  <> metavar "CONFIG"
-  <> help "Path to settings config file"
-  <> value "config/settings.yml"
-  )
+configP :: Settings -> Parser Settings
+configP s = do
+  logLevel' <- option (eitherReader Logger.parseLogLevel)
+    ( long "verbosity"
+    <> short 'v'
+    <> metavar "LOG_LEVEL"
+    <> help "Logger verbosity level"
+    <> value (s ^. logLevel)
+    )
 
-settingsInfo :: ParserInfo FilePath
-settingsInfo = info (settingsP <**> helper) idm
+  port' <- option auto
+    ( long "port"
+    <> metavar "PORT"
+    <> help "Port to listen on"
+    <> value (s ^. port)
+    )
 
-data Config = Config
-  { repoPath :: FilePath
-  , logLevel :: LogLevel
-  }
+  repoPath' <- option str
+    ( long "repo"
+    <> metavar "REPO"
+    <> help "Path to working repo"
+    <> value (s ^. repoSettings . Store.repoPath)
+    )
 
-configP :: AppSettings -> Parser Config
-configP s = Config
-  <$> option str
-        ( long "repo"
-        <> metavar "REPO"
-        <> help "Path to working repo"
-        <> value (rsPath $ appRepo s)
-        )
-  <*> option (eitherReader parseLogLevel)
-        ( long "verbosity"
-        <> short 'v'
-        <> metavar "LOG_LEVEL"
-        <> help "Logger verbosity level"
-        <> value LevelInfo
-        )
-
-parseLogLevel :: String -> Either String LogLevel
-parseLogLevel "error" = Right LevelError
-parseLogLevel "warn"  = Right LevelWarn
-parseLogLevel "info"  = Right LevelInfo
-parseLogLevel "debug" = Right LevelDebug
-parseLogLevel other = Left $ "Unknown log level: " ++ other
+  return $ s
+    & logLevel .~ logLevel'
+    & port .~ port'
+    & repoSettings . Store.repoPath .~ repoPath'
 
 data Command
   = BranchCmd BranchCommand
   | SchemaCmd
+  | SettingsCmd
   | Server
   | VersionCmd
 
-commandsP :: AppSettings -> Parser Command
+commandsP :: Settings -> Parser Command
 commandsP s = subparser $ mconcat
   [ command "branch"
-    ( info (BranchCmd <$> branchCommandP (appRepo s) <**> helper) $
+    ( info (BranchCmd <$> branchCommandP (s ^. repoSettings) <**> helper) $
       progDesc "Operate on a branch"
     )
   , command "schema"
@@ -88,6 +81,10 @@ commandsP s = subparser $ mconcat
   , command "server"
     ( info (pure Server) $
       progDesc "Start the server"
+    )
+  , command "settings"
+    ( info (pure SettingsCmd) $
+      progDesc "Display the current settings"
     )
   , command "version"
     ( info (pure VersionCmd) $
@@ -101,7 +98,7 @@ data BranchCommand
   | BranchMerge    Merge
   | BranchValidate Validate
 
-branchCommandP :: RepoSettings -> Parser BranchCommand
+branchCommandP :: Store.Settings -> Parser BranchCommand
 branchCommandP s = subparser $ mconcat
   [ command "ls"
     ( info (pure BranchList) $
@@ -152,8 +149,8 @@ data Merge = Merge
   , message :: Text
   }
 
-mergeP :: RepoSettings -> Parser Merge
-mergeP RepoSettings{..} = Merge
+mergeP :: Store.Settings -> Parser Merge
+mergeP settings = Merge
   <$> option str
       ( long "from"
       <> help "Branch to merge from"
@@ -162,7 +159,7 @@ mergeP RepoSettings{..} = Merge
       ( long "into"
       <> help "Branch to merge into"
       <> showDefault
-      <> value rsDefaultBranch
+      <> value (settings ^. Store.defaultBranch)
       )
   <*> option str
       ( long "message"
@@ -182,28 +179,17 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
 
-  -- We expect that when deployed, the binary will be co-located
-  -- with its config files
-  lookupEnv "AUTO_CD" >>= \case
-    Just "false" -> return ()
-    _ -> do
-      workDir <- takeDirectory <$> getExecutablePath
-      setCurrentDirectory workDir
-
-  settingsPath <- execParser settingsInfo
-  settings' <- getAppSettings
-  Cli{..} <- execParser $ opts settings'
-  let settings = overrideSettings settings' config
-
-  -- TODO: run these in a more appropriate custom monad
-  -- See GraphSpec for ideas
+  loadEnvFrom ".env"
+  defaults <- Config.server
+  Cli{..}  <- execParser $ opts defaults
 
   let
-    h :: forall a. Handler a -> IO ()
+    h :: forall a. AppM a -> IO a
     h m = do
-        foundation <- makeFoundation settings
-        void $ unsafeHandler foundation m
-        flushLogStr $ loggerSet $ appLogger foundation
+        env    <- Config.boot config
+        result <- runApp env m
+        Logger.flush $ env ^. envFoundation . appLogger
+        return result
 
   case cmd of
     BranchCmd b -> h $ case b of
@@ -211,9 +197,9 @@ main = do
         void $ Branch.claimUserBranches
         branches <- Branch.all
 
-        lines <- forM branches $ \b -> do
-          sha <- Branch.headSha b
-          return $ branchName b <> " @ " <> sha
+        lines <- forM branches $ \br -> do
+          sha <- Branch.headSha br
+          return $ branchName br <> " @ " <> sha
 
         putStrLn ""
         mapM_ putStrLn $ sort lines
@@ -230,8 +216,8 @@ main = do
 
       -- merge one branch into another, collapsing ids
       BranchMerge Merge{..} -> void $ do
-        f <- branchByName from
-        i <- branchByName into
+        f <- Branch.byName from
+        i <- Branch.byName into
 
         let merge = Branch.Merge
               { Branch.from = f
@@ -248,29 +234,15 @@ main = do
     SchemaCmd -> putStrLn Graph.schema
 
     -- start the server
-    Server -> appMain
+    Server -> Server.start config
+
+    SettingsCmd -> putStrLn $ pj config
 
     -- display version
-    VersionCmd -> putStrLn $ "Build " <> (tshow $ ciBuild ciSettings) <> ", sha " <> (tshow $ ciSha ciSettings)
-
-branchByName :: Text -> Handler Branch
-branchByName name = do
-  (Entity _ branch) <- findOrCreate (UniqueBranchName . branchName) $ Branch name Nothing
-  return branch
-
-overrideSettings :: AppSettings -> Config -> AppSettings
-overrideSettings settings' Config{..} = settings'
-  { appRepo = (appRepo settings')
-    { rsPath = repoPath
-    }
-  , appLogLevel = logLevel
-  }
-
-panic :: Text -> a
-panic = error . T.unpack
-
-user :: User
-user = User "jamesdabbs" "jamesdabbs" "users/jamesdabbs@gmail.com" "" True
+    VersionCmd -> case Build.info of
+      Just Build.Info{..} ->
+        putStrLn $ "Build " <> (show number) <> ", sha " <> (show sha)
+      Nothing -> putStrLn "No build info available"
 
 getCommitUser :: MonadIO m => m User
 getCommitUser = do
@@ -281,10 +253,6 @@ getCommitUser = do
   return User
     { userName        = name
     , userEmail       = email
-    -- TODO: separate User / Identity models; we should be able to generate a User
-    --   without having Github OAuth credentials
-    , userIdent       = "cli:" <> name
-    , userGithubToken = ""
     , userIsReviewer  = True
     }
 

@@ -2,32 +2,16 @@ module Core
   ( module Core
   ) where
 
-import Protolude hiding (throwIO)
+import Import as Core
 
-import Control.Applicative         as Core ((<|>))
-import Control.Monad.IO.Class      as Core (MonadIO, liftIO)
-import Control.Monad.Logger        as Core (MonadLogger, logDebug, logInfo, logError)
-import Control.Monad.Reader        as Core (MonadReader(..), ReaderT, asks, runReaderT)
-import Control.Monad.Trans         as Core (lift)
-import Control.Monad.Trans.Control as Core (MonadBaseControl)
-import Control.Monad.Trans.Except  as Core (ExceptT, except, runExceptT, throwE)
-import Data.Aeson                  as Core (FromJSON, ToJSON)
-import Data.ByteString             as Core (ByteString)
-import Data.Either                 as Core (partitionEithers)
-import Data.Either.Combinators     as Core (mapLeft, mapRight)
-import Data.Map                    as Core (Map)
-import Data.Monoid                 as Core (Monoid)
-import Data.Text                   as Core (Text)
-import Data.Void                   as Core (Void)
-import GHC.Generics                as Core (Generic)
-import Git                         as Core (TreeFilePath, MonadGit, Commit, CommitMessage)
-import Git.Libgit2                 as Core (LgRepo)
-import UnliftIO.Exception          as Core hiding (Handler)
+import Control.Monad.Logger as Core (LogLevel(..))
+import Database.Persist     as Core (Entity(..))
 
-import Class        as Core
-import Model        as Core
-import Types        as Core
-import Types.Store  as Core (Store)
+import Class            as Core
+import Data.Store.Types as Core (Store)
+import Model            as Core
+import Settings         as Core
+import Types            as Core
 
 import           Control.Lens hiding ((.=))
 import qualified Data.Set     as S
@@ -47,7 +31,7 @@ theoremProperties :: Ord p => Theorem p -> S.Set p
 theoremProperties = implicationProperties . theoremImplication
 
 theoremName :: Theorem Property -> Text
-theoremName t = (F.format propertyName $ theoremIf t) 
+theoremName t = (F.format propertyName $ theoremIf t)
              <> " ⇒ "
              <> (F.format propertyName $ theoremThen t)
 
@@ -93,5 +77,5 @@ hydrateTheorem props theorem =
       (_, Left bs) -> Left bs
       (Right a', Right c') -> Right $ theorem { theoremImplication = Implication a' c' }
 
-notFound :: (MonadIO m, Show a) => Text -> a -> m b
-notFound resource ident = throwIO $ NotFoundError resource $ show ident
+notFound :: MonadIO m => Text -> Text -> m b
+notFound resource ident = throwIO $ NotFoundError resource ident

@@ -1,11 +1,16 @@
 User json
-  ident Text
   name Text
   email Text
-  githubToken Text
   isReviewer Bool default=False
-  UniqueUser ident
+  UniqueUser email
   deriving Typeable Show
+
+Ident json
+  userId UserId
+  provider Text
+  uid Text
+  accessToken Text
+  UniqueIdent provider uid
 
 Token json
   userId UserId

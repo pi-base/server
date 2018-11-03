@@ -15,7 +15,6 @@ type Viewer {
 
 type Space {
   uid: String!
-  slug: String!
   name: String!
   aliases: [String!]!
   references: [Citation!]!
@@ -40,7 +39,6 @@ type Trait {
 
 type Property {
   uid: String!
-  slug: String!
   name: String!
   aliases: [String!]!
   references: [Citation!]!

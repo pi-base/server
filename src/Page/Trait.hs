@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 module Page.Trait
   ( page
   ) where

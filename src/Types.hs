@@ -1,29 +1,30 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Types
   ( module Types
   , module X
   ) where
 
-import Import.NoFoundation
-import Control.Lens (Prism', makeLenses)
+import Protolude
 
-import Git (TreeFilePath)
+import Database.Persist as X (Entity(..))
+import Model            as X
+import Types.Base       as X
 
+import           Control.Lens            (Prism', makeLenses)
+import           Data.Aeson              (FromJSON, ToJSON)
 import qualified Data.Aeson              as Aeson (Object)
 import qualified Data.HashMap.Strict     as HM
+import           Data.String             (String)
+import           Git                     (TreeFilePath)
 import qualified GraphQL                 as GraphQL (QueryError)
 import qualified GraphQL.Internal.Name   as GraphQL (Name)
 import qualified GraphQL.Internal.Output as GraphQL (Errors)
 
-import Types.Base as X
-
 {- GIT TYPES -}
 
+type    AuthToken  = Text
 type    BranchName = Text
 data    Committish = CommitRef Ref | CommitSha Sha deriving (Eq, Show)
 type    Record     = (TreeFilePath, Text)
@@ -56,7 +57,7 @@ data BranchStatus = BranchStatus
 data CitationType = DOICitation | MRCitation | WikiCitation
   deriving (Show, Eq, Ord)
 
-data Citation = Citation 
+data Citation = Citation
   { citationName :: Text
   , citationType :: CitationType
   , citationRef  :: Text
@@ -74,7 +75,6 @@ type TVal = Bool
 
 data Space = Space
   { spaceId          :: !SpaceId
-  , spaceSlug        :: !Text
   , spaceName        :: !Text
   , spaceAliases     :: ![Text]
   , spaceDescription :: !Text
@@ -84,7 +84,6 @@ data Space = Space
 
 data Property = Property
   { propertyId          :: !PropertyId
-  , propertySlug        :: !Text
   , propertyName        :: !Text
   , propertyAliases     :: ![Text]
   , propertyDescription :: !Text
@@ -153,7 +152,7 @@ data GraphError = ExecutionErrors GraphQL.Errors
                 | QuerySerializationError String
                 | SchemaInvalid GraphQL.QueryError
                 deriving (Show, Typeable)
-                
+
 data LoadError = LoadError TreeFilePath deriving (Show, Typeable)
 
 data LogicError = Contradiction SpaceId PropertyId TVal TVal
@@ -161,16 +160,18 @@ data LogicError = Contradiction SpaceId PropertyId TVal TVal
                 | LoadFailure LoadError
                 deriving (Show, Typeable)
 
+data NotAuthenticated = NotAuthenticated deriving (Show, Typeable)
+
 data NotFoundError = NotFoundError
   { nfResource   :: Text
   , nfIdentifier :: Text
-  } deriving (Show, Typeable)
+  } deriving (Show, Eq, Generic, Typeable)
 
 data ParseError = ParseError TreeFilePath Text
   deriving (Eq, Show, Typeable)
 
-data PermissionError = 
-  BranchPermissionRequired 
+data PermissionError =
+  BranchPermissionRequired
     { branch   :: Branch
     , required :: BranchAccess
     , actual   :: Maybe BranchAccess
@@ -179,3 +180,9 @@ data PermissionError =
 
 data ValidationError = ValidationMessage Text -- TODO: specify structure
   deriving (Show, Eq, Typeable)
+
+data OAuth2 = OAuth2
+  { clientId     :: Text
+  , clientSecret :: Text
+  , callbackUri  :: Text
+  } deriving (Show, Eq, Generic)

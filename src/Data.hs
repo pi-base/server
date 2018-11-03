@@ -1,16 +1,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Data
-  ( initializeStore
-  , findParsed
+  ( findParsed
   , Data.required
-  , slugify
   , Data.updateBranch
   , updateView
   , viewDeductions
   ) where
 
-import Protolude hiding (handle)
+import Core
 
+import           Control.Lens         (view)
 import           Control.Monad.Logger (MonadLogger)
 import qualified Data.Map             as M
 import qualified Data.Set             as S
@@ -24,14 +23,10 @@ import qualified Page
 import qualified Page.Theorem
 import qualified Page.Trait
 
-import           Core
 import qualified Data.Branch as Branch
 import           Data.Git    as Git (updateBranch, writePages)
-import           Data.Store
+import           Data.Store  as Store
 import           Util        (indexBy)
-
-slugify :: Text -> Text
-slugify t = t -- TODO
 
 viewPages :: View -> [(TreeFilePath, Text)]
 viewPages v = map (Page.write Page.Theorem.page) theorems
@@ -41,7 +36,7 @@ viewPages v = map (Page.write Page.Theorem.page) theorems
     traits   = map (identifyTrait . fst) $ filter (isNothing . snd) $ V.traits v
     theorems = map (fmap propertyId) $ V.theorems v
 
-viewDeductions :: MonadStore m
+viewDeductions :: Git m
                => Loader.Loader -> L.Deductions -> m View
 viewDeductions loader L.Deductions{..} = do
   let (sids, pids) = foldr (\(s,p) (ss,ps) -> (S.insert s ss, S.insert p ps)) (mempty, mempty) $ M.keys deductionTraits
@@ -60,18 +55,18 @@ viewDeductions loader L.Deductions{..} = do
 
   return View{..}
 
-updateBranch :: (MonadStore m, MonadLogger m)
+updateBranch :: (Git m, MonadLogger m)
              => Branch
              -> CommitMeta
              -> (Loader.Loader -> TreeT LgRepo m a)
              -> m (a, Sha)
 updateBranch branch meta handler = do
   result <- Git.updateBranch (branchName branch) meta handler
-  sync   <- storeAutoSync <$> getStore
-  when sync $ background $ pushBranch branch
+  push   <- view (storeSettings . autoPush) <$> getStore
+  when push $ background $ pushBranch branch
   return result
 
-updateView :: (MonadStore m, MonadLogger m)
+updateView :: (Git m, MonadLogger m)
            => Branch
            -> CommitMeta
            -> (Loader.Loader -> m View)
@@ -96,7 +91,7 @@ addProof ((sid, pid), (value, evidence)) (traits, proofs) =
 insertNested :: (Ord k1, Ord k2) => k1 -> k2 -> v -> Map k1 (Map k2 v) -> Map k1 (Map k2 v)
 insertNested k1 k2 v = M.alter (Just . M.insert k2 v . maybe mempty identity) k1
 
-findParsed :: MonadStore m
+findParsed :: Git m
            => (Tree LgRepo -> a -> m b)
            -> Branch
            -> a
@@ -115,5 +110,7 @@ required resource identifier =
   maybe (notFound resource identifier) return
 
 -- FIXME: this should enqueue work in a persistent queue, retry, ...
-background :: MonadStore m => m () -> m ()
-background action = void action
+background :: Data m => m () -> m ()
+background action = do
+  unlift <- askUnliftIO
+  void . liftIO . forkIO . unliftIO unlift $ void action

@@ -11,11 +11,10 @@ module Graph.Queries
 import Graph.Import hiding (readFile)
 
 import qualified Data.Aeson
-import qualified Data.Text.Lazy         as TL
+import qualified Data.ByteString.Lazy   as LBS
 import           Database.Persist.Types (Entity(..))
 import qualified GraphQL.Introspection  as Introspection
 
-import           Core
 import           Data.Branch  (userBranches)
 import           Data.Loader  (Loader)
 import qualified Data.Loader  as Loader
@@ -26,22 +25,22 @@ import qualified Graph.Schema as G
 import           Model        (User(..))
 import           Types        (BranchAccess(..))
 
-queries :: forall m. MonadGraph m => Handler m G.QueryRoot
+queries :: forall m. Graph m => Handler m G.QueryRoot
 queries =
   pure $ Introspection.schema @(G.Root m)
      :<> Introspection.type_  @(G.Root m)
      :<> viewer
      :<> user
 
-user :: MonadGraph m => Handler m G.User
+user :: Graph m => Handler m G.User
 user = do
   u@(Entity _id User{..}) <- requireUser
   return $ pure userName
-       :<> do
-         branches <- userBranches u
-         pure (map presentBranch branches)
+    :<> do
+      branches <- userBranches u
+      pure (map presentBranch branches)
 
-viewer :: MonadGraph m => Maybe Text -> Handler m G.Viewer
+viewer :: Graph m => Maybe Text -> Handler m G.Viewer
 viewer mver = do
   loader <- maybe Data.Store.currentLoader Data.Store.loaderAt mver
   return $ pure (unVersion $ Loader.version loader)
@@ -66,7 +65,6 @@ presentSpace :: Monad m
              -> Handler m G.Space
 presentSpace Space{..} traits =
   pure $ pure (unId spaceId)
-     :<> pure spaceSlug
      :<> pure spaceName
      :<> pure (pure <$> spaceAliases)
      :<> pure (presentCitation <$> spaceRefs)
@@ -77,7 +75,6 @@ presentSpace Space{..} traits =
 presentProperty :: Monad m => Property -> Handler m G.Property
 presentProperty Property{..} =
   pure $ pure (unId propertyId)
-     :<> pure propertySlug
      :<> pure propertyName
      :<> pure (map pure propertyAliases)
      :<> pure (map presentCitation propertyRefs)
@@ -134,34 +131,33 @@ presentView View{..} =
     presentSpace' (_id, space) = presentSpace space (spaceTraits _id)
 
 -- Cached loader based handlers
-loadProperties :: MonadStore m
+loadProperties :: Git m
                => Loader
                -> Handler m (List G.Property)
 loadProperties loader = do
   properties <- Loader.properties loader
   return $ map presentProperty properties
 
-loadTheorems :: MonadStore m
+loadTheorems :: Git m
              => Loader
              -> Handler m (List G.Theorem)
 loadTheorems loader = do
   theorems <- Loader.theorems loader
   return $ map presentTheorem theorems
 
-loadSpaces :: MonadStore m
+loadSpaces :: Git m
            => Loader
            -> Handler m (List G.Space)
 loadSpaces loader = do
   spaces <- Loader.spaces loader
   return $ map (loadSpace loader) spaces
 
-loadSpace :: MonadStore m
+loadSpace :: Git m
           => Loader.Loader
           -> Space
           -> Handler m G.Space
 loadSpace loader s@Space{..} =
   pure $ pure (unId spaceId)
-     :<> pure spaceSlug
      :<> pure spaceName
      :<> pure (pure <$> spaceAliases)
      :<> pure (presentCitation <$> spaceRefs)
@@ -169,12 +165,12 @@ loadSpace loader s@Space{..} =
      :<> pure (pure <$> spaceTopology)
      :<> loadTraits loader s
 
-loadTraits :: MonadStore m => Loader -> Space -> Handler m (List G.Trait)
+loadTraits :: Git m => Loader -> Space -> Handler m (List G.Trait)
 loadTraits loader space = do
   traits <- Loader.spaceTraits loader $ spaceId space
   return . map (loadTrait loader space) $ M.toList traits
 
-loadTrait :: MonadStore m => Loader -> Space -> (PropertyId, TVal) -> Handler m G.Trait
+loadTrait :: Git m => Loader -> Space -> (PropertyId, TVal) -> Handler m G.Trait
 loadTrait loader space (pid, tval) = do
   trait <- Loader.trait loader (spaceId space) pid
   return $ (Loader.property loader pid >>= presentProperty)
@@ -184,4 +180,4 @@ loadTrait loader space (pid, tval) = do
        :<> pure False
 
 encodeFormula :: Formula PropertyId -> Text
-encodeFormula = TL.toStrict . decodeUtf8 . Data.Aeson.encode . map unId
+encodeFormula = decodeUtf8 . LBS.toStrict . Data.Aeson.encode . map unId

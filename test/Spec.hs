@@ -2,30 +2,52 @@ module Main
   ( main
   ) where
 
-import ClassyPrelude
-import Test.Tasty (TestTree, defaultMain, testGroup)
-import TestImport (TestApp, App, buildApp)
-import Util       (memoized)
+import Test.Import
+import Test.Tasty (defaultMain)
+
+import qualified Config      (test)
+import qualified Config.Boot as Config (boot)
+import qualified Data.Branch as Branch
 
 import qualified Data.ParseSpec
-import qualified Handler.CommonSpec
-import qualified Handler.GraphSpec
-import qualified Handler.HomeSpec
+import qualified Data.SpaceSpec
 import qualified GraphSpec
 import qualified PageSpec
+import qualified Server.ApiSpec
+import qualified Server.Api.AuthSpec
+import qualified Server.Api.GraphSpec
+import qualified Services.GithubSpec
 
 main :: IO ()
 main = do
-  appRef <- newIORef Nothing
-  t <- specs $ memoized appRef $ buildApp
-  defaultMain . testGroup "Pi-Base" $ t
+  env <- Config.boot =<< Config.test
 
-specs :: IO (TestApp App) -> IO [TestTree]
-specs app = sequence
-  [ Data.ParseSpec.spec app
-  , GraphSpec.spec app
+  testEnv <- TestEnv
+    <$> pure env
+    <*> newIORef Nothing
+    <*> newIORef []
+    <*> newIORef []
+
+  let
+    run :: Runner
+    run = runTest testEnv
+
+  run $ do
+    void $ Branch.ensureBaseBranch
+    void $ Branch.claimUserBranches
+
+  tests <- specs run
+
+  defaultMain $ testGroup "Pi-Base" tests
+
+specs :: Runner -> IO [TestTree]
+specs run = run $ sequence
+  [ Data.ParseSpec.spec run
+  , Data.SpaceSpec.spec run
+  , GraphSpec.spec run
   , PageSpec.spec
-  , Handler.CommonSpec.spec app
-  , Handler.GraphSpec.spec app
-  , Handler.HomeSpec.spec app
+  , Server.ApiSpec.spec run
+  , Server.Api.AuthSpec.spec run
+  , Server.Api.GraphSpec.spec run
+  , Services.GithubSpec.spec run
   ]

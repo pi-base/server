@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Formula
   ( Formula(..)
@@ -11,24 +9,23 @@ module Formula
   , parse
   , properties
   , hydrate
+  , unionN
   ) where
 
-import Prelude hiding (negate)
+import Protolude hiding (intercalate, negate, option)
 
 import Types
 
-import           Control.Monad (void, mzero)
-import           Data.Aeson hiding ((.=))
-import qualified Data.Aeson as A
+import           Control.Monad        (void, mzero)
+import           Data.Aeson           hiding ((.=))
+import qualified Data.Aeson           as A
 import           Data.Attoparsec.Text hiding (parse)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Map.Strict as M
-import           Data.Monoid ((<>))
-import qualified Data.Set as S
-import           Data.String (IsString)
-import           Data.Text (Text, intercalate, strip)
-
-import Util (unionN)
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.Map.Strict      as M
+import           Data.Monoid          ((<>))
+import qualified Data.Set             as S
+import           Data.String          (IsString, String)
+import           Data.Text            (Text, intercalate, strip)
 
 enclose :: (IsString s, Monoid s) => s -> s
 enclose s = "(" <> s <> ")"
@@ -99,9 +96,9 @@ atomP = do
 
 instance FromJSON (Formula Text) where
   parseJSON (Object v) = case head . HM.toList $ v of
-    ("and", val)  -> And <$> parseJSON val
-    ("or", val)   -> Or <$> parseJSON val
-    (slug, Bool b) -> return $ Atom slug b
+    Just ("and", val)  -> And <$> parseJSON val
+    Just ("or", val)   -> Or <$> parseJSON val
+    Just (slug, Bool b) -> return $ Atom slug b
     _ -> mzero
   parseJSON _ = mzero
 
@@ -137,3 +134,6 @@ allRight constructor subs = case foldl step (Right []) subs of
     step (Left as) _ = Left as
     step _ (Left bs) = Left bs
     step (Right fs) (Right f) = Right $ f : fs
+
+unionN :: Ord a => [S.Set a] -> S.Set a
+unionN = foldl' S.union S.empty

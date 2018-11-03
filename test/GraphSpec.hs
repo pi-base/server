@@ -1,63 +1,61 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 module GraphSpec (spec) where
 
-import Test.Tasty
-import Test.Tasty.Hspec hiding (shouldBe)
-import TestImport       hiding (first, head, json, request, shouldBe, update)
+import           Test.Import  hiding (first, property)
+import qualified Graph.Client as Client
 
 import           Control.Lens       hiding ((.=))
 import           Data.Aeson         (Value(..), (.=), object)
 import           Data.Aeson.Lens    hiding (key)
 import qualified Data.Aeson.Lens    as L (key)
 import qualified Data.Map           as M
-import qualified Data.Monoid
+import qualified Data.Monoid        (First)
+import qualified Data.Text          as T
 
-import Graph.Common
+import qualified Data.Branch  as Branch
+import           Graph.Types  (Name)
+import           Util         (encodeText, findOrCreate)
 
-import           Core
-import qualified Data.Branch         as Branch
-import           Util                (encodeText)
+reset :: TestM ()
+reset = do
+  eu <- db $ findOrCreate (UniqueUser . userEmail) testUser
+  (Entity _ branch) <- Branch.ensureUserBranch eu
+  Branch.reset_ branch $ CommitSha headSha
 
-initial :: Sha
-initial = head -- "d71e74370ea1d293197fdffd5f89c357ed45a273"
-
-reset :: G ()
-reset = void $ do
-  eu <- login testUser
-  Branch.reset (Branch.forUser eu) $ CommitSha initial
-
-setup :: G ()
-setup = Branch.ensureBaseBranch >> Branch.claimUserBranches
-
-spec :: IO (TestApp App) -> IO TestTree
-spec getApp = do
-  graph <- mkGraph getApp
+spec :: Runner -> TestM TestTree
+spec run = do
+  client <- Client.initialize
 
   let
-    g :: forall a. G a -> IO a
-    g = runG graph
+    g :: Name -> Value -> IO Value
+    g query body = run $ Client.run client query body
+
+    as :: User -> IO ()
+    as user = void $ run $ Client.login client user
+
+    editing :: IO ()
+    editing = void $ run $ Client.checkoutUserBranch client
 
   -- TODO: we only _really_ need to reset after mutations
-  testSpec "Graph" $ beforeAll (g setup) $ before_ (g reset) $ do
+  specify "Graph" $ before_ (run GraphSpec.reset) $ do
     describe "Me" $ do
       it "can fetch user data" $ do
-        user <- g $ run "Me" noVariables
+        as testUser
+
+        user <- g "Me" noVariables
 
         user^.k "me".name `shouldBe` "test"
 
         let branches = buildMap name (k "access"._String) $ user ^.. k "me".k "branches".values._Value
 
-        M.lookup testBranch branches `shouldBe` Just "admin"
-        M.lookup "master" branches `shouldBe` Just "read"
+        M.lookup "users/test@example.com" branches `shouldBe` Just "admin"
+        M.lookup "test" branches `shouldBe` Just "read"
 
     describe "Introspection" $ do
       it "can introspect defined types" $ do
-        result <- g $ run "Introspection" noVariables
+        result <- g "Introspection" noVariables
         let types = result ^..k "__schema".k "types".values.name
         types `shouldBe` [ "AssertTheoremInput"
                          , "AssertTraitInput"
@@ -86,30 +84,33 @@ spec getApp = do
 
     describe "branches" $ do
       it "can reset user owned branches" $ do
-        masterSha <- g $ Branch.headSha master
+        as testUser
 
-        result <- g $ run "ResetBranch" [json|{
+        result <- g "ResetBranch" [json|{
           "input": {
-            "branch": #{testBranch},
-            "to":     "master"
+            "branch": "users/test@example.com",
+            "to":     #{headSha}
           }
         }|]
-        result^.k "resetBranch".version `shouldBe` masterSha
+        result^.k "resetBranch".version `shouldBe` headSha
 
       it "cannot reset system branches" $ do
-        Left BranchPermissionRequired{..} <- try . g $ run "ResetBranch" [json|{
+        as testUser
+
+        Left BranchPermissionRequired{..} <- try $ g "ResetBranch" [json|{
           "input": {
             "branch": "master",
-            "to": #{testBranch}
+            "to": #{headSha}
           }
         }|]
+
         branchName branch `shouldBe` "master"
         required `shouldBe` BranchAdmin
         actual `shouldBe` Just BranchRead
 
-    describe "viewer" $ do
+    describe "Viewer" $ do
       it "can run queries directly" $ do
-        result <- g $ run "Viewer" [json|{ "version": #{initial} }|]
+        result <- g "Viewer" [json|{ "version": #{headSha} }|]
 
         let spaceIds = result ^.. viewer.spaces.values.uid
         length spaceIds `shouldSatisfy` (>= 135)
@@ -118,14 +119,13 @@ spec getApp = do
         length propIds `shouldSatisfy` (>= 100)
 
         let theoremIds = result ^.. viewer.theorems.values.uid
-        length theoremIds `shouldSatisfy` (>= 200)
+        length theoremIds `shouldSatisfy` (>= 180)
 
       it "can add a space" $ do
-        result <- g $ run "CreateSpace" [json|{
-          "patch": {
-            "branch": #{testBranch},
-            "sha":    #{initial}
-          },
+        as testUser
+        editing
+
+        result <- g "CreateSpace" [json|{
           "space": {
             "uid":  "s1",
             "name": "New Space",
@@ -143,10 +143,11 @@ spec getApp = do
         names `shouldBe` ["New Space"]
 
       -- TODO: refactor `run` => `update` and skip patch tracking
-      it "can assert a trait" $ g $ do
-        void checkoutUserBranch
+      it "can assert a trait" $ do
+        as testUser
+        editing
 
-        s <- update "CreateSpace" [json|{
+        s <- g "CreateSpace" [json|{
           "space": {
             "name": "New Space"
           }
@@ -158,7 +159,7 @@ spec getApp = do
         n `shouldBe` "New Space"
 
         -- S |= compact
-        t1 <- update "AssertTrait" [json|{
+        t1 <- g "AssertTrait" [json|{
           "trait": {
             "spaceId":    #{sid},
             "propertyId": #{compact},
@@ -175,7 +176,7 @@ spec getApp = do
         -- M.lookup metrizable ps1 `shouldBe` Just True
 
         -- S |= ~metrizable
-        t2 <- update "AssertTrait" [json|{
+        t2 <- g "AssertTrait" [json|{
           "trait": {
             "spaceId":    #{sid},
             "propertyId": #{metrizable},
@@ -189,10 +190,11 @@ spec getApp = do
         M.lookup metrizable ps2 `shouldBe` Just False
         -- M.lookup locallyMetrizable ps2 `shouldBe` Just False
 
-      it "can assert a theorem" $ g $ do
-        void checkoutUserBranch
+      it "can assert a theorem" $ do
+        as testUser
+        editing
 
-        p <- update "CreateProperty" [json|{
+        p <- g "CreateProperty" [json|{
           "property": {
             "name": "P"
           }
@@ -201,7 +203,7 @@ spec getApp = do
         let pid = p ^. createProperty.properties.first.uid
 
         -- compact => P
-        t1 <- update "AssertTheorem" [json|{
+        t1 <- g "AssertTheorem" [json|{
           "theorem": {
             "antecedent":  #{encodeText $ object [ compact .= True ]},
             "consequent":  #{encodeText $ object [ pid .= True ]},
@@ -212,7 +214,7 @@ spec getApp = do
         length (t1 ^.. assertTheorem.theorems.values._Value) `shouldBe` 1
 
         -- P => metacompact
-        t2 <- update "AssertTheorem" [json|{
+        t2 <- g "AssertTheorem" [json|{
           "theorem": {
             "antecedent":  #{encodeText $ object [ pid .= True ]},
             "consequent":  #{encodeText $ object [ metacompact .= True ]},
@@ -223,52 +225,55 @@ spec getApp = do
         length (t2 ^.. assertTheorem.theorems.values._Value) `shouldBe` 1
 
     describe "validation" $ do
-      it "handles missing fields" $ do
-        Left (ExecutionErrors errs) <- try . g $ run "CreateSpace" [json|{
-          "patch": {
-            "branch": #{testBranch},
-            "sha":    #{head}
-          },
-          "space": {
-            "description": ""
-          }
+      todo "handles missing fields" $ do
+        as testUser
+        editing
+
+        e <- g "CreateSpace" [json|{
+          "space": {}
         }|]
-        show errs `shouldInclude` "Could not coerce Name"
+        traceS e
+        -- show errs `shouldInclude` "Could not coerce Name"
 
       it "handles branch mis-matches" $ do
-        Left ConflictError{..} <- try . g $ run "CreateSpace" [json|{
+        as testUser
+        editing
+
+        let oldSha = "3885a2d01d34033ee2dc55048e69f5c586522c3c"
+
+        Left ConflictError{..} <- try $ g "CreateSpace" [json|{
           "patch": {
-            "branch": #{testBranch},
-            "sha":    "mismatch"
+            "branch": "users/test@example.com",
+            "sha":    #{oldSha}
           },
           "space": {
             "name": "New Space"
           }
         }|]
-        actualSha   `shouldBe` head
-        expectedSha `shouldBe` "mismatch"
+        actualSha   `shouldBe` headSha
+        expectedSha `shouldBe` oldSha
 
     describe "Branch approval" $ do
-      ci "works end-to-end" $ g $ do
+      ci "works end-to-end" $ do
         -- User creates a branch
-        _ <- login cody
-        eb@(Entity _ branch) <- checkoutUserBranch
+        as cody
+        editing
 
-        _ <- update "ResetBranch" [json|{
+        _ <- g "ResetBranch" [json|{
           "input": {
-            "branch": #{branchName branch},
-            "to":     #{head}
+            "branch": "users/cody@pi-base.org",
+            "to":     #{headSha}
           }
         }|]
 
-        v <- update "CreateProperty" [json|{
+        v <- g "CreateProperty" [json|{
           "property": {
             "name": "P"
           }
         }|]
         let pid = v ^. createProperty.properties.first.uid
 
-        _ <- update "AssertTheorem" [json|{
+        _ <- g "AssertTheorem" [json|{
           "theorem": {
             "antecedent":  #{encodeText $ object [ pid .= True ]},
             "consequent":  #{encodeText $ object [ compact .= True ]},
@@ -276,7 +281,7 @@ spec getApp = do
           }
         }|]
 
-        _ <- update "AssertTrait" [json|{
+        _ <- g "AssertTrait" [json|{
           "trait": {
             "spaceId":    "S000001",
             "propertyId": #{pid},
@@ -285,32 +290,14 @@ spec getApp = do
         }|]
 
         -- Admin approves the branch
-        sxc     <- login steven
-        master' <- Branch.ensureBaseBranch
-        Branch.grant sxc master' BranchAdmin
-        Branch.grant sxc eb      BranchAdmin
-
-        checkout branch
-        v' <- update "ApproveBranch" [json|{
+        as steven
+        v' <- g "ApproveBranch" [json|{
           "input": {
-            "branch": #{branchName branch}
+            "branch": "users/cody@pi-base.org"
           }
         }|]
 
-        length (v' ^. approveBranch.version) `shouldBe` 40
-
-testUser :: User
-testUser = User "github:1234" "test" "test@example.com" "xxx" False
-
-testBranch :: Text
-testBranch = "users/" <> userEmail testUser
-
-steven, cody :: User
-steven = userNamed "steven"
-cody   = userNamed "cody"
-
-userNamed :: Text -> User
-userNamed n = User ("github:" <> n) n (n <> "@example.com") n False
+        T.length (v' ^. approveBranch.version) `shouldBe` 40
 
 compact, metacompact, metrizable :: Text
 compact           = "P000016"

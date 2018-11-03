@@ -1,9 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 module Graph.Queries.Cache
-  ( Cache
+  ( QueryCache
+  , fetch
   , mkCache
-  , query
   , schema
   ) where
 
@@ -18,17 +18,10 @@ import           GraphQL.Introspection (serialize)
 import           System.FilePath       (takeBaseName)
 
 import           Graph.Class         ()
-import           Graph.Schema        (Query)
 import qualified Graph.Schema        as G
 import           Graph.Serialization (writeSchema)
+import           Graph.Types         (QueryCache(..), Query)
 import           Util                (traverseDir)
-
-data Cache = Cache
-  { root           :: FilePath
-  , querySchema    :: Schema
-  , mutationSchema :: Schema
-  , queries        :: Map Text Query
-  }
 
 {-
   This is a bit of an abuse, but we want to be sure that the schema file
@@ -51,32 +44,32 @@ schema = $(writeSchema $ serialize @(G.Root Identity)) -- I don't love that we n
   TODO: check operation names of parsed documents
   TODO: make this a TemplateHaskell loader that watches files
 -}
-mkCache :: MonadIO m => FilePath -> m (Either [QueryError] Cache)
+mkCache :: MonadIO m => FilePath -> m (Either [QueryError] QueryCache)
 mkCache root = runExceptT $ do
   querySchema    <- check $ makeSchema @G.QueryRoot
   qs             <- compile querySchema (root <> "/queries")
   mutationSchema <- check $ makeSchema @G.MutationRoot
   ms             <- compile mutationSchema (root <> "/mutations")
   queries        <- validate $ qs <> ms
-  return Cache{..}
+  return QueryCache{..}
   where
     check :: Monad m => Either e a -> ExceptT [e] m a
     check (Left  e) = ExceptT . return $ Left [e]
     check (Right a) = return a
 
     compile :: MonadIO m => Schema -> FilePath -> m (Map Text (Either QueryError Query))
-    compile s dir = liftIO $ traverseDir (add s) dir mempty 
+    compile s dir = liftIO $ traverseDir (add s) dir mempty
 
-    add :: Schema 
+    add :: Schema
         -> Map Text (Either QueryError Query)
-        -> FilePath 
+        -> FilePath
         -> IO (Map Text (Either QueryError Query))
     add s acc path = do
       result <- load s path
       return $ M.insert (T.pack $ takeBaseName path) result acc
 
-    validate :: (Monad m, Ord k) 
-             => Map k (Either e a) 
+    validate :: (Monad m, Ord k)
+             => Map k (Either e a)
              -> ExceptT [e] m (Map k a)
     validate m = case M.foldrWithKey gather (mempty, mempty) m of
       ([], queries) -> return queries
@@ -86,13 +79,13 @@ mkCache root = runExceptT $ do
     gather _ (Left  e) (es, m) = (e:es, m)
     gather k (Right a) (es, m) = (es, M.insert k a m)
 
-query :: Cache -> Name -> Maybe Query
-query Cache{..} name = M.lookup (unName name) queries
+fetch :: QueryCache -> Name -> Maybe Query
+fetch QueryCache{..} name = M.lookup (unName name) queries
 
 -- Helpers
 
 load :: MonadIO m
      => Schema
-     -> FilePath 
+     -> FilePath
      -> m (Either QueryError Query)
 load s path = compileQuery s <$> liftIO (readFile path)

@@ -1,20 +1,15 @@
-{-# LANGUAGE 
-    FlexibleInstances 
-  , GADTs
-  , MultiParamTypeClasses
-  , TemplateHaskell
-#-}
-
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Model where
 
-import ClassyPrelude.Yesod
+import Protolude
+
 import Database.Persist.Quasi
-import Model.Fields ()
+import Database.Persist.TH
+import Data.Time              (UTCTime)
+import Model.Fields           ()
 import Types.Base
 
--- You can define all of your database entities in the entities file.
--- You can find more information on persistent and how to declare entities
--- at:
--- http://www.yesodweb.com/book/persistent/
 share [mkPersist sqlSettings, mkMigrate "migrateAll"]
     $(persistFileWith lowerCaseSettings "config/models")

@@ -1,6 +1,7 @@
 module Data.Branch
   ( access
   , all
+  , byName
   , claimUserBranches
   , commit
   , ensureBaseBranch
@@ -13,32 +14,32 @@ module Data.Branch
   , push
   , ref
   , reset
+  , reset_
   , tree
   , userBranches
   ) where
 
-import Protolude hiding (all, find, from, head, on, isNothing)
+import Core hiding (all, find, head, on, isNothing, (^.))
 
 import Data.Attoparsec.Text
 import Database.Esqueleto
 import Database.Persist (selectList)
 
-import           Core
 import qualified Data.Git as Git
 import qualified Data.Map.Strict as M
 import           Git
 
-import           Data.Helpers (findOrCreate, repsertBy)
-import           Data.Store   (fetchBranch, pushBranch, storeBaseBranch)
+import           Data.Store   (fetchBranch, getDefaultBranch, pushBranch)
 import           Model        (Unique(..))
+import           Util         (findOrCreate, repsertBy)
 
 type Name = Text
 type OwnerName = Text
 
-find :: MonadDB m => Text -> m (Maybe (Entity Branch))
+find :: DB m => Text -> m (Maybe (Entity Branch))
 find = db . getBy . UniqueBranchName
 
-access :: MonadDB m => Entity User -> Entity Branch -> m (Maybe BranchAccess)
+access :: DB m => Entity User -> Entity Branch -> m (Maybe BranchAccess)
 access (Entity userId User{..}) (Entity branchId Branch{..}) = if userIsReviewer
   then return $ Just BranchAdmin
   else case branchOwnerId of
@@ -54,12 +55,12 @@ access (Entity userId User{..}) (Entity branchId Branch{..}) = if userIsReviewer
         Just (Entity _ ub) -> return $ Just $ userBranchRole ub
         _ -> return fallback
 
-all :: MonadDB m => m [Branch]
+all :: DB m => m [Branch]
 all = do
   entities <- db $ selectList [] []
   return $ map entityVal entities
 
-userBranches :: (MonadDB m, MonadStore m) => Entity User -> m [BranchStatus]
+userBranches :: (DB m, Git m) => Entity User -> m [BranchStatus]
 userBranches (Entity _id User{..}) = if userIsReviewer
   then all >>= mapM (\b -> b `withAccess` BranchAdmin)
   else do
@@ -72,12 +73,12 @@ userBranches (Entity _id User{..}) = if userIsReviewer
     forM ((base, Value BranchRead) : grantedPairs) $
       \(Entity _ branch, Value role) -> branch `withAccess` role
 
-withAccess :: (MonadDB m, MonadStore m) => Branch -> BranchAccess -> m BranchStatus
+withAccess :: (DB m, Git m) => Branch -> BranchAccess -> m BranchStatus
 withAccess b r = do
-  sha <- Git.headSha b
+  sha <- headSha b
   return $ BranchStatus b sha r
 
-claimUserBranches :: (MonadDB m, MonadStore m) => m ()
+claimUserBranches :: (DB m, Git m) => m ()
 claimUserBranches = do
   names    <- scanRepo
   ownerMap <- buildOwnerMap . catMaybes $ map snd names
@@ -91,7 +92,7 @@ claimUserBranches = do
         (Entity branchId _) <- findOrCreate (UniqueBranchName . branchName) $ Branch name (Just ownerId)
         findOrCreate (\UserBranch{..} -> UniqueUserBranch userBranchUserId userBranchBranchId) $ UserBranch ownerId branchId BranchAdmin
   where
-    buildOwnerMap :: MonadDB m => [OwnerName] -> m (M.Map OwnerName UserId)
+    buildOwnerMap :: DB m => [OwnerName] -> m (M.Map OwnerName UserId)
     buildOwnerMap names = do
       ownerPairs <- db $ select $
         from $ \users -> do
@@ -99,12 +100,10 @@ claimUserBranches = do
         return (users ^. UserName, users ^. UserId)
       return . M.fromList $ map (\(Value a, Value b) -> (a, b)) ownerPairs
 
-commit :: MonadStore m => Branch -> m (Commit LgRepo)
+commit :: Git m => Branch -> m (Commit LgRepo)
 commit branch = do
   head <- Git.resolveCommittish . CommitRef $ Ref $ branchName branch
-  case head of
-    Just c  -> return c
-    Nothing -> notFound "Branch" $ branchName branch
+  maybe (notFound "Branch" $ branchName branch) return head
 
 forUser :: Entity User -> Branch
 forUser (Entity _id User{..}) = Branch
@@ -112,44 +111,52 @@ forUser (Entity _id User{..}) = Branch
   , branchOwnerId = Just _id
   }
 
-grant :: MonadDB m => Entity User -> Entity Branch -> BranchAccess -> m ()
+grant :: DB m => Entity User -> Entity Branch -> BranchAccess -> m ()
 grant u b lvl = void $ repsertBy selector ub
   where
     selector UserBranch{..} = UniqueUserBranch userBranchUserId userBranchBranchId
     ub = UserBranch (entityKey u) (entityKey b) lvl
 
-ensureBranch :: (MonadDB m, MonadStore m) => Branch -> m (Entity Branch)
+ensureBranch :: (DB m, Git m) => Branch -> m (Entity Branch)
 ensureBranch branch = do
   -- In git repo
   found <- Git.branchExists branch
   unless found $ do
-    base <- Ref . storeBaseBranch <$> getStore
-    Git.createBranchFromBase branch base
+    defaultBranch <- getDefaultBranch
+    Git.createBranchFromBase branch $ Ref defaultBranch
 
   -- In database
   repsertBy (UniqueBranchName . branchName) branch
 
-ensureUserBranch :: (MonadDB m, MonadStore m) => Entity User -> m (Entity Branch)
+ensureUserBranch :: (DB m, Git m) => Entity User -> m (Entity Branch)
 ensureUserBranch user = do
   branch <- ensureBranch $ forUser user
   grant user branch BranchAdmin
   return branch
 
-ensureBaseBranch :: (MonadDB m, MonadStore m) => m (Entity Branch)
+ensureBaseBranch :: (DB m, Git m) => m (Entity Branch)
 ensureBaseBranch = do
-  name <- storeBaseBranch <$> getStore
-  ensureBranch $ Branch name Nothing
+  defaultBranch <- getDefaultBranch
+  ensureBranch $ Branch defaultBranch Nothing
 
-reset :: MonadStore m => Branch -> Committish -> m Sha
+reset :: Git m => Branch -> Committish -> m Sha
 reset = Git.resetBranch
 
-scanRepo :: MonadStore m => m [(Name, Maybe OwnerName)]
+reset_ :: Git m => Branch -> Committish -> m ()
+reset_ b = void . Git.resetBranch b
+
+scanRepo :: Git m => m [(Name, Maybe OwnerName)]
 scanRepo = do
   refs <- Git.listReferences
   return $ foldr f [] refs
   where
     f :: RefName -> [(Name, Maybe OwnerName)] -> [(Name, Maybe OwnerName)]
     f name acc = either (const acc) (: acc) $ parseOnly refParser name
+
+byName :: (DB m, Git m) => Text -> m Branch
+byName name = do
+  (Entity _ branch) <- findOrCreate (UniqueBranchName . branchName) $ Branch name Nothing
+  return branch
 
 refParser :: Parser (Name, Maybe OwnerName)
 refParser = do
@@ -164,20 +171,19 @@ refParser = do
       name <- takeText
       return (name, Nothing)
 
--- TODO: lower-level functions should take a BranchName; only these should take a Branch
-headSha :: MonadStore m => Branch -> m Sha
-headSha = Git.headSha
+headSha :: Git m => Branch -> m Sha
+headSha = Git.headSha . branchName
 
-fetch :: (MonadStore m, MonadLogger m) => Branch -> m ()
+fetch :: (Git m, MonadLogger m) => Branch -> m ()
 fetch = fetchBranch
 
-push :: (MonadStore m, MonadLogger m) => Branch -> m ()
+push :: (Git m, MonadLogger m) => Branch -> m ()
 push = pushBranch
 
 ref :: Branch -> Ref
 ref = Git.branchRef
 
-tree :: MonadStore m => Branch -> m (Tree LgRepo)
+tree :: Git m => Branch -> m (Tree LgRepo)
 tree branch = do
   c <- commit branch
   lookupTree $ commitTree c

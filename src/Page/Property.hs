@@ -16,7 +16,6 @@ page = Page.build write parse
 parse :: PageData -> Parser Property
 parse PageData{..} = do
   propertyId      <- pageFrontmatter .: "uid"
-  propertySlug    <- pageFrontmatter .: "slug"
   propertyName    <- pageFrontmatter .: "name"
   propertyAliases <- pageFrontmatter .:? "aliases" .!= []
   propertyRefs    <- pageFrontmatter .:? "refs" .!= []
@@ -28,7 +27,6 @@ write Property{..} = PageData
   { pagePath = encodeUtf8 $ "properties/" <> unId propertyId <> ".md"
   , pageFrontmatter = HM.fromList
     [ "uid"     .= propertyId
-    , "slug"    .= propertySlug
     , "name"    .= propertyName
     , "aliases" .= propertyAliases
     , "refs"    .= propertyRefs

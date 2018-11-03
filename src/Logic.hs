@@ -9,7 +9,7 @@ module Logic
   , checkAll
   ) where
 
-import Protolude hiding (evaluate, force, negate)
+import Core hiding (evaluate, force, negate)
 
 import Control.Lens hiding (contains)
 import Control.Monad.State.Strict     (MonadState, MonadTrans)
@@ -18,10 +18,8 @@ import Control.Monad.Trans.RWS.Strict (RWST, runRWST)
 import qualified Data.Map.Strict as M
 import qualified Data.Set        as S
 
-import           Core        hiding (evaluate)
 import qualified Data.Loader as Loader
-import           Formula     (negate)
-import           Util        (unionN)
+import           Formula     (negate, unionN)
 
 data Evidence = Asserted
               | Deduced (Set TheoremId) (Set PropertyId)
@@ -51,7 +49,7 @@ makeLenses ''Prover
 getLoader :: Monad m => LogicT m Loader.Loader
 getLoader = LogicT $ lift $ ask
 
-loadSpace :: MonadStore m => SpaceId -> LogicT m Properties
+loadSpace :: Git m => SpaceId -> LogicT m Properties
 loadSpace _id = do
   loader <- getLoader
   load $ Loader.spaceTraits loader _id
@@ -60,7 +58,7 @@ loadSpace _id = do
 load :: Monad m => m b -> LogicT m b
 load f = lift f
 
-loadEachSpace :: MonadStore m => ((SpaceId, Properties) -> LogicT m a) -> LogicT m ()
+loadEachSpace :: Git m => ((SpaceId, Properties) -> LogicT m a) -> LogicT m ()
 loadEachSpace f = do
   loader   <- getLoader
   spaceIds <- load $ Loader.spaceIds loader
@@ -68,7 +66,7 @@ loadEachSpace f = do
     props <- load $ Loader.spaceTraits loader sid
     f (sid, props)
 
-assertTrait :: MonadStore m => Trait SpaceId PropertyId -> LogicT m ()
+assertTrait :: Git m => Trait SpaceId PropertyId -> LogicT m ()
 assertTrait Trait{..} = do
   props <- loadSpace _traitSpace
   case M.lookup _traitProperty props of
@@ -79,7 +77,7 @@ assertTrait Trait{..} = do
       related <- relatedTheorems _traitProperty
       void $ foldM (\ps (tid, impl) -> applyTheorem tid impl _traitSpace ps) props' related
 
-assertTheorem :: MonadStore m => Theorem PropertyId -> LogicT m ()
+assertTheorem :: Git m => Theorem PropertyId -> LogicT m ()
 assertTheorem t = do
   let tid  = theoremId t
       impl = theoremImplication t
@@ -89,13 +87,13 @@ assertTheorem t = do
   loadEachSpace $ \(space, props) -> do
     applyTheorem (theoremId t) (theoremImplication t) space props
 
-checkAll :: MonadStore m => LogicT m ()
+checkAll :: Git m => LogicT m ()
 checkAll = do
   theorems <- use $ proverTheorems
   loadEachSpace $ \(space, props) -> do
     foldM (\ps (tid, impl) -> applyTheorem tid impl space ps) props $ M.toList theorems
 
-runLogicT :: MonadStore m => Loader.Loader -> LogicT m a -> m (Either LogicError Deductions)
+runLogicT :: Git m => Loader.Loader -> LogicT m a -> m (Either LogicError Deductions)
 runLogicT loader handler = do
   theorems <- Loader.implications loader
   let rwst = runExceptT $ unLogicT handler

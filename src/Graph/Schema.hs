@@ -1,41 +1,22 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeOperators #-}
 module Graph.Schema where
 
-import Protolude
+import Import
 
-import GraphQL                         (SchemaRoot, VariableValues)
-import GraphQL.API
-import GraphQL.Internal.Validation     (QueryDocument, VariableValue)
-import GraphQL.Value                   (Name)
+import           GraphQL
+import           GraphQL.API
 import qualified GraphQL.Introspection as Introspection
 
-import Core (Generic, SpaceId, PropertyId, TheoremId, Formula)
-import qualified Core
-
-type Query = QueryDocument VariableValue
+import Types (SpaceId, PropertyId, TheoremId, Formula, CitationType)
 
 -- Define newtypes so we can manage the FromJSON instances
-newtype Operation = Operation { unOp :: Maybe Name }
-  deriving (Eq, Ord, Show, Generic)
-newtype Variables = Variables { unVar :: VariableValues }
-  deriving (Eq, Show, Generic)
-
-data QueryData = QueryData
-  { operation :: Operation
-  , query     :: Text
-  , variables :: Variables
-  } deriving Show
-
 -- Graph Types
 
 type Space = Object "Space" '[]
   '[ Field "uid"             Text
-   , Field "slug"            Text
    , Field "name"            Text
    , Field "aliases"         (List Text)
    , Field "references"      (List Citation)
@@ -46,7 +27,6 @@ type Space = Object "Space" '[]
 
 type Property = Object "Property" '[]
   '[ Field "uid"             Text
-   , Field "slug"            Text
    , Field "name"            Text
    , Field "aliases"         (List Text)
    , Field "references"      (List Citation)
@@ -153,7 +133,7 @@ type Root m = SchemaRoot m QueryRoot MutationRoot
 
 data CitationInput = CitationInput
   { name         :: Text
-  , citationType :: Core.CitationType
+  , citationType :: CitationType
   , ref          :: Text
   } deriving (Show, Generic)
 

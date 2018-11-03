@@ -1,28 +1,24 @@
 module Util
-  ( discardLeftC
-  , dupes
-  , encodeText
+  ( encodeText
   , fetch
-  , flatMapM
+  , findOrCreate
   , groupBy
   , indexBy
   , insertNested
-  , mapRightC
-  , memoized
-  , throwLeft
+  , repsertBy
   , traverseDir
-  , unionN
   ) where
 
-import ClassyPrelude hiding (groupBy)
+import Core hiding (replace)
 
-import           Conduit                  hiding (throwM)
 import           Data.Aeson               (ToJSON, encode)
+import qualified Data.ByteString.Lazy     as LBS
 import qualified Data.Map                 as M
-import qualified Data.Set                 as S
-import qualified Data.Text.Lazy           as TL
+import           Database.Persist
+import           Database.Persist.Sql
 import           System.Directory         (listDirectory)
 import           System.Posix.Files       (getFileStatus, isDirectory)
+import           System.FilePath.Posix    ((</>))
 
 groupBy :: Ord b => (a -> b) -> [a] -> M.Map b [a]
 groupBy f = foldl' add M.empty
@@ -36,21 +32,6 @@ groupBy f = foldl' add M.empty
 indexBy :: Ord b => (a -> b) -> [a] -> M.Map b a
 indexBy f as = M.fromList $ map (\a -> (f a, a)) as
 
-dupes :: Ord a => [a] -> [a]
-dupes = S.toList . snd . foldl' step (S.empty, S.empty)
-  where
-    step :: Ord a => (S.Set a, S.Set a) -> a -> (S.Set a, S.Set a)
-    step (seen, dup) a = if S.member a seen
-      then (seen, S.insert a dup)
-      else (S.insert a seen, dup)
-
-unionN :: Ord a => [S.Set a] -> S.Set a
-unionN = foldl' S.union S.empty
-
-flatMapM :: (Monoid (Element (t b)), MonoFoldable (t b), Traversable t, Monad m)
-         => (a -> m b) -> t a -> m (Element (t b))
-flatMapM f m = mapM f m >>= return . concat
-
 data KeyError k = KeyError k deriving (Typeable, Show)
 
 instance (Show k, Typeable k) => Exception (KeyError k)
@@ -61,18 +42,12 @@ fetch k m = case M.lookup k m of
   Nothing -> throwIO $ KeyError k
 
 encodeText :: ToJSON a => a -> Text
-encodeText = TL.toStrict . decodeUtf8 . encode
+encodeText = decodeUtf8 . LBS.toStrict . encode
 
 insertNested :: (Ord a, Ord b) => a -> b -> v -> Map a (Map b v) -> Map a (Map b v)
 insertNested a b v = M.alter add a
   where
-    add = Just . M.insert b v . maybe mempty id
-
-mapRightC :: Monad m => (t -> Either a b) -> ConduitM (Either a t) (Either a b) m ()
-mapRightC f = awaitForever $ \ev -> yield $ ev >>= f
-
-discardLeftC :: Monad m => ConduitM (Either a b) b m ()
-discardLeftC = awaitForever $ either (const $ return ()) yield
+    add = Just . M.insert b v . maybe mempty identity
 
 traverseDir :: (a -> FilePath -> IO a) -> FilePath -> a -> IO a
 traverseDir f top = go [top]
@@ -86,14 +61,33 @@ traverseDir f top = go [top]
         else f acc path >>= go rest
     go [] acc = return acc
 
-memoized :: IORef (Maybe a) -> IO a -> IO a
-memoized ref action = readIORef ref >>= \case
-  Just val -> return val
-  Nothing -> do
-    val <- action
-    writeIORef ref $ Just val
-    return val
+findOrCreate :: ( DB m
+                , PersistEntity record
+                , PersistEntityBackend record ~ SqlBackend
+                )
+             => (record -> Unique record)
+             -> record
+             -> m (Entity record)
+findOrCreate by obj = do
+  mfound <- db . getBy $ by obj
+  case mfound of
+    Just entity -> return entity
+    Nothing -> do
+      _id <- db $ insert obj
+      return $ Entity _id obj
 
-throwLeft :: (MonadIO m, Exception e) => Either e a -> m a
-throwLeft (Left  e) = throwIO e
-throwLeft (Right a) = return a 
+repsertBy :: ( DB m
+             , PersistEntity record
+             , PersistEntityBackend record ~ SqlBackend
+             )
+          => (record -> Unique record)
+          -> record
+          -> m (Entity record)
+repsertBy by obj = do
+  mfound <- db $ getBy $ by obj
+  key <- case mfound of
+    Just (Entity key _) -> do
+      db $ replace key obj
+      return key
+    _ -> db $ insert obj
+  return $ Entity key obj

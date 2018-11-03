@@ -1,90 +1,81 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 module Data.Store
-  ( Store
+  ( module Store
+  , build
   , currentLoader
   , fetchBranch
   , fetchBranches
-  , getStoreBaseVersion
-  , initializeStore
+  , getBaseVersion
+  , getDefaultBranch
   , loaderAt
   , pushBranch
-  , storeAutoSync
-  , storeBaseBranch
-  , storeLoader
-  , storeLocked
-  , storeRepo
   ) where
 
-import Import.NoFoundation hiding (head, newMVar, readMVar, modifyMVar)
+import Core hiding (head, newMVar, readMVar, modifyMVar)
 
-import           Class               (MonadStore(..))
+import           Control.Lens        (view)
 import           Control.Monad.Catch (MonadMask)
 import           Data.Git            as Git
 import qualified Data.Text           as T
+import           Data.Store.Types    as Store
 import           Data.Loader         as Loader
 import           Git
 import           Git.Libgit2         (openLgRepository, runLgRepository)
-import           Types
-import           Types.Store
 import           Shelly
 import           System.Directory    (doesDirectoryExist)
 import           UnliftIO
 
 default (T.Text)
 
-initializeStore :: (MonadIO m, MonadUnliftIO m, MonadMask m, MonadLogger m)
-                => RepoSettings -> m Store
-initializeStore RepoSettings{..} = do
-  lgRepo <- do
-    $(logInfo) $ "Initializing repository at " ++ tshow rsPath
-    let repoPath = fromText $ T.pack rsPath
-    exists <- liftIO $ doesDirectoryExist rsPath
-    unless exists $ 
+build :: (MonadIO m, MonadUnliftIO m, MonadMask m, MonadLogger m)
+      => Store.Settings -> m (Either Text Store)
+build settings@Store.Settings{..} = do
+  _storeRepo <- do
+    $(logInfo) $ "Initializing repository at " <> T.pack _repoPath
+    exists <- liftIO $ doesDirectoryExist _repoPath
+    unless exists $
       shell "Initializing repository" $
-        void $ git "clone" "--mirror" rsUpstream repoPath
+        void $ git "clone" "--mirror" _upstream $ fromText $ T.pack _repoPath
     liftIO $ openLgRepository $ RepositoryOptions
-      { repoPath       = rsPath
+      { repoPath       = _repoPath
       , repoWorkingDir = Nothing
       , repoIsBare     = True
       , repoAutoCreate = False
       }
 
-  (Just commit) <- runLgRepository lgRepo $ 
-    resolveCommittish $ CommitRef $ Ref rsDefaultBranch
-  loader <- mkLoader commit >>= newMVar
+  mcommit <- runLgRepository _storeRepo $
+    resolveCommittish $ CommitRef $ Ref $ settings ^. defaultBranch
+  case mcommit of
+    Just commit -> do
+      loader <- mkLoader commit >>= newMVar
+      mutex <- newMVar ()
+      return $ Right $ Store
+        { _storeSettings  = settings
+        , _storeRepo      = _storeRepo
+        , _storeLoader    = loader
+        , _storeWriteLock = mutex
+        }
+    Nothing -> return $ Left $ "failed to find default branch " <> settings ^. defaultBranch
 
-  mutex <- newMVar ()
-
-  return Store 
-    { storeRepo       = lgRepo
-    , storeLoader     = loader
-    , storeRepoPath   = rsPath
-    , storeBaseBranch = rsDefaultBranch
-    , storeAutoSync   = rsAutoPush
-    , storeUpstream   = rsUpstream
-    , storeWriteLock  = mutex
-    }
-
-fetchBranches :: (MonadStore m, MonadLogger m) => m ()
-fetchBranches = repo "Fetching updates for repo" $ do
+fetchBranches :: (Git m, MonadLogger m) => m ()
+fetchBranches = exec "Fetching updates for repo" $ do
   git "fetch"
 
-pushBranch :: (MonadStore m, MonadLogger m) => Branch -> m ()
-pushBranch Branch{..} = repo ("Pushing " <> branchName) $ do
+pushBranch :: (Git m, MonadLogger m) => Branch -> m ()
+pushBranch Branch{..} = exec ("Pushing " <> branchName) $ do
   git "push" "origin" -- branchName -- we assume this is a --mirror just push everything
 
-fetchBranch :: (MonadStore m, MonadLogger m) => Branch -> m ()
-fetchBranch Branch{..} =  repo ("Fetching " <> branchName) $ do
+fetchBranch :: (Git m, MonadLogger m) => Branch -> m ()
+fetchBranch Branch{..} =  exec ("Fetching " <> branchName) $ do
   git "fetch" "origin" branchName
 
-repo :: (MonadLogger m, MonadStore m) => Text -> Sh a -> m ()
-repo msg handler = do
-  repoPath <- storeRepoPath <$> getStore
+exec :: (MonadLogger m, Git m) => Text -> Sh a -> m ()
+exec msg handler = do
+  dir <- view (storeSettings . Store.repoPath) <$> getStore
   shell msg $ do
-    cd $ fromText $ T.pack repoPath
+    cd $ fromText $ T.pack $ dir
     handler
 
 shell :: (MonadLogger m, MonadIO m) => Text -> Sh a -> m ()
@@ -93,28 +84,29 @@ shell _ = void . shelly . silently
 git :: ShellCmd result => Shelly.FilePath -> result
 git = cmd "git"
 
-getStoreBaseVersion :: MonadStore m => m Version
-getStoreBaseVersion = do
-  store  <- getStore
-  loader <- readMVar $ storeLoader store
-  return $ Loader.version loader
+getBaseVersion :: Git m => m Version
+getBaseVersion = do
+  load <- readMVar =<< view storeLoader <$> getStore
+  return $ Loader.version load
 
-loaderAt :: MonadStore m => Text -> m Loader
+getDefaultBranch :: Git m => m BranchName
+getDefaultBranch = view (storeSettings . defaultBranch) <$> getStore
+
+loaderAt :: Git m => Text -> m Loader
 loaderAt label = do
-  commit    <- Git.commitFromLabel $ Just label
-  loaderVar <- storeLoader <$> getStore
-  loader    <- readMVar loaderVar
-  if (commitSha commit) == (commitSha $ Loader.commit loader)
-    then return loader
+  commit <- Git.commitFromLabel $ Just label
+  load   <- readMVar =<< view storeLoader <$> getStore
+  if (commitSha commit) == (commitSha $ Loader.commit load)
+    then return load
     else Loader.mkLoader commit
 
-currentLoader :: MonadStore m => m Loader
+currentLoader :: Git m => m Loader
 currentLoader = do
-  loaderVar <- storeLoader <$> getStore
-  modifyMVar loaderVar $ \loader -> do
+  loaderVar <- view storeLoader <$> getStore
+  modifyMVar loaderVar $ \l -> do
     head <- Git.baseCommit
-    if (commitSha head) == (commitSha $ Loader.commit loader)
-      then return (loader, loader)
+    if (commitSha head) == (commitSha $ Loader.commit l)
+      then return (l, l)
       else do
         newLoader <- Loader.mkLoader head
         return (newLoader, newLoader)

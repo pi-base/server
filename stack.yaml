@@ -12,25 +12,18 @@ packages:
     commit: e02923deffd14ad2685bd4d68c4ba9edbb06e250
   extra-dep: true
 - location:
-    git: https://github.com/thoughtbot/yesod-auth-oauth2.git
-    commit: 6f55384a29c52f95bda4a9bb8d0053eef9c2a0a6
-  extra-dep: true
-- location:
     git: https://github.com/bitemyapp/esqueleto.git
     commit: b81e0d951e510ebffca03c5a58658ad884cc6fbd
   extra-dep: true
 - location:
     git: https://github.com/jwiegley/gitlib.git
-    commit: 70c99759b8b9377f67492fe29afb32f05882409d
+    commit: 0463bcedf3ef37d0bf61b432c350ddf5c20089fd
   subdirs:
     - gitlib-libgit2
   extra-dep: true
 
 extra-deps:
 - gitlib-3.1.2
-- hoauth2-1.6.3
-- yesod-auth-1.6.3
-- yesod-auth-oauth-1.6.0
 
 allow-newer: false
 

@@ -1,9 +1,7 @@
 {-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
@@ -15,7 +13,7 @@ module Graph.Class where
 import Protolude
 
 import           Control.Monad               (fail)
-import           Data.Aeson                  ((.:), (.:?), (.!=))
+import           Data.Aeson                  ((.:?), (.!=))
 import qualified Data.Aeson                  as Aeson
 import qualified Data.ByteString.Lazy        as BSL
 import qualified Data.HashMap.Lazy           as HM
@@ -34,6 +32,7 @@ import           GraphQL.Value
 
 import Core
 import Graph.Schema
+import Graph.Types
 
 instance IsString GraphQL.Value.String where
   fromString = GraphQL.Value.String . pack
@@ -47,7 +46,7 @@ instance forall t. (HasAnnotatedInputType t) => HasAnnotatedInputType [t] where
 instance Aeson.FromJSON QueryData where
   parseJSON = Aeson.withObject "QueryData" $ \o -> QueryData
     <$> o .:? "operationName" .!= Operation Nothing
-    <*> o .: "query"
+    <*> o .:? "query" .!= ""
     <*> o .:? "variables" .!= Variables mempty
 
 instance Aeson.FromJSON Name where
@@ -71,6 +70,14 @@ instance FromJSON Variables where
           Right n  -> return $ Variable n
           Left err -> fail $ show err
         return (name, toValue v)
+
+instance ToJSON Variable where
+  toJSON (Variable name) = Aeson.String $ unName name
+
+instance Aeson.ToJSONKey Variable where
+
+instance ToJSON Variables where
+  toJSON = Aeson.toJSON . unVar
 
 instance ToValue Aeson.Value where
   toValue (Aeson.Number number) = case floatingOrInteger number of

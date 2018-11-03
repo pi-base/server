@@ -15,15 +15,12 @@ module Graph.Mutations
   , approveBranch
   ) where
 
-import Protolude hiding (throwIO, to)
+import Graph.Import
 
-import           Import           (GithubSettings)
+import           Control.Lens     (view)
 import           Database.Persist (Entity(..))
-import           GraphQL.Resolver
 
-import           Core
-import           Data              (slugify)
-import           Data.Store        (storeBaseBranch)
+import           Data.Store        (getDefaultBranch)
 import qualified Data.Branch       as Branch
 import qualified Data.Branch.Merge as Branch
 import qualified Data.Git          as Git
@@ -34,11 +31,12 @@ import qualified Data.Theorem      as Theorem
 import qualified Data.Trait        as Trait
 import qualified Graph.Queries     as G
 import qualified Graph.Schema      as G
+import           Graph.Types
 import qualified Services.Github   as Github
 import qualified View              as View
 
-mutations :: MonadGraph m => GithubSettings -> Handler m G.MutationRoot
-mutations settings =
+mutations :: Graph m => Handler m G.MutationRoot
+mutations =
   pure $ createSpace
      :<> createProperty
      :<> updateSpace
@@ -48,10 +46,10 @@ mutations settings =
      :<> assertTrait
      :<> assertTheorem
      :<> resetBranch
-     :<> submitBranch settings
+     :<> submitBranch
      :<> approveBranch
 
-assertTrait :: MonadGraph m => G.PatchInput -> G.AssertTraitInput -> Handler m G.Viewer
+assertTrait :: Graph m => G.PatchInput -> G.AssertTraitInput -> Handler m G.Viewer
 assertTrait patch G.AssertTraitInput{..} = do
   (user, branch) <- checkPatch patch
 
@@ -71,10 +69,9 @@ assertTrait patch G.AssertTraitInput{..} = do
         }
 
       commit = CommitMeta user $ "Add " <> traitName trait
-  view <- Trait.put branch commit trait'
-  G.presentView view
+  Trait.put branch commit trait' >>= G.presentView
 
-assertTheorem :: (MonadGraph m, MonadLogger m)
+assertTheorem :: (Graph m, MonadLogger m)
               => G.PatchInput -> G.AssertTheoremInput -> Handler m G.Viewer
 assertTheorem patch G.AssertTheoremInput{..} = do
   (user, branch) <- checkPatch patch
@@ -91,7 +88,7 @@ assertTheorem patch G.AssertTheoremInput{..} = do
   (t, sha) <- Theorem.put branch meta theorem
   G.presentView $ View.build [] [] [] [t] $ Just $ Version sha
 
-createSpace :: MonadGraph m => G.PatchInput -> G.CreateSpaceInput -> Handler m G.Viewer
+createSpace :: Graph m => G.PatchInput -> G.CreateSpaceInput -> Handler m G.Viewer
 createSpace patch G.CreateSpaceInput{..} = do
   (user, branch) <- checkPatch patch
 
@@ -100,7 +97,6 @@ createSpace patch G.CreateSpaceInput{..} = do
         , spaceName        = name
         , spaceAliases     = []
         , spaceRefs        = citations $ fromMaybe [] references
-        , spaceSlug        = slugify name
         , spaceTopology    = Nothing
         , spaceDescription = fromMaybe "" description
         }
@@ -109,14 +105,13 @@ createSpace patch G.CreateSpaceInput{..} = do
   (s, sha) <- Space.put branch commit space
   G.presentView $ View.build [s] [] [] [] $ Just $ Version sha
 
-createProperty :: MonadGraph m => G.PatchInput -> G.CreatePropertyInput -> Handler m G.Viewer
+createProperty :: Graph m => G.PatchInput -> G.CreatePropertyInput -> Handler m G.Viewer
 createProperty patch G.CreatePropertyInput{..} = do
   (user, branch) <- checkPatch patch
 
   let property = Property
         { propertyId          = Id.pending
         , propertyName        = name
-        , propertySlug        = slugify name
         , propertyAliases     = []
         , propertyRefs        = citations $ fromMaybe [] references
         , propertyDescription = fromMaybe "" description
@@ -125,7 +120,7 @@ createProperty patch G.CreatePropertyInput{..} = do
   (p, sha) <- Property.put branch commit property
   G.presentView $ View.build [] [p] [] [] $ Just $ Version sha
 
-resetBranch :: MonadGraph m => G.ResetBranchInput -> Handler m G.Viewer
+resetBranch :: Graph m => G.ResetBranchInput -> Handler m G.Viewer
 resetBranch G.ResetBranchInput{..} = do
   (_, branch') <- requireBranchAccess branch BranchAdmin
   -- TODO: better handling when `to` is not found
@@ -134,19 +129,20 @@ resetBranch G.ResetBranchInput{..} = do
 
   G.viewer $ Just sha
 
-submitBranch :: MonadGraph m => GithubSettings -> G.BranchInput -> Handler m G.SubmitBranchResponse
-submitBranch settings G.BranchInput{..} = do
+submitBranch :: Graph m => G.BranchInput -> Handler m G.SubmitBranchResponse
+submitBranch G.BranchInput{..} = do
   (_, b) <- requireBranchAccess branch BranchAdmin
 
-  Github.createPullRequest settings b >>= \case
-    Left e -> throwIO $ ValidationMessage e
-    Right url ->
-      return $ pure branch :<> pure url
+  ghs <- view githubSettings <$> getContext
+  result <- Github.openPullRequest ghs b
+  case result of
+    Right url -> return $ pure branch :<> pure url
+    Left e    -> throwIO $ ValidationMessage e
 
-approveBranch :: MonadGraph m => G.BranchInput -> Handler m G.Viewer
+approveBranch :: Graph m => G.BranchInput -> Handler m G.Viewer
 approveBranch G.BranchInput{..} = do
-  base <- storeBaseBranch <$> getStore
-  (user, master) <- requireBranchAccess base BranchAdmin
+  defaultBranch <- getDefaultBranch
+  (user, master) <- requireBranchAccess defaultBranch BranchAdmin
   (_, pr) <- requireBranchAccess branch BranchAdmin
 
   let
@@ -154,12 +150,12 @@ approveBranch G.BranchInput{..} = do
       { from = pr
       , into = master
       }
-    meta = CommitMeta (entityVal user) $ "Merge " <> branch <> " into " <> base
+    meta = CommitMeta (entityVal user) $ "Merge " <> branch <> " into " <> defaultBranch
   sha <- Branch.merge merge meta
 
   G.viewer $ Just sha
 
-updateProperty :: MonadGraph m => G.PatchInput -> G.UpdatePropertyInput -> Handler m G.Viewer
+updateProperty :: Graph m => G.PatchInput -> G.UpdatePropertyInput -> Handler m G.Viewer
 updateProperty patch G.UpdatePropertyInput{..} = do
   (user, branch) <- checkPatch patch
 
@@ -172,7 +168,7 @@ updateProperty patch G.UpdatePropertyInput{..} = do
   (p, sha) <- Property.put branch commit updated
   G.presentView $ View.build [] [p] [] [] $ Just $ Version sha
 
-updateSpace :: MonadGraph m => G.PatchInput -> G.UpdateSpaceInput -> Handler m G.Viewer
+updateSpace :: Graph m => G.PatchInput -> G.UpdateSpaceInput -> Handler m G.Viewer
 updateSpace patch G.UpdateSpaceInput{..} = do
   (user, branch) <- checkPatch patch
 
@@ -188,7 +184,7 @@ updateSpace patch G.UpdateSpaceInput{..} = do
   (s, sha) <- Space.put branch meta updated
   G.presentView $ View.build [s] [] [] [] $ Just $ Version sha
 
-updateTheorem :: (MonadGraph m, MonadLogger m)
+updateTheorem :: (Graph m, MonadLogger m)
               => G.PatchInput -> G.UpdateTheoremInput -> Handler m G.Viewer
 updateTheorem patch G.UpdateTheoremInput{..} = do
   (user, branch) <- checkPatch patch
@@ -202,7 +198,7 @@ updateTheorem patch G.UpdateTheoremInput{..} = do
   (t, sha) <- Theorem.put branch meta (propertyId <$> updated)
   G.presentView $ View.build [] [] [] [t] $ Just $ Version sha
 
-updateTrait :: (MonadGraph m, MonadLogger m)
+updateTrait :: (Graph m, MonadLogger m)
             => G.PatchInput -> G.UpdateTraitInput -> Handler m G.Viewer
 updateTrait patch G.UpdateTraitInput{..} = do
   (user, branch) <- checkPatch patch
@@ -223,7 +219,7 @@ citations :: [G.CitationInput] -> [Citation]
 citations = map (\(G.CitationInput name ct ref) -> Citation name ct ref)
 
 -- TODO: should this return a loader for the branch?
-checkPatch :: MonadGraph m => G.PatchInput -> m (User, Branch)
+checkPatch :: Graph m => G.PatchInput -> m (User, Branch)
 checkPatch G.PatchInput{..} = do
   (user, b) <- requireBranchAccess branch BranchWrite
   currentSha <- Branch.headSha b
@@ -234,7 +230,7 @@ checkPatch G.PatchInput{..} = do
       }
   return $ (entityVal user, b)
 
-requireBranchAccess :: MonadGraph m => BranchName -> BranchAccess -> m (Entity User, Branch)
+requireBranchAccess :: Graph m => BranchName -> BranchAccess -> m (Entity User, Branch)
 requireBranchAccess name minLevel = do
   user   <- requireUser
   branch <- Branch.find name >>= \case

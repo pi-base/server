@@ -1,44 +1,45 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Graph.Root
-  ( handler
-  , asJSON
-  , compiled
-  , interpreted
+  ( opName
+  , run
   ) where
 
 import Graph.Import
-import Graph.Queries       as G (queries)
-import Graph.Mutations     as G (mutations)
 
-import           Data.Aeson          as Aeson
-import qualified Graph.Queries.Cache as Cache
+import qualified Core
+import           Http
+import           Graph.Queries       as G (queries)
+import           Graph.Mutations     as G (mutations)
+import           Graph.Queries.Cache as Cache
 import           Graph.Schema        as G
+import           Graph.Types         (Context(..))
 
-handler :: (MonadGraph m, MonadLogger m) => AppSettings -> SchemaRoot m QueryRoot MutationRoot
-handler settings = 
-  SchemaRoot G.queries (G.mutations $ appGithub settings)
+handler :: Graph m => SchemaRoot m QueryRoot MutationRoot
+handler = SchemaRoot G.queries G.mutations
 
-asJSON :: MonadIO m
-       => (QueryData -> m Response) 
-       -> Aeson.Value 
-       -> m Aeson.Value
-asJSON executor request = case fromJSON request of
-  Aeson.Error  err -> throwIO $ QuerySerializationError err
-  Aeson.Success qd -> executor qd >>= \case
-    (PreExecutionFailure errs) -> throwIO $ ExecutionErrors errs
-    (ExecutionFailure    errs) -> throwIO $ ExecutionErrors errs
-    (PartialSuccess _    errs) -> throwIO $ ExecutionErrors errs
-    r -> return $ Aeson.toJSON r
+interpreted :: forall m. Graph m => QueryData -> m Response
+interpreted QueryData{..} =
+  interpretRequest @(G.Root m) handler query (unOp operation) (unVar variables)
 
-interpreted :: forall m. (MonadGraph m, MonadLogger m) 
-            => AppSettings -> QueryData -> m Response
-interpreted settings QueryData{..} = interpretRequest @(G.Root m) (handler settings) query (unOp operation) (unVar variables)
-
-compiled :: forall m. (MonadGraph m, MonadLogger m) 
-         => AppSettings -> Cache.Cache -> QueryData -> m Response
-compiled settings cache QueryData{..} = case unOp operation of
+compiled :: forall m. Graph m => QueryCache -> QueryData -> m Response
+compiled cache QueryData{..} = case unOp operation of
   Nothing -> throwIO QueryNameRequired
-  Just name -> case Cache.query cache name of
+  Just name -> case Cache.fetch cache name of
     Nothing -> throwIO $ QueryNotFound name
-    Just q  -> executeRequest @(G.Root m) (handler settings) q (Just name) (unVar variables)
+    Just q  -> executeRequest @(G.Root m) handler q (Just name) (unVar variables)
+
+run :: (DB m, HasEnv m, Git m, Http m, MonadLogger m)
+    => Env
+    -> Maybe (Entity Core.User)
+    -> QueryData
+    -> m Response
+run env user req = do
+  let context = Context user (env ^. envSettings . Core.githubSettings)
+      exec = case env ^. envFoundation . appQueries of
+        Just cache -> compiled cache
+        Nothing    -> interpreted
+  runReaderT (exec req) context
+
+opName :: Operation -> Maybe Text
+opName op = show <$> unOp op

@@ -3,7 +3,6 @@ module Page
   , Page.parse
   , updateMetadata
   , write
-  , withFrontmatter
   ) where
 
 import Protolude
@@ -18,14 +17,6 @@ import qualified Data.Text               as T
 import qualified Data.Yaml               as Y
 
 import Core
-
-withFrontmatter :: (Y.Object -> Y.Parser a)
-                -> (TreeFilePath, Text)
-                -> Either ParseError a
-withFrontmatter parser (path, content) = mapLeft (ParseError path . T.pack) $ do
-  frontmatter <- flip parseOnly content $ "---\n" *> manyTill anyChar "---\n"
-  metadata    <- Y.decodeEither $ encodeUtf8 $ T.pack frontmatter
-  Y.parseEither parser metadata
 
 parse :: Page a -> (TreeFilePath, Text) -> Either ParseError a
 parse (Page p) (path, content) =

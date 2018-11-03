@@ -3,9 +3,8 @@ module Data.Trait
   , put
   ) where
 
-import Protolude hiding (find, put)
+import Core hiding (find, put)
 
-import           Core
 import           Data  (required, updateView)
 import qualified Data.Branch as Branch
 import qualified Data.Parse as Parse
@@ -14,10 +13,10 @@ import qualified Data.Space
 import qualified Data.Loader as Load
 import qualified View
 
-find :: MonadStore m 
-     => Branch 
-     -> SpaceId 
-     -> PropertyId 
+find :: Git m
+     => Branch
+     -> SpaceId
+     -> PropertyId
      -> m (Maybe (Trait Space Property))
 find branch sid pid = do
   tree     <- Branch.tree branch
@@ -31,7 +30,7 @@ find branch sid pid = do
     <*> Just (_traitRefs parsed)
     <*> Just (_traitDescription parsed)
 
-fetch :: MonadStore m
+fetch :: Git m
       => Branch
       -> SpaceId
       -> PropertyId
@@ -39,7 +38,7 @@ fetch :: MonadStore m
 fetch branch sid pid =
   Data.Trait.find branch sid pid >>= Data.required "Trait" (show (sid, pid))
 
-put :: (MonadStore m, MonadLogger m)
+put :: (Git m, MonadLogger m)
     => Branch
     -> CommitMeta
     -> Trait SpaceId PropertyId

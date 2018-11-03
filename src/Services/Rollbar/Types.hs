@@ -1,18 +1,17 @@
-module Services.Rollbar.Types
-  ( Level(..)
-  , Settings(..)
-  ) where
+{-# LANGUAGE TemplateHaskell #-}
+module Services.Rollbar.Types where
 
-import Prelude
-import Data.Text (Text)
+import Protolude
 
-data Level = Debug | Info | Warning | Error | Critical
-  deriving (Ord, Eq, Show)
+import Control.Lens (makeLenses)
+import Data.Aeson   (ToJSON)
 
 data Settings = Settings
-  { token       :: Maybe Text
-  , environment :: Text
-  , hostname    :: Text
-  , active      :: Bool
-  , build       :: Text
-  }
+  { _token       :: Maybe Text
+  , _environment :: Text
+  , _build       :: Text
+  } deriving (Show, Eq, Generic)
+
+makeLenses ''Settings
+
+instance ToJSON Settings

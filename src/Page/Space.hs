@@ -16,7 +16,6 @@ page = Page.build write parse
 parse :: PageData -> Parser Space
 parse PageData{..} = do
   spaceId      <- pageFrontmatter .: "uid"
-  spaceSlug    <- pageFrontmatter .: "slug"
   spaceName    <- pageFrontmatter .: "name"
   spaceAliases <- pageFrontmatter .:? "aliases" .!= []
   spaceRefs    <- pageFrontmatter .:? "refs" .!= []
@@ -29,7 +28,6 @@ write Space{..} = PageData
   { pagePath = encodeUtf8 $ "spaces/" <> unId spaceId <> "/README.md"
   , pageFrontmatter = HM.fromList
     [ "uid"  .= spaceId
-    , "slug" .= spaceSlug
     , "name" .= spaceName
     , "refs" .= spaceRefs
     ]

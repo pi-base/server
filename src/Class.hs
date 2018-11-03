@@ -1,57 +1,74 @@
-{-# LANGUAGE AllowAmbiguousTypes, DeriveGeneric, StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Class where
 
 import Protolude
 
-import Control.Monad.Catch    (MonadMask)
-import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Logger   (MonadLogger(..))
-import Database.Persist.Sql   (Entity, SqlBackend)
-import Git                    (MonadGit, TreeT)
-import Git.Libgit2            (LgRepo)
-import UnliftIO               (MonadUnliftIO)
+import           Control.Monad.Catch    (MonadThrow, MonadCatch, MonadMask)
+import           Control.Monad.IO.Class (MonadIO)
+import           Control.Monad.Logger   (MonadLogger(..))
+import           Control.Monad.Trans    (MonadTrans(..))
+import           Control.Lens           (view)
+import           Data.Aeson             (ToJSON(..), FromJSON(..), object, withObject, (.=), (.:))
+import           Database.Persist.Sql   (Entity, SqlBackend)
+import           Git                    (TreeT)
+import           Git.Libgit2            (HasLgRepo(..))
+import           UnliftIO               (MonadUnliftIO)
 
-import Data.Aeson (ToJSON(..), FromJSON(..), object, withObject, (.=), (.:))
-import qualified Data.Map.Strict as SM
+import           Data.Store.Types (Store(..))
+import           Formula          ()
+import qualified Graph.Types      as Graph
+import           Http
+import           Model
+import           Settings
+import           Types
 
-import Formula     ()
-import Model
-import Settings     (AppSettings(..), CISettings(..))
-import Types
-import Types.Store
+-- TODO: why does
+--   instance Data m => HasLgRepo m
+-- lead to overlapping instances?
+type Git m = (Data m, HasLgRepo m)
+type MonadExcept m = (MonadThrow m, MonadCatch m, MonadMask m)
 
-class MonadIO m => MonadDB m where
-  db :: ReaderT SqlBackend m a -> m a
+class DB m => Auth m where
+  currentUser :: m (Maybe (Entity User))
 
-class (MonadIO m, MonadUnliftIO m, MonadMask m, MonadGit LgRepo m) => MonadStore m where
+class (MonadExcept m, MonadUnliftIO m) => Data m where
   getStore :: m Store
 
-class (MonadStore m, MonadDB m, MonadLogger m) => MonadGraph m where
-  getSettings :: m AppSettings
-  requireUser :: m (Entity User)
+class MonadIO m => DB m where
+  db :: ReaderT SqlBackend m a -> m a
+
+class Monad m => HasEnv m where
+  getEnv :: m Env
+
+class (Auth m, Git m, Http m, MonadLogger m) => Graph m where
+  getContext :: m Graph.Context
+
+instance DB m => Auth (ReaderT Graph.Context m) where
+  currentUser = view Graph.currentUser
+
+instance Data m => Data (ReaderT a m) where
+  getStore = lift getStore
+
+instance DB m => DB (ReaderT a m) where
+  db sql = lift (db ask) >>= runReaderT sql
+
+instance (Monad m, HasLgRepo m) => HasLgRepo (ReaderT Graph.Context m) where
+  getRepository = lift getRepository
+
+instance Http m => Http (ReaderT Graph.Context m) where
+  get opts path = lift $ Http.get opts path
+  post opts path body = lift $ Http.post opts path body
+
+instance (DB m, Git m, Http m, MonadLogger m) => Graph (ReaderT Graph.Context m) where
+  getContext = ask
 
 instance MonadLogger m => MonadLogger (TreeT r m) where
   monadLoggerLog a b c d = lift $ monadLoggerLog a b c d
 
-{-
-instance Show (Id a) where
-  show = T.unpack . unId
-instance Show Space where
-  show Space{..} = T.unpack $ "<" <> unId spaceId <> "|" <> spaceName <> ">"
-instance Show Property where
-  show Property{..} = T.unpack $ "<" <> unId propertyId <> "|" <> propertyName <> ">"
-instance Show p => Show (Implication p) where
-  show (Implication a c) = show a ++ " => " ++ show c
-instance Show p => Show (Theorem p) where
-  show Theorem{..} = "<" ++ show theoremId ++ "|" ++ show theoremImplication ++ ">"
-instance Show Version where
-  show = show . unVersion
--}
-
 deriving instance (Eq s, Eq p) => Eq (Trait s p)
 deriving instance Generic CitationType
 
+instance Exception NotAuthenticated
 instance Exception ConflictError
 instance Exception ForcedError
 instance Exception GraphError
@@ -61,18 +78,6 @@ instance Exception NotFoundError
 instance Exception ParseError
 instance Exception PermissionError
 instance Exception ValidationError
-
-instance Monoid View where
-  mappend a b = View
-    { _viewProperties = mappend (_viewProperties a) (_viewProperties b)
-    , _viewSpaces     = mappend (_viewSpaces a)     (_viewSpaces b)
-    , _viewTheorems   = mappend (_viewTheorems a)   (_viewTheorems b)
-    , _viewProofs     = mappend (_viewProofs a)     (_viewProofs b)
-    , _viewTraits     = SM.unionWith mappend (_viewTraits a) (_viewTraits b)
-    , _viewVersion    = Nothing
-    }
-
-  mempty = View mempty mempty mempty mempty mempty Nothing
 
 instance ToJSON Citation where
   toJSON Citation{..} =
@@ -93,6 +98,3 @@ instance FromJSON Citation where
       getRef c text type' = do
         citationRef <- c .: text
         return $ (type', citationRef)
-
-instance ToJSON CISettings where
-  toJSON CISettings{..} = object [ "number" .= ciBuild, "sha" .= ciSha ]

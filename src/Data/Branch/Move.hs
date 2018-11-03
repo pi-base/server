@@ -10,8 +10,7 @@ module Data.Branch.Move
   , theorems
   ) where
 
-import Import hiding (notFound)
-import Core
+import Core hiding (notFound)
 
 import           Data.Git    as Git
 import qualified Data.Id     as Id
@@ -28,7 +27,7 @@ import qualified Page.Trait
 
 default (T.Text)
 
-moveIds :: BranchName -> CommitMeta -> Map Uid Uid -> Handler ()
+moveIds :: (MonadLogger m, Git m) => BranchName -> CommitMeta -> Map Uid Uid -> m ()
 moveIds branch meta mapping = do
   $(logDebug) $ T.intercalate ""
     [ "Moving files on "
@@ -42,9 +41,9 @@ moveIds branch meta mapping = do
   (_, sha) <- Git.updateBranch branch meta $ \_ ->
     moveMaps (extract mapping) (extract mapping) (extract mapping)
 
-  $(logInfo) $ "Updated " <> branch <> " to " <> tshow sha
+  $(logInfo) $ "Updated " <> branch <> " to " <> show sha
 
-moveMaps :: (MonadStore m, MonadLogger m)
+moveMaps :: (Git m, MonadLogger m)
          => Map SpaceId    SpaceId
          -> Map PropertyId PropertyId
          -> Map TheoremId  TheoremId
@@ -70,23 +69,23 @@ moveMaps ss ps ts = do
     debug :: (MonadLogger m, Show k, Show v) => Text -> Map k v -> m ()
     debug label m = unless (M.null m) $
       $(logDebug) $ label <> ": " <>
-        T.intercalate "\n" (map (\(k,v) -> tshow k <> " => " <> tshow v) $ M.toList m)
+        T.intercalate "\n" (map (\(k,v) -> show k <> " => " <> show v) $ M.toList m)
 
-properties :: (MonadStore m, MonadLogger m)
+properties :: (Git m, MonadLogger m)
            => Map PropertyId PropertyId
            -> TreeT LgRepo m ()
 properties mapping = forM_ (M.toList mapping) $ \(from, to) -> do
   transform ("properties/" <> unId from <> ".md") Page.Property.page $ \p ->
     p { propertyId = to }
 
-spaces :: (MonadStore m, MonadLogger m)
+spaces :: (Git m, MonadLogger m)
        => Map SpaceId SpaceId
        -> TreeT LgRepo m ()
 spaces mapping = forM_ (M.toList mapping) $ \(from, to) -> do
   transform ("spaces/" <> unId from <> "/README.md") Page.Space.page $ \s ->
     s { spaceId = to }
 
-theorems :: (MonadStore m, MonadLogger m)
+theorems :: (Git m, MonadLogger m)
          => Map TheoremId TheoremId
          -> Map PropertyId PropertyId
          -> TreeT LgRepo m ()
@@ -103,7 +102,7 @@ theorems ts ps = do
         , theoremImplication = fmap (\p -> M.findWithDefault p p ps) $ theoremImplication t
         }
 
-traits :: (MonadStore m, MonadLogger m)
+traits :: (Git m, MonadLogger m)
        => Map SpaceId SpaceId
        -> Map PropertyId PropertyId
        -> TreeT LgRepo m ()
@@ -125,11 +124,11 @@ extract = foldr add M.empty . M.toList
   where
     add :: forall a. Id.Identifiable a
         => (Uid, Uid) -> Map (Id a) (Id a) -> Map (Id a) (Id a)
-    add (k,v) = if (singleton $ Id.prefix @a) `T.isPrefixOf` v
+    add (k,v) = if (T.singleton $ Id.prefix @a) `T.isPrefixOf` v
       then M.insert (Id k) (Id v)
-      else id
+      else identity
 
-transform :: (MonadStore m, MonadLogger m, Eq a)
+transform :: (Git m, MonadLogger m, Eq a)
           => Text -> Page a -> (a -> a) -> TreeT LgRepo m ()
 transform path' page f = do
   let path = encodeUtf8 path'
@@ -140,10 +139,10 @@ transform path' page f = do
       parsed <- either throwIO return $ Page.parse page (path, blob)
       let transformed = f parsed
       unless (transformed == parsed) $ do
-        $(logDebug) $ "Updating refs " <> tshow path
+        $(logDebug) $ "Updating refs " <> show path
         dropEntry path
         writePages [Page.write page transformed]
     -- TODO:
     -- we probably want to raise if we fail to find a path in general,
     --   but some of the trait lookups are likely to fail, so we can't
-    _ -> $(logDebug) $ "Failed to find " <> tshow path
+    _ -> $(logDebug) $ "Failed to find " <> show path

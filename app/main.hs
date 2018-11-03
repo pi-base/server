@@ -1,5 +1,6 @@
-import Prelude     (IO)
-import Application (appMain)
+import Protolude (IO)
+
+import qualified Server (start)
 
 main :: IO ()
-main = appMain
+main = Server.defaultSettings >>= Server.start

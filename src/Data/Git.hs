@@ -23,38 +23,38 @@ import Protolude hiding (withMVar)
 import Core
 import Model (User(..))
 
+import Control.Lens        (view)
+import Data.Loader.Types   (Loader, mkLoader)
+import Data.Store.Types    as Store (defaultBranch, storeSettings, storeWriteLock)
 import Data.Tagged
 import Data.Time.LocalTime (getZonedTime)
 import Git
-import Git.Libgit2  (LgRepo)
-import Types.Loader (Loader, mkLoader)
-import Types.Store  (storeBaseBranch, storeWriteLock)
-import UnliftIO.MVar
+import Git.Libgit2         (LgRepo)
 
 -- TODO: evaluate this
 -- It seems like we're either concerned about multiple processes at once, and so
 -- need a filesystem lock, or we're threadsafe and don't need to lock at all.
-storeLocked :: MonadStore m => m a -> m a
+storeLocked :: Git m => m a -> m a
 storeLocked action = do
-  lock <- storeWriteLock <$> getStore
+  lock <- view storeWriteLock <$> getStore
   withMVar lock $ const action
 
-commitBranch :: MonadStore m 
-             => BranchName 
-             -> TreeOid LgRepo 
-             -> CommitMeta 
-             -> [Commit LgRepo] 
+commitBranch :: Git m
+             => BranchName
+             -> TreeOid LgRepo
+             -> CommitMeta
+             -> [Commit LgRepo]
              -> m Sha
 commitBranch branch tree meta parents = do
   let ref = Ref branch
   (author, committer, message) <- commitSignatures meta
-  commit <- createCommit 
+  commit <- createCommit
     (map commitOid parents)
-    tree author committer message 
+    tree author committer message
     (Just $ refHead ref)
   return $ commitSha commit
 
-updateBranch :: MonadStore m
+updateBranch :: Git m
              => BranchName
              -> CommitMeta
              -> (Loader -> TreeT LgRepo m a)
@@ -68,19 +68,19 @@ updateBranch branch meta handler = storeLocked $ do
   sha <- commitBranch branch newTree meta [parent]
   return (result, sha)
 
-fetchRefHead :: MonadStore m => Ref -> m (Commit LgRepo)
+fetchRefHead :: Git m => Ref -> m (Commit LgRepo)
 fetchRefHead ref = resolveReference (refHead ref) >>= \case
-  Nothing    -> notFound "Ref" ref
+  Nothing    -> notFound "Ref" $ show ref
   Just found -> lookupCommit $ Tagged found
 
 commitSha :: Commit LgRepo -> Sha
 commitSha cmt = case commitOid cmt of
   (Tagged oid) -> show oid
 
-getDir :: MonadGit r m => Tree r -> [TreeFilePath] -> m (Maybe (Tree r))
+getDir :: Git m => Tree LgRepo -> [TreeFilePath] -> m (Maybe (Tree LgRepo))
 getDir = foldM cd . Just
   where
-    cd :: MonadGit r m => Maybe (Tree r) -> TreeFilePath -> m (Maybe (Tree r))
+    cd :: Git m => Maybe (Tree LgRepo) -> TreeFilePath -> m (Maybe (Tree LgRepo))
     cd mtree path = case mtree of
       Just tree -> treeEntry tree path >>= \case
         Just (TreeEntry _id) -> Just <$> lookupTree _id
@@ -90,17 +90,17 @@ getDir = foldM cd . Just
 branchRef :: Branch -> Ref
 branchRef = Ref . branchName
 
-branchExists :: MonadStore m => Branch -> m Bool
+branchExists :: Git m => Branch -> m Bool
 branchExists branch = do
   existing <- resolveReference $ refHead $ branchRef branch
   return $ isJust existing
 
-createBranchFromBase :: MonadStore m => Branch -> Ref -> m ()
+createBranchFromBase :: Git m => Branch -> Ref -> m ()
 createBranchFromBase new base = lookupReference (refHead base) >>= \case
-  Nothing -> notFound "Branch" base
+  Nothing -> notFound "Branch" $ show base
   Just b  -> createReference (refHead $ branchRef new) b
 
-commitFromLabel :: MonadStore m => Maybe Text -> m (Commit LgRepo)
+commitFromLabel :: Git m => Maybe Text -> m (Commit LgRepo)
 commitFromLabel Nothing = baseCommit
 commitFromLabel (Just label) = do
   mref <- resolveCommittish $ CommitRef $ Ref label
@@ -110,15 +110,15 @@ commitFromLabel (Just label) = do
       msha <- resolveCommittish $ CommitSha label
       maybe baseCommit return msha
 
-baseCommit :: MonadStore m => m (Commit LgRepo)
+baseCommit :: Git m => m (Commit LgRepo)
 baseCommit = do
-  base <- CommitRef . Ref . storeBaseBranch <$> getStore
-  (Just moid) <- lookupCommittish base
+  branch <- view (storeSettings . defaultBranch) <$> getStore
+  Just moid <- lookupCommittish . CommitRef . Ref $ branch
   lookupCommit $ Tagged moid
 
-resetBranch :: MonadStore m => Branch -> Committish -> m Sha
+resetBranch :: Git m => Branch -> Committish -> m Sha
 resetBranch branch commish = lookupCommittish commish >>= \case
-  Nothing -> notFound "committish" commish
+  Nothing -> notFound "committish" $ show commish
   Just r -> do
     updateReference (refHead $ branchRef branch) (RefObj r)
     return $ renderOid r
@@ -140,15 +140,15 @@ commitSignatures CommitMeta{..} = do
       }
   return (author, committer, commitMessage)
 
-writePages :: MonadGit r m => [(TreeFilePath, Text)] -> TreeT r m ()
+writePages :: Git m => [(TreeFilePath, Text)] -> TreeT LgRepo m ()
 writePages pages = forM_ pages $ \(path, contents) ->
   (lift $ createBlobUtf8 contents) >>= putBlob path
 
 refHead :: Ref -> Text
 refHead (Ref name) = "refs/heads/" <> name
 
-headSha :: (MonadIO m, MonadGit LgRepo m) => Branch -> m Sha
-headSha Branch{..} = do
+headSha :: Git m => BranchName -> m Sha
+headSha branchName = do
   found <- lookupCommittish $ CommitRef $ Ref branchName
   case found of
     Just oid -> return $ show oid

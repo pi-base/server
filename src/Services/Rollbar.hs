@@ -1,59 +1,71 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Services.Rollbar
   ( HasRollbar(..)
-  , Level(..)
   , Report(..)
-  , Settings(..)
-  , send
+  , Types.Settings(..)
   , report
+  , send
   ) where
 
-import Import.NoFoundation
+import Core
 
-import           Data.Aeson   hiding (Error)
-import qualified Network.Wai  as W
-import           Network.Wreq (post)
+import           Control.Monad.Logger (LogLevel(..))
+import           Data.Aeson           hiding (Error)
+import           Network.Wai
 
-import Services.Rollbar.Types
+import           Http
+import qualified Logger
+import           Services.Rollbar.Types as Types
 
 data Report = Report
   { message :: Text
   , context :: Maybe Text
-  , level   :: Level
-  , request :: Maybe YesodRequest
+  , level   :: LogLevel
+  , request :: Maybe Request
   , user    :: Maybe (Entity User)
   , custom  :: Maybe Object
   }
 
 class MonadIO m => HasRollbar m where
-  rollbar :: Level -> Text -> [(Text, Value)] -> m ()
+  rollbar :: LogLevel -> Text -> [(Text, Value)] -> m ()
 
 report :: Report
 report = Report
   { message = ""
   , context = Nothing
-  , level   = Services.Rollbar.Types.Error
+  , level   = LevelError
   , request = Nothing
   , user    = Nothing
   , custom  = Nothing
   }
 
-send :: (MonadIO m, MonadLogger m) => Settings -> Report -> m ()
-send Settings{..} Report{..} = when active $ case token of
-  Nothing -> return ()
-  Just t -> do
-    $(logInfo) "Sending report to Rollbar"
-    void $ liftIO $ post "https://api.rollbar.com/api/1/item/" $ object $
-      [ "access_token" .= t
+send :: (Http m, MonadUnliftIO m) => Types.Settings -> Logger.Logger -> Report -> m ()
+send settings logger Report{..} = if isJust (settings ^. token)
+  then do
+    Logger.withLogging logger $
+      $(logError) $ "Sending to Rollbar - " <> message
+
+    u <- askUnliftIO
+    void . liftIO . forkIO $
+      unliftIO u $
+      void $ Http.post defaults "https://api.rollbar.com/api/1/item/" body
+  else
+    Logger.withLogging logger $ do
+      $(logError) message
+      $(logDebug) $ pj body
+  where
+    body :: Value
+    body = object
+      [ "access_token" .= (settings ^. token)
       , "data" .= object
         [ "body" .= object
           [ "message" .= object ["body" .= message]
           ]
-        , "environment" .= environment
+        , "environment"  .= (settings ^. environment)
         , "level"        .= reportLevel level
-        , "code_version" .= build
+        , "code_version" .= (settings ^. build)
         , "language"     .= ("haskell" :: Text)
-        , "framework"    .= ("yesod" :: Text)
+        , "framework"    .= ("haskell" :: Text)
         , "context"      .= context
         , "request"      .= fmap reportRequest request
         , "user"         .= fmap reportUser user
@@ -65,21 +77,19 @@ send Settings{..} Report{..} = when active $ case token of
         ]
       ]
 
-reportLevel :: Level -> Text
-reportLevel Critical = "critical"
-reportLevel Error    = "error"
-reportLevel Warning  = "warning"
-reportLevel Info     = "info"
-reportLevel Debug    = "debug"
+reportLevel :: LogLevel -> Text
+reportLevel  LevelError    = "error"
+reportLevel  LevelWarn     = "warning"
+reportLevel  LevelInfo     = "info"
+reportLevel  LevelDebug    = "debug"
+reportLevel (LevelOther x) = x
 
-reportRequest :: YesodRequest -> Value
-reportRequest y = object
-  [ "url"     .= decodeUtf8 (W.rawPathInfo w :: ByteString)
-  , "method"  .= decodeUtf8 (W.requestMethod w :: ByteString)
-  -- TODO: headers and GET / POST params where possible
+reportRequest :: Request -> Value
+reportRequest req = object
+  [ "url"     .= decodeUtf8 (rawPathInfo req)
+  , "method"  .= decodeUtf8 (requestMethod req)
+  -- TODO: fetch request body?
   ]
-  where 
-    w = reqWaiRequest y
 
 reportUser :: Entity User -> Value
 reportUser (Entity _id User{..}) = object

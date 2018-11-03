@@ -8,7 +8,11 @@ copyright:   2018 James Dabbs
 license:     MIT
 github:      pi-base/server
 default-extensions:
-  - CPP
+  - ConstraintKinds
+  - DeriveFoldable
+  - DeriveFunctor
+  - DeriveGeneric
+  - DeriveTraversable
   - ExplicitForAll
   - FlexibleContexts
   - FlexibleInstances
@@ -16,86 +20,62 @@ default-extensions:
   - LambdaCase
   - NoImplicitPrelude
   - OverloadedStrings
+  - RankNTypes
   - RecordWildCards
+  - StandaloneDeriving
   - TypeFamilies
 dependencies:
+  - aeson
+  - bytestring
   - containers
+  - exceptions
+  - gitlib
+  - gitlib-libgit2
+  - lens
+  - lens-aeson
+  - monad-logger
+  - persistent
+  - persistent-postgresql
   - protolude
   - text
+  - time
+  - transformers
+  - unliftio
+  - wai
 library:
   source-dirs:
     - src
-    - app
   dependencies:
     - base
-    - aeson
-    - aeson-pretty
-    - ansi-terminal
     - attoparsec
-    - bytestring
-    - case-insensitive
-    - classy-prelude
-    - classy-prelude-conduit
-    - classy-prelude-yesod
+    - aeson-pretty
     - conduit
-    - conduit-combinators
-    - conduit-extra
-    - cryptohash
-    - data-default
+    - deepseq
     - directory
     - either
     - esqueleto
-    - exceptions
     - fast-logger
-    - file-embed
     - filepath
-    - foreign-store
-    - github
-    - github-types
-    - github-webhook-handler
-    - gitlib
-    - gitlib-libgit2
     - gitrev
     - graphql-api
-    - hjsmin
-    - http-conduit
     - http-types
-    - lens
-    - lens-aeson
-    - lifted-base
-    - load-env
     - monad-control
-    - monad-logger
     - mtl
-    - persistent
-    - persistent-postgresql
     - persistent-template
-    - safe
     - scientific
-    - shakespeare
+    - servant-server
     - shelly
     - tagged
     - template-haskell
-    - time
-    - transformers
     - unix
-    - unliftio
     - unordered-containers
     - uuid
+    - vault
     - vector
-    - wai
     - wai-cors
-    - wai-extra
-    - wai-logger
     - warp
     - wreq
     - yaml
-    - yesod
-    - yesod-auth
-    - yesod-auth-oauth2
-    - yesod-core
-    - yesod-form
-    - yesod-static
   when:
   - condition: (flag(dev)) || (flag(library-only))
     then:
@@ -112,7 +92,8 @@ library:
 executables:
   pibase:
     main: cli.hs
-    source-dirs: app
+    source-dirs:
+    - app
     ghc-options:
     - -threaded
     - -rtsopts
@@ -121,11 +102,7 @@ executables:
     dependencies:
     - base
     - pi-base-server
-    - foreign-store
-    - warp
-    - directory
-    - fast-logger
-    - filepath
+    - load-env
     - optparse-applicative
     - shelly
     when:
@@ -136,47 +113,27 @@ tests:
     main: Spec.hs
     source-dirs: test
     ghc-options:
-      - -Wall
+    - -Wall
+    default-extensions:
+    - QuasiQuotes
     dependencies:
     - base
     - pi-base-server
-    - aeson
-    - aeson-pretty
+    - ansi-terminal
     - aeson-qq
-    - bytestring
-    - classy-prelude
-    - classy-prelude-yesod
-    - containers
-    - conduit
-    - conduit-combinators
-    - exceptions
-    - gitlib
-    - gitlib-libgit2
+    - attoparsec
+    - case-insensitive
+    - fast-logger
     - hspec
     - hspec-core
+    - hspec-wai
     - http-types
-    - HUnit
-    - lens
-    - lens-aeson
-    - monad-logger
-    - persistent
-    - persistent-postgresql
-    - pretty-show
     - QuickCheck
-    - resourcet
-    - shakespeare
     - tasty
     - tasty-hspec
     - template-haskell
-    - transformers
-    - unliftio-core
-    - unliftio
     - unordered-containers
     - wai-extra
-    - yesod
-    - yesod-auth
-    - yesod-core
-    - yesod-test
 flags:
   library-only:
     description: Build for use with "yesod devel"
