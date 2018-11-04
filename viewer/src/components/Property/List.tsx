@@ -11,15 +11,8 @@ import Tex from '../Tex'
 import { by } from '../../utils'
 import { connect } from 'react-redux'
 
-interface Item {
-  uid: string
-  name: string
-  aliases: string[]
-  description: string
-}
-
 interface Props {
-  object: Item
+  object: T.Property
 }
 
 class Property extends React.Component<Props, { expanded: boolean }> {
@@ -61,7 +54,7 @@ const Index = ({ properties }: StateProps) => {
     <div>
       <EditLink to="/properties/new" className="btn btn-default">New</EditLink>
 
-      <List
+      <List<T.Property>
         name="properties"
         objects={properties}
         component={Property}

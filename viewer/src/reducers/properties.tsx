@@ -1,17 +1,21 @@
-import { Action, Id, Property } from '../types'
+import { Action } from '../actions'
+import { Id, Property } from '../types'
 
 export type State = Map<Id, Property>
 
 export const initial = new Map()
 
-export const reducer = (state: State, action: Action): State => {
+export const reducer = (
+  state: State | undefined,
+  action: Action
+): State => {
   state = state || initial
   let next
 
   switch (action.type) {
     case 'LOAD_VIEWER':
       next = new Map(state)
-      action.viewer.viewer.properties.forEach(p => {
+      action.viewer.properties.forEach(p => {
         next.set(p.uid, {
           uid: p.uid,
           name: p.name,

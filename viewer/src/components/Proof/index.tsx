@@ -1,13 +1,13 @@
 import * as React from 'react'
-import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
-
 import * as S from '../../selectors'
-import { Proof, State, Trait } from '../../types'
+
+import { Proof, Trait } from '../../types'
 
 import Implication from '../Implication'
+import { Link } from 'react-router-dom'
 import Markdown from '../Markdown'
 import Tex from '../Tex'
+import { connect } from 'react-redux'
 
 type OwnProps = {
   trait: Trait
@@ -17,7 +17,7 @@ type StateProps = {
 }
 type Props = OwnProps & StateProps
 
-function Proof({ trait, proof }: Props) {
+function ProofDetail({ trait, proof }: Props) {
   if (proof) {
     return (
       <div className="proofExplorer">
@@ -56,8 +56,8 @@ function Proof({ trait, proof }: Props) {
   }
 }
 
-export default connect<StateProps, {}, OwnProps>(
-  (state: State, ownProps: OwnProps): StateProps => ({
+export default connect(
+  (state: any, ownProps: OwnProps): StateProps => ({
     proof: S.proof(state, ownProps.trait.space.uid, ownProps.trait.property.uid)
   })
-)(Proof)
+)(ProofDetail)

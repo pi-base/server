@@ -6,7 +6,7 @@ import { Trait } from '../../types'
 
 type Props = { trait: Trait }
 
-const Trait: React.SFC<Props> = props => {
+const TraitDetail: React.SFC<Props> = props => {
   const { trait } = props
   const { property, value } = trait
 
@@ -22,4 +22,4 @@ const Trait: React.SFC<Props> = props => {
 
 }
 
-export default Trait
+export default TraitDetail

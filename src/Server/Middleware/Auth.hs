@@ -47,7 +47,7 @@ requestToken :: Request -> Maybe AuthToken
 requestToken req =
   case find (\(name, _) -> name == "Authorization") $ requestHeaders req of
     Nothing -> Nothing
-    Just (_, tok) -> decodeUtf8 <$> stripPrefix "bearer " tok
+    Just (_, tok) -> decodeUtf8 <$> stripPrefix "Bearer " tok
 
 stripPrefix :: ByteString -> ByteString -> Maybe ByteString
 stripPrefix pre body = if pre `BS.isPrefixOf` body

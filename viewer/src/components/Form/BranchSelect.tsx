@@ -1,7 +1,7 @@
 import * as A from '../../actions'
 import * as React from 'react'
 
-import { Branch, Dispatch, State, } from '../../types'
+import { Branch, Dispatch } from '../../types'
 
 import { activeBranch } from '../../selectors'
 import { connect } from 'react-redux'
@@ -40,8 +40,8 @@ const BranchSelect = ({ branch, changeBranch }) => {
 type StateProps = { branch: Branch | undefined }
 type DispatchProps = { changeBranch: (name: string) => void }
 
-export default connect<StateProps, DispatchProps, {}, State>(
-  state => ({
+export default connect(
+  (state: any) => ({
     branch: activeBranch(state)
   }),
   (dispatch: Dispatch) => ({

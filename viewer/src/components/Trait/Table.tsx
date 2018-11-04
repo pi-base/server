@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as Table from '../../models/Table'
 
-import { Id, Property, Space, State } from '../../types'
+import { Id, Property, Space } from '../../types'
 
 import Icon from '../Icon'
 import { Link } from 'react-router-dom'
@@ -71,8 +71,8 @@ function TraitTable({ spaces, properties, traits }: Props) {
   )
 }
 
-export default connect<StateProps, {}, OwnProps>(
-  (state: State) => ({
+export default connect(
+  (state: any) => ({
     traits: traitValues(state)
   })
 )(TraitTable)

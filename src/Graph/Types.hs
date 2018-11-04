@@ -47,6 +47,7 @@ instance ToJSON Settings
 data Context = Context
   { _currentUser    :: Maybe (Entity User)
   , _githubSettings :: Github.Settings
+  , _testMode       :: Bool
   } deriving (Show, Generic)
 
 makeLenses ''Context

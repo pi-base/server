@@ -31,7 +31,7 @@ spec run = do
 
         status `shouldBe` 200
 
-        body ^. key "data" . key "me" . key "name" . _String `shouldBe` "test"
+        body ^. key "data" . key "me" . key "name" . _String `shouldBe` userName testUser
 
         let branches = body ^. key "data" . key "me" . key "branches" . _Array
         length branches `shouldSatisfy` (>= 2)

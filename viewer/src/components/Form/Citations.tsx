@@ -1,8 +1,8 @@
+import * as F from 'formik'
 import * as React from 'react'
 
 import { Citation } from '../../types'
 import { CitationType } from '../../types'
-import { Field } from 'redux-form'
 import Icon from '../Icon'
 import { Map } from 'immutable'
 
@@ -12,12 +12,12 @@ const citationTypes: Map<CitationType, string> = Map([
   ['wiki', 'Wikipedia']
 ])
 
-const Citation = ({ name, onRemove }) => {
+const CitationDetail = ({ name, onRemove }) => {
   return (
     <div>
       <div className="form-group row">
         <div className="col-sm-2">
-          <Field
+          <F.Field
             name={`${name}.type`}
             className="form-control"
             component="select"
@@ -26,10 +26,10 @@ const Citation = ({ name, onRemove }) => {
             {citationTypes.map((label, key) => (
               <option key={key} value={key}>{label}</option>
             )).toList()}
-          </Field>
+          </F.Field>
         </div>
         <div className="col-sm-4">
-          <Field
+          <F.Field
             name={`${name}.ref`}
             className="form-control"
             component="input"
@@ -37,7 +37,7 @@ const Citation = ({ name, onRemove }) => {
           />
         </div>
         <div className="col-sm-5">
-          <Field
+          <F.Field
             name={`${name}.name`}
             className="form-control"
             component="input"
@@ -45,7 +45,7 @@ const Citation = ({ name, onRemove }) => {
           />
         </div>
         <div className="col-sm-1">
-          <button className="btn btn-default btn-xs" onClick={onRemove}>
+          <button className="btn btn-default btn-xs" type="button" onClick={onRemove}>
             <Icon type="remove" />
           </button>
         </div>
@@ -54,21 +54,38 @@ const Citation = ({ name, onRemove }) => {
   )
 }
 
-const Citations = (props) => {
-  const { fields } = props
+const Citations = (props: F.FieldProps['field']) => {
+  const { name, value = [] } = props
+
   return (
-    <div className="form-group">
-      <label>
-        Citations
-        {' '}
-        <button type="button" className="btn btn-default btn-xs" onClick={() => fields.push({})}>
-          Add
-        </button>
-      </label>
-      {fields.map((citation, index) => (
-        <Citation key={index} name={citation} onRemove={() => fields.remove(index)} />
-      ))}
-    </div>
+    <F.FieldArray
+      name={name}
+      render={({ push, remove }: F.ArrayHelpers) => {
+        return (
+          <div className="form-group">
+            <label>
+              Citations
+              {' '}
+              <button
+                type="button"
+                className="btn btn-default btn-xs"
+                onClick={() => {
+                  const citation: Citation = { type: 'doi', ref: '', name: '' }
+                  push(citation)
+                }}
+              >
+                Add
+              </button>
+            </label>
+            {
+              value.map((citation, index) => (
+                <CitationDetail key={index} name={`${name}.${index}`} onRemove={() => remove(index)} />
+              ))
+            }
+          </div>
+        )
+      }}
+    />
   )
 }
 

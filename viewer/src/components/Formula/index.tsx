@@ -1,8 +1,8 @@
-import * as React from 'react'
-import { Link } from 'react-router-dom'
-
-import * as T from '../../types'
 import * as F from '../../models/Formula'
+import * as React from 'react'
+import * as T from '../../types'
+
+import { Link } from 'react-router-dom'
 
 export interface Props {
   formula: F.Formula<T.Property>
@@ -10,7 +10,7 @@ export interface Props {
   key?: number
 }
 
-export function Formula({ formula, link }: Props) {
+export const Formula: React.SFC<Props> = ({ formula, link = false }) => {
   switch (formula.kind) {
     case 'atom':
       var label = formula.property.name

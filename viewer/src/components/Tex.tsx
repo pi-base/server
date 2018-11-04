@@ -22,7 +22,7 @@ class Tex extends React.Component<Props, {}> {
 
   render() {
     const { className, children } = this.props
-    const Component = this.props.component || 'div'
+    const Component: any = this.props.component || 'div'
 
     return (
       <Component className={className}>

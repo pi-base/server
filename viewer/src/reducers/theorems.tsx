@@ -1,21 +1,22 @@
-import { Action, Id, Theorem } from '../types'
-
 import * as F from '../models/Formula'
+
+import { Action } from '../actions'
+import { Id, Theorem } from '../types'
 
 export type State = Map<Id, Theorem>
 export const initial = new Map()
 
 export const reducer = (
-  state: Map<Id, Theorem> | undefined,
+  state: State | undefined,
   action: Action
-) => {
+): State => {
   state = state || initial
   let next
 
   switch (action.type) {
     case 'LOAD_VIEWER':
       next = new Map(state)
-      action.viewer.viewer.theorems.forEach(t => {
+      action.viewer.theorems.forEach(t => {
         next.set(t.uid, {
           uid: t.uid,
           if: F.fromJSON(JSON.parse(t.if)),

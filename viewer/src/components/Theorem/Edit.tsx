@@ -1,42 +1,85 @@
 import * as React from 'react'
+import * as F from 'formik'
 
-import { Field, FieldArray } from 'redux-form'
-import { State, Theorem } from '../../types'
-import { checkProofs, updateTheorem } from '../../actions'
+import { Citation, Dispatch, Theorem } from '../../types'
+import { RouteComponentProps } from 'react-router'
+import { updateTheorem } from '../../actions'
 
 import Citations from '../Form/Citations'
-import { Textarea } from '../Form/Labeled'
-import TheoremForm from './Form'
+import { Field } from '../Form'
+import Form from './Form'
 import { connect } from 'react-redux'
 
-interface DispatchProps {
+export type Values = {
+  description: string
+  references: Citation[]
+}
 
+interface DispatchProps {
+  onSubmit: (theorem: Theorem) => any
 }
 interface OwnProps {
   theorem: Theorem
 }
+type Props = OwnProps & DispatchProps
 
 export const Fields = _ => (
   <>
     <Field
       name="description"
       label="Description"
-      component={Textarea}
+      input="textarea"
     />
-    <FieldArray name="references" component={Citations} />
+    <Field
+      name="references"
+      input={Citations}
+    />
   </>
 )
 
-const mapDispatchToProps = (dispatch, ownProps) => ({
-  save: result => {
+const Edit = ({
+  theorem,
+  onSubmit
+}: Props) => {
+  const initialValues = {
+    description: theorem.description,
+    references: theorem.references
+  }
+
+  const validate = (values: Values) => {
+    let errors: F.FormikErrors<Values> = {}
+
+    if (theorem.description && !values.description) {
+      errors.description = 'Description is required'
+    }
+
+    const result: Theorem = { ...theorem, ...values }
+
+    return { result, errors }
+  }
+
+  return (
+    <Form<Values>
+      Fields={Fields}
+      initialValues={initialValues}
+      validate={validate}
+      onSubmit={onSubmit}
+    />
+  )
+}
+
+const mapDispatchToProps = (
+  dispatch: Dispatch,
+  { history }: RouteComponentProps<{}>
+): DispatchProps => ({
+  onSubmit: result => {
     dispatch(updateTheorem(result)).then(theorem => {
-      ownProps.history.push(`/theorems/${theorem.uid}`)
-      dispatch(checkProofs()) // TODO: only for this theorem
+      history.push(`/theorems/${theorem.uid}`)
     })
   }
 })
 
-export default connect<{}, DispatchProps, OwnProps, State>(
+export default connect(
   null,
   mapDispatchToProps
-)(props => <TheoremForm {...props} Fields={Fields} />)
+)(Edit)

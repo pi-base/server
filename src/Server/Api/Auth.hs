@@ -31,7 +31,6 @@ server = githubStart
     :<|> githubCallback
 
 -- TODO: track state as CSRF protection
--- TODO: move into Services.Github
 
 githubStart :: App m => m ()
 githubStart = do

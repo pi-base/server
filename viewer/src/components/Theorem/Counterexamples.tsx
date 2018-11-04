@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as S from '../../selectors'
 
-import { Property, Prover, Space, State, Theorem } from '../../types'
+import { Property, Prover, Space, Theorem } from '../../types'
 
 import { Finder } from '../../models/Finder'
 import Implication from '../Implication'
@@ -70,7 +70,7 @@ const Counterexamples = ({ theorem, properties, counterexamples, prover }: Props
 }
 
 export default connect(
-  (state: State, ownProps: OwnProps): StateProps => ({
+  (state: any, ownProps: OwnProps): StateProps => ({
     counterexamples: S.counterexamples(state, ownProps.theorem),
     properties: S.theoremProperties(state, ownProps.theorem),
     prover: S.prover(state)

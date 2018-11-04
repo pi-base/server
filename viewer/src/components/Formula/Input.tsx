@@ -1,82 +1,115 @@
+import * as Q from '../../queries'
+import * as R from '../../reducers'
 import * as React from 'react'
-import { connect } from 'react-redux'
+import * as S from '../../selectors'
+import { Property } from '../../types'
 
 import { Finder } from '../../models/Finder'
-import * as F from '../../models/Formula'
-import * as Q from '../../queries'
-import * as T from '../../types'
-import * as S from '../../selectors'
-
 import Suggestions from './Suggestions'
+import { connect } from 'react-redux'
+import { useReducer } from 'react'
 
-const TAB = 9, ENTER = 13, UP = 38, DOWN = 40 // RIGHT = 39
-
-type Formula = F.Formula<T.Property>
+export const TAB = 9, ENTER = 13, UP = 38, DOWN = 40
 
 interface OwnProps {
-  name?: string
+  name: string
   value?: string
+  onChange: React.ChangeEventHandler<HTMLInputElement>
   placeholder?: string
-  suggestionLimit?: number
-  onChange?: (q: string) => void
-  onFormulaChange?: (f?: Formula) => void
 }
 
 interface StateProps {
-  properties: Finder<T.Property>
+  properties: Finder<Property>
 }
 
 type Props = OwnProps & StateProps
 
 interface State {
+  value: string
+  suggestions: Property[]
   selected: number
-  dropdownVisible: boolean
-  formula: Formula | undefined
+  showSuggestions: boolean
 }
 
-class FormulaInput extends React.Component<Props, State> {
-  constructor(props: Props) {
-    super(props)
+type Action =
+  { type: 'UPDATE_TEXT', value: string } |
+  { type: 'HIDE_SUGGESTIONS' } |
+  { type: 'EXPAND_SUGGESTION', suggestion: Property } |
+  { type: 'CHANGE_SELECTION', delta: number }
 
-    this.state = {
-      selected: 0,
-      dropdownVisible: false,
-      formula: undefined
+const buildReducer = (props: Props) =>
+  (state: State, action: Action): State => {
+    switch (action.type) {
+      case 'UPDATE_TEXT':
+        return updateFormula(props, state, action.value)
+      case 'HIDE_SUGGESTIONS':
+        return collapseDropdown(state)
+      case 'EXPAND_SUGGESTION':
+        const expanded = Q.replaceFragment(state.value, action.suggestion.name)
+        return collapseDropdown(updateFormula(props, state, expanded))
+      case 'CHANGE_SELECTION':
+        const suggestions = state.suggestions.length
+        const selected = suggestions === 0 ? 0 : (state.selected + action.delta) % suggestions
+        return { ...state, selected }
+      default:
+        return state
     }
   }
 
-  changeSelection(delta: number) {
-    this.setState(({ selected }) => ({ selected: selected + delta }))
+const updateFormula = (
+  props: Props,
+  state: State,
+  value: string
+): State => {
+  const suggestions = Q.suggestionsFor(props.properties, value, 10)
+
+  return {
+    ...state,
+    value,
+    suggestions,
+    selected: 0,
+    showSuggestions: !!value && value[0] !== ':'
+  }
+}
+
+const collapseDropdown = (state: State): State => ({
+  ...state,
+  suggestions: [],
+  selected: 0,
+  showSuggestions: false
+})
+
+export const Input: React.SFC<Props> = (props: Props) => {
+  const { placeholder, onChange, name } = props
+
+  const initial: State = {
+    value: props.value || '',
+    suggestions: [],
+    selected: 0,
+    showSuggestions: false
   }
 
-  suggestions() {
-    return Q.suggestionsFor(this.props.properties, this.props.value || '', 10)
-  }
+  const reducer = buildReducer(props)
 
-  expandFragment(index?: number) {
-    const selected = this.suggestions()[index || this.state.selected]
-    const expanded = Q.replaceFragment(this.props.value || '', selected.name)
+  const [state, dispatch] = useReducer(reducer, initial)
 
-    this.handleChange(expanded)
-    this.setState({
-      selected: 0,
-      dropdownVisible: false
-    })
-  }
+  const { suggestions, selected, showSuggestions } = state
 
-  handleKeyDown(e: React.KeyboardEvent<HTMLElement>) {
+  const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = e => {
     switch (e.which) {
       case UP:
         e.preventDefault()
-        return this.changeSelection(-1)
+        return dispatch({ type: 'CHANGE_SELECTION', delta: -1 })
       case DOWN:
         e.preventDefault()
-        return this.changeSelection(1)
+        return dispatch({ type: 'CHANGE_SELECTION', delta: 1 })
       case ENTER:
       case TAB:
-        if (this.state.dropdownVisible) {
+        // TODO: we don't fire an onChange event here, so e.g. the URL doesn't
+        //   update when the user accepts a suggestion
+        if (showSuggestions) {
           e.preventDefault()
-          this.expandFragment()
+          dispatch({ type: 'EXPAND_SUGGESTION', suggestion: suggestions[selected] })
         }
         return
       default:
@@ -84,73 +117,44 @@ class FormulaInput extends React.Component<Props, State> {
     }
   }
 
-  parseFormula(query: string): F.Formula<T.Property> | undefined {
-    const parsed = F.parse(query)
-    if (!parsed) { return }
-
-    let missing = false
-    const result = F.mapProperty(
-      id => {
-        const property = this.props.properties.find(id)
-        if (!property) { missing = true }
-        return property as T.Property
-      },
-      parsed
-    )
-
-    if (missing) { return }
-    return result
+  const handleChange: React.ChangeEventHandler<HTMLInputElement> = e => {
+    if (e.target.value !== state.value) {
+      onChange(e)
+      dispatch({ type: 'UPDATE_TEXT', value: e.target.value })
+    }
   }
 
-  handleChange(newValue: string) {
-    if (this.props.onChange) { this.props.onChange(newValue) }
+  return (
+    <div>
+      <input
+        type="text"
+        autoComplete="off"
+        className="form-control"
+        name={name}
+        value={state.value || props.value}
+        placeholder={placeholder}
+        onKeyDown={handleKeyDown}
+        onChange={handleChange}
+        onBlur={() => dispatch({ type: 'HIDE_SUGGESTIONS' })}
+      />
 
-    this.setState(({ formula }) => {
-      const parsed = this.parseFormula(newValue)
-      if (parsed !== formula && this.props.onFormulaChange) {
-        this.props.onFormulaChange(parsed)
-      }
-
-      return {
-        formula: parsed,
-        dropdownVisible: !!newValue && newValue[0] !== ':'
-      }
-    })
-  }
-
-  handleBlur() {
-    this.setState({ dropdownVisible: false })
-  }
-
-  render() {
-    return (
-      <div>
-        <input
-          type="text"
-          autoComplete="off"
-          className="form-control"
-          name={this.props.name}
-          value={this.props.value}
-          placeholder={this.props.placeholder}
-          onKeyDown={e => this.handleKeyDown(e)}
-          onChange={e => this.handleChange(e.target.value)}
-          onBlur={() => this.handleBlur()}
+      {showSuggestions
+        ? <Suggestions
+          suggestions={suggestions}
+          selected={selected}
+          limit={10}
+          onSelect={suggestion => dispatch({ type: 'EXPAND_SUGGESTION', suggestion })}
         />
-
-        <Suggestions
-          suggestions={this.suggestions()}
-          selected={this.state.selected}
-          visible={this.state.dropdownVisible}
-          limit={this.props.suggestionLimit || 10}
-          onSelect={i => this.expandFragment(i)}
-        />
-      </div>
-    )
-  }
+        : null
+      }
+    </div>
+  )
 }
 
+const mapStateToProps = (state: R.State) => ({
+  properties: S.propertyFinder(state)
+})
+
 export default connect(
-  (state: T.State): StateProps => ({
-    properties: S.propertyFinder(state)
-  })
-)(FormulaInput)
+  mapStateToProps
+)(Input)

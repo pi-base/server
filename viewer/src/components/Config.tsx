@@ -1,8 +1,6 @@
 import * as React from 'react'
 import PropTypes from 'prop-types'
-import { Store } from 'redux'
 
-import { Client } from '../graph'
 import { Config as AppConfig } from '../types'
 
 export interface ConfigProps {

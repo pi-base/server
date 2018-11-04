@@ -35,7 +35,7 @@ build t f' = Page $ prism t f
 parseData :: Record -> Either ParseError PageData
 parseData (path, content) = mapLeft (ParseError path . T.pack) $ do
   (header, body) <- pullFrontmatter content
-  front <- Y.decodeEither $ encodeUtf8 header
+  front <- decodeYaml $ encodeUtf8 header
   (main, sections) <- parseSections body
   return $ PageData path front main (HM.fromList sections)
 
@@ -82,6 +82,9 @@ updateMetadata :: ((TreeFilePath, Aeson.Value) -> Either [Char] (TreeFilePath, A
                -> Either ParseError (TreeFilePath, Text)
 updateMetadata f (path, content) = mapLeft (ParseError path . T.pack) $ do
   (header, body)    <- pullFrontmatter content
-  front             <- Y.decodeEither $ encodeUtf8 header
+  front             <- decodeYaml $ encodeUtf8 header
   (path', content') <- f (path, front)
   return (path', "---\n" <> decodeUtf8 (Y.encode content') <> "---\n" <> body)
+
+decodeYaml :: FromJSON v => ByteString -> Either String v
+decodeYaml = either (Left . show) Right . Y.decodeEither'

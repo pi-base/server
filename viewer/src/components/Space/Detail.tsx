@@ -5,9 +5,9 @@ import Detail from '../Shared/Detail'
 import { Space } from '../../types'
 import Tex from '../Tex'
 
-type Props = { space: Space }
+type Props = { space: Space, editable?: boolean }
 
-const Space: React.SFC<Props> = ({ space, ...props }) => (
+const SpaceDetail: React.SFC<Props> = ({ space, ...props }) => (
   <Detail<Space> {...props} object={space}>
     <Tex>
       {space.name}
@@ -16,4 +16,4 @@ const Space: React.SFC<Props> = ({ space, ...props }) => (
   </Detail>
 )
 
-export default Space
+export default SpaceDetail

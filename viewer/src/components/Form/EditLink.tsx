@@ -3,7 +3,6 @@ import * as S from '../../selectors'
 
 import { Link, LinkProps } from 'react-router-dom'
 
-import { State } from '../../types'
 import { connect } from 'react-redux'
 
 type StateProps = { editing: boolean }
@@ -16,7 +15,7 @@ const EditLink = (props: Props) => {
   return <Link {...newProps} />
 }
 
-export default connect<StateProps, {}, OwnProps, State>(
+export default connect<StateProps, {}, OwnProps, any>(
   (state) => ({
     editing: S.editing(state)
   }),

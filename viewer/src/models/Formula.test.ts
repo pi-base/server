@@ -1,11 +1,6 @@
-/* global it expect */
 import * as F from './Formula'
 
-const f = F.parse('compact + (connected || not second countable) + ~first countable')
-
-it('has accessors', () => {
-  expect(f.and[1].or[1].property).toEqual('second countable')
-})
+const f: F.Formula<string> = F.parse('compact + (connected || not second countable) + ~first countable')!
 
 describe('parsing', () => {
   it('can parse a simple formula', () => {
@@ -32,7 +27,7 @@ describe('parsing', () => {
     )
   })
 
-  it('can inserts parens', () => {
+  it('inserts parens', () => {
     expect(
       F.parse('compact + connected + ~t_2')
     ).toEqual(
@@ -79,10 +74,11 @@ describe('parsing', () => {
 describe('mapping', () => {
   it('can map over atoms', () => {
     expect(
-      f.map(atom => ({
+      F.map(atom => ({
+        ...atom,
         property: atom.property.length,
         value: !atom.value
-      }))
+      }), f)
     ).toEqual(
       F.and(
         F.atom(7, false),
@@ -96,13 +92,13 @@ describe('mapping', () => {
   })
 
   it('accumulate property lists', () => {
-    expect(f.properties()).toEqual(I.OrderedSet([
+    expect(F.properties(f)).toEqual(new Set([
       'compact', 'connected', 'second countable', 'first countable'
     ]))
   })
 
   it('can negate', () => {
-    expect(f.negate()).toEqual(
+    expect(F.negate(f)).toEqual(
       F.or(
         F.atom('compact', false),
         F.and(
@@ -115,7 +111,7 @@ describe('mapping', () => {
   })
 
   it('can map over properties', () => {
-    expect(f.mapProperty(p => p[0])).toEqual(
+    expect(F.mapProperty(p => p[0], f)).toEqual(
       F.and(
         F.atom('c', true),
         F.or(
@@ -129,52 +125,27 @@ describe('mapping', () => {
 })
 
 describe('evaluation', () => {
-  const h = f.mapProperty(p => I.Map({
-    uid: p
-  }))
-
   it('can find a match', () => {
-    const traits = I.fromJS({
-      compact: {
-        value: true
-      },
-      'second countable': {
-        value: false
-      },
-      'first countable': {
-        value: false
-      }
-    })
-    expect(h.evaluate(traits)).toEqual(true)
+    const traits = new Map()
+    traits.set('compact', true)
+    traits.set('second countable', false)
+    traits.set('first countable', false)
+    expect(F.evaluate(f, traits)).toEqual(true)
   })
 
   it('can find a miss', () => {
-    const traits = I.fromJS({
-      compact: {
-        value: true
-      },
-      'second countable': {
-        value: false
-      },
-      'first countable': {
-        value: true
-      }
-    })
-    expect(h.evaluate(traits)).toEqual(false)
+    const traits = new Map()
+    traits.set('compact', true)
+    traits.set('second countable', false)
+    traits.set('first countable', true)
+    expect(F.evaluate(f, traits)).toEqual(false)
   })
 
   it('can be undefined', () => {
-    const traits = I.fromJS({
-      compact: {
-        value: true
-      },
-      'second countable': {
-        value: true
-      },
-      'first countable': {
-        value: false
-      }
-    })
-    expect(h.evaluate(traits)).toBeUndefined()
+    const traits = new Map()
+    traits.set('compact', true)
+    traits.set('second countable', true)
+    traits.set('first countable', false)
+    expect(F.evaluate(f, traits)).toBeUndefined()
   })
 })

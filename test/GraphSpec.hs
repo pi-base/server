@@ -46,7 +46,7 @@ spec run = do
 
         user <- g "Me" noVariables
 
-        user^.k "me".name `shouldBe` "test"
+        user^.k "me".name `shouldBe` userName testUser
 
         let branches = buildMap name (k "access"._String) $ user ^.. k "me".k "branches".values._Value
 
@@ -65,6 +65,8 @@ spec run = do
                          , "CitationInput"
                          , "CreatePropertyInput"
                          , "CreateSpaceInput"
+                         , "CreateUserInput"
+                         , "CreateUserResponse"
                          , "Mutation"
                          , "PatchInput"
                          , "Property"

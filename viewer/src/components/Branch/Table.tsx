@@ -1,43 +1,45 @@
 import * as A from '../../actions'
 import * as React from 'react'
 
-import { Branch, Dispatch, State } from '../../types'
+import { Branch, BranchName, Dispatch } from '../../types'
 
+import { State } from '../../reducers'
+import Submit from './Submit'
+import { bindActionCreators } from 'redux';
 import { by } from '../../utils'
 import { connect } from 'react-redux'
 
-type BranchExtra = Branch & { active: boolean }
-type StateProps = {
-  branches: BranchExtra[]
-}
 type DispatchProps = {
-  changeBranch: (branch: Branch) => void
+  changeBranch: (branch: BranchName) => void
   submitBranch: (branch: Branch) => void
 }
-type Props = StateProps & DispatchProps
 
-const BranchSubmit = ({ branch, submitBranch }: { branch: Branch, submitBranch: (b: Branch) => void }) => {
-  const { active, access, submitting, pullRequestUrl } = branch
-
-  if (access !== 'admin') { return null }
-
-  if (pullRequestUrl) {
-    return <a href={pullRequestUrl}>View pull request</a>
-  } else {
-    return (
-      <button
-        className="btn btn-primary btn-sm"
-        onClick={() => submitBranch(branch)}
-        disabled={submitting}
-      >
-        Submit for Review
-      </button>
-    )
-  }
+export const Row: React.SFC<{ branch: Branch } & DispatchProps> = ({ branch, changeBranch, submitBranch }) => {
+  return (
+    <tr>
+      <td>
+        {branch.active
+          ? <button className="btn btn-default" disabled={true}>
+            Current
+          </button>
+          : <button className="btn btn-default branch-change" onClick={() => changeBranch(branch.name)}>
+            Switch
+          </button>
+        }
+      </td>
+      <td>{branch.name}</td>
+      <td>
+        <Submit branch={branch} submitBranch={submitBranch} />
+      </td>
+    </tr>
+  )
 }
 
-const Branches = ({ branches, changeBranch, submitBranch }: Props) => {
-  if (!branches) { return null }
+type BranchWithActive = Branch & { active: boolean }
+type Props = { branches: BranchWithActive[] } & DispatchProps
+
+export const Table: React.SFC<Props> = ({ branches, changeBranch, submitBranch }) => {
+  if (branches.length === 0) { return null }
 
   return (
     <table className="table table-condensed">
@@ -49,41 +51,35 @@ const Branches = ({ branches, changeBranch, submitBranch }: Props) => {
         </tr>
       </thead>
       <tbody>
-        {branches.map(branch => (
-          <tr key={branch.name}>
-            <td>
-              {branch.active
-                ? <button className="btn btn-default" disabled={true}>Current</button>
-                : <button className="btn btn-default" onClick={() => changeBranch(branch)}>Switch</button>
-              }
-            </td>
-            <td>{branch.name}</td>
-            <td>
-              <BranchSubmit branch={branch} submitBranch={submitBranch} />
-            </td>
-          </tr>
-        ))}
+        {branches.map(branch => <Row key={branch.name} branch={branch} changeBranch={changeBranch} submitBranch={submitBranch} />)}
       </tbody>
     </table>
   )
 }
 
-export default connect<StateProps, DispatchProps, {}, State>(
-  state => {
-    if (state.user === 'unauthenticated') {
-      return { branches: [] }
-    } else {
-      const branches = Array.from(state.version.branches.values()).sort(by('name'))
-      return {
-        branches: branches.map(branch => ({
-          ...branch,
-          active: branch.name === state.version.active
-        }))
-      }
-    }
-  },
-  (dispatch: Dispatch) => ({
-    changeBranch: (branch) => dispatch(A.changeBranch(branch.name)),
-    submitBranch: (branch) => dispatch(A.submitBranch(branch))
-  })
-)(Branches)
+const mapStateToProps = (state: State) => {
+  if (state.user === 'unauthenticated') {
+    return { branches: [] }
+  }
+
+  const branches = Array.from(state.version.branches.values()).sort(by('name'))
+  return {
+    branches: branches.map((branch: any) => ({
+      ...branch,
+      active: branch.name === state.version.active
+    }))
+  }
+}
+
+const mapDispatchToProps = (dispatch: Dispatch) => bindActionCreators({
+  changeBranch: A.changeBranch,
+  submitBranch: A.submitBranch
+}, dispatch)
+
+// TODO:
+// * submitBranch should probably be connected directly to Branch.Submit
+// * should changeBranch be connected to Row?
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(Table)

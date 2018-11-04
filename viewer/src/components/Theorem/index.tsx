@@ -14,7 +14,7 @@ type StateProps = {
 }
 type Props = StateProps & RouteComponentProps<{ id: string }>
 
-const Theorem: React.SFC<Props> = props => {
+const TheoremDetail: React.SFC<Props> = props => {
   const { theorem } = props
 
   if (!theorem) { return <NotFound {...props} /> }
@@ -33,4 +33,4 @@ const mapStateToProps = (state: State, props: Props) => ({
   theorem: state.theorems.get(props.match.params.id)
 })
 
-export default connect<StateProps, {}, Props>(mapStateToProps)(Theorem)
+export default connect(mapStateToProps)(TheoremDetail)

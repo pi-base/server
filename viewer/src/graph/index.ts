@@ -1,81 +1,45 @@
-import { ApolloLink, concat } from 'apollo-link'
+import { Me } from '../types/graph/Me'
+import { Viewer, ViewerVariables } from '../types/graph/Viewer'
 
-import { ApolloClient } from 'apollo-client'
-import { GRAPHQL_SERVER_URL } from '../constants'
-import { HttpLink } from 'apollo-link-http'
-import { InMemoryCache } from 'apollo-cache-inmemory'
-import { TokenStorage } from '../types'
-import { onError } from 'apollo-link-error'
+import { AssertTrait, AssertTraitVariables } from '../types/graph/AssertTrait'
+import { AssertTheorem, AssertTheoremVariables } from '../types/graph/AssertTheorem'
+import { CreateProperty, CreatePropertyVariables } from '../types/graph/CreateProperty'
+import { CreateSpace, CreateSpaceVariables } from '../types/graph/CreateSpace'
+import { CreateUser, CreateUserVariables } from '../types/graph/CreateUser'
+import { ResetBranch, ResetBranchVariables } from '../types/graph/ResetBranch'
+import { SubmitBranch, SubmitBranchVariables } from '../types/graph/SubmitBranch'
+import { UpdateProperty, UpdatePropertyVariables } from '../types/graph/UpdateProperty'
+import { UpdateSpace, UpdateSpaceVariables } from '../types/graph/UpdateSpace'
+import { UpdateTheorem, UpdateTheoremVariables } from '../types/graph/UpdateTheorem'
+import { UpdateTrait, UpdateTraitVariables } from '../types/graph/UpdateTrait'
 
-export * from './types'
+export * from '../types/graph/globalTypes'
 
-export const me = require('./queries/Me.gql')
-export const viewer = require('./queries/Viewer.gql')
+// We want to package up the query with its associated types as we load it
+// Unfortunately, we can't load from a "dynamic" path, so we have this bit of indirection
+// See https://github.com/webpack/webpack/issues/196#issuecomment-417840264 for details
 
-export const assertTrait = require('./mutations/AssertTrait.gql')
-export const assertTheorem = require('./mutations/AssertTheorem.gql')
-export const createProperty = require('./mutations/CreateProperty.gql')
-export const createSpace = require('./mutations/CreateSpace.gql')
-export const resetBranch = require('./mutations/ResetBranch.gql')
-export const submitBranch = require('./mutations/SubmitBranch.gql')
-export const updateProperty = require('./mutations/UpdateProperty.gql')
-export const updateSpace = require('./mutations/UpdateSpace.gql')
-export const updateTheorem = require('./mutations/UpdateTheorem.gql')
-export const updateTrait = require('./mutations/UpdateTrait.gql')
-
-export const schema = require('./schema.gql')
-
-export type Client = ApolloClient<{}>
-
-export const loginUrl = ({ redirectTo }) =>
-  `${GRAPHQL_SERVER_URL}/auth/page/github/forward?location=${redirectTo}`
-
-type ClientOptions = {
-  root?: string
-  fetch?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
-  token: TokenStorage
+export type GQL<Response, Variables = {}> = {
+  __type__: never
+  query: any
 }
 
-export function makeClient(opts: ClientOptions): Client {
-  const base = opts.root || GRAPHQL_SERVER_URL
-
-  const authMiddleware = new ApolloLink((operation, forward) => {
-    const token = opts.token.get()
-    if (token) {
-      operation.setContext({
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-    }
-
-    return forward!(operation)
-  })
-
-  const httpLink = new HttpLink({
-    uri: `${base}/graphql`,
-    credentials: 'same-origin',
-    fetch: opts.fetch || window.fetch,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json'
-    }
-  })
-
-  const errorLink = onError(({ networkError }) => {
-    if (networkError) {
-      window.piBase.showError(networkError)
-    }
-  })
-
-  const link = ApolloLink.from([
-    errorLink,
-    authMiddleware,
-    httpLink
-  ])
-
-  return new ApolloClient({
-    cache: new InMemoryCache(),
-    link
-  })
+function wrap<Response, Variables = {}>(query): GQL<Response, Variables> {
+  return { query } as GQL<Response, Variables>
 }
+
+export const me = wrap<Me>(require('./queries/Me.gql'))
+export const viewer = wrap<Viewer, ViewerVariables>(require('./queries/Viewer.gql'))
+
+export const assertTrait = wrap<AssertTrait, AssertTraitVariables>(require('./mutations/AssertTrait.gql'))
+export const assertTheorem = wrap<AssertTheorem, AssertTheoremVariables>(require('./mutations/AssertTheorem.gql'))
+export const createProperty = wrap<CreateProperty, CreatePropertyVariables>(require('./mutations/CreateProperty.gql'))
+export const createSpace = wrap<CreateSpace, CreateSpaceVariables>(require('./mutations/CreateSpace.gql'))
+export const resetBranch = wrap<ResetBranch, ResetBranchVariables>(require('./mutations/ResetBranch.gql'))
+export const submitBranch = wrap<SubmitBranch, SubmitBranchVariables>(require('./mutations/SubmitBranch.gql'))
+export const updateProperty = wrap<UpdateProperty, UpdatePropertyVariables>(require('./mutations/UpdateProperty.gql'))
+export const updateSpace = wrap<UpdateSpace, UpdateSpaceVariables>(require('./mutations/UpdateSpace.gql'))
+export const updateTheorem = wrap<UpdateTheorem, UpdateTheoremVariables>(require('./mutations/UpdateTheorem.gql'))
+export const updateTrait = wrap<UpdateTrait, UpdateTraitVariables>(require('./mutations/UpdateTrait.gql'))
+
+export const createUser = wrap<CreateUser, CreateUserVariables>(require('./mutations/CreateUser.gql'))

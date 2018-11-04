@@ -18,14 +18,14 @@ class UQueue<P> {
   queue: P[]
   queued: Map<P, boolean>
 
-  constructor(ps: IterableIterator<P>) {
+  constructor(ps: Iterable<P>) {
     this.queued = new Map()
 
     this.queue = Array.from(ps)
     this.queue.forEach(p => this.queued.set(p, true))
   }
 
-  concat(ps: IterableIterator<P>) {
+  concat(ps: Iterable<P>) {
     Array.from(ps).forEach(p => {
       if (!this.queued.get(p)) {
         this.queued.set(p, true)
@@ -41,7 +41,9 @@ class UQueue<P> {
   }
 }
 
-const checkProofs = (state: StoreState, spaces: Space[]): StoreState => {
+const checkProofs = (state: StoreState, spaces?: Space[], theorems?: Theorem[]): StoreState => {
+  spaces = spaces || Array.from(state.spaces.values())
+
   const traits = new Map(state.traits)
   const proofs = new Map(state.proofs)
 
@@ -56,7 +58,7 @@ const checkProofs = (state: StoreState, spaces: Space[]): StoreState => {
   })
 
   spaces.forEach(space => {
-    const applyQ: UQueue<Theorem> = new UQueue(state.theorems.values())
+    const applyQ: UQueue<Theorem> = new UQueue(theorems || state.theorems.values())
     const recordProof = (propertyId: Id, value: boolean, proof: Deduction) => {
       const key = `${space.uid}|${propertyId}`
       if (!proofs.has(key)) {
@@ -85,7 +87,7 @@ export const reducer = (
   switch (action.type) {
     case 'LOAD_VIEWER':
       proofs = new Map(state.proofs)
-      action.viewer.viewer.spaces.forEach(space => {
+      action.viewer.spaces.forEach(space => {
         space.traits.forEach(trait => {
           proofs.set(
             `${space.uid}|${trait.property.uid}`,
@@ -104,10 +106,14 @@ export const reducer = (
       return { ...state, proofs }
 
     case 'CHECK_PROOFS':
-      return checkProofs(
-        state,
-        action.spaces || Array.from(state.spaces.values())
-      )
+      let spaces
+      let theorems
+      if (action.theorem) {
+        theorems = [theorems]
+      } else if (action.trait) {
+        spaces = [action.trait.space]
+      }
+      return checkProofs(state, spaces, theorems)
 
     default:
       return state

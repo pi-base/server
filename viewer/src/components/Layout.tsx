@@ -2,18 +2,29 @@ import * as React from 'react'
 
 import { RouteComponentProps, withRouter } from 'react-router'
 
+import { Dispatch } from '../types'
 import Footer from './Footer'
 import Navbar from './Navbar'
 import { State } from '../reducers'
+import { boot } from '../actions'
 import { connect } from 'react-redux'
 
-interface StateProps {
+type StateProps = {
   booted: boolean
   debug: boolean
 }
-type Props = StateProps & RouteComponentProps<{}>
+type DispatchProps = {
+  boot: () => void
+}
+type Props = StateProps & DispatchProps & RouteComponentProps<{}>
 
 class Layout extends React.PureComponent<Props> {
+  componentWillMount() {
+    if (!this.props.booted) {
+      this.props.boot()
+    }
+  }
+
   render() {
     const { booted, debug, location } = this.props
 
@@ -33,11 +44,18 @@ class Layout extends React.PureComponent<Props> {
   }
 }
 
+const mapStateToProps = (state: State): StateProps => ({
+  booted: state.spaces.size > 0,
+  debug: state.debug
+})
+
+const mapDispatchToProps = (dispatch: Dispatch): DispatchProps => ({
+  boot: () => dispatch(boot())
+})
+
 // `withRouter` is required so that location changes will trigger a re-render
 // see https://github.com/ReactTraining/react-router/blob/master/packages/react-router/docs/guides/blocked-updates.md
-export default withRouter(connect<StateProps, {}, {}, State>(
-  state => ({
-    booted: state.spaces.size > 0,
-    debug: state.debug
-  })
+export default withRouter(connect(
+  mapStateToProps,
+  mapDispatchToProps
 )(Layout))

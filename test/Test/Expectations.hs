@@ -30,7 +30,7 @@ ci title action = do
 
 -- xit / pending currently count as a failure on CI
 todo :: String -> t -> SpecWith ()
-todo msg _ = it ((T.unpack $ "⏳ ") <> msg) pass
+todo msg _ = it ((T.unpack $ "[TODO] ") <> msg) pass
 
 pass :: Expectation
 pass = shouldBe () ()

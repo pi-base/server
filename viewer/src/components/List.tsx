@@ -4,19 +4,19 @@ import Filter from './Filter'
 
 interface Record { uid: string }
 
-export interface Props {
+export interface Props<R> {
   name: string
-  objects: Record[]
-  component: React.ComponentClass<{ object: Record }>
+  objects: R[]
+  component: React.ComponentClass<{ object: R }>
 }
 
-export interface State {
+export interface State<R> {
   limit: number
-  objects: Record[]
+  objects: R[]
 }
 
-class List extends React.Component<Props, State> {
-  constructor(props: Props) {
+class List<R extends Record> extends React.Component<Props<R>, State<R>> {
+  constructor(props: Props<R>) {
     super(props)
     this.state = {
       limit: 25,
@@ -28,7 +28,7 @@ class List extends React.Component<Props, State> {
     this.doFilter([])
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  componentWillReceiveProps(nextProps: Props<R>) {
     this.doFilter(nextProps.objects)
   }
 
@@ -36,7 +36,7 @@ class List extends React.Component<Props, State> {
     this.setState({ limit: this.state.limit + 25 })
   }
 
-  doFilter(objects: Record[]) {
+  doFilter(objects: R[]) {
     this.setState({
       limit: 25,
       objects: objects.length ? objects : this.props.objects
@@ -57,7 +57,7 @@ class List extends React.Component<Props, State> {
           placeholder={`Filter ${this.props.name} by text`}
         />
 
-        {objects.map((obj: Record) => <this.props.component key={obj.uid} object={obj} />)}
+        {objects.map((obj: R) => <this.props.component key={obj.uid} object={obj} />)}
 
         {this.props.objects.length > this.state.limit
           ? <button className="btn btn-default" onClick={() => this.more()}>Show More</button>

@@ -2,14 +2,8 @@ mutation UpdateProperty($patch: PatchInput!, $property: UpdatePropertyInput!) {
   updateProperty(patch: $patch, property: $property) {
     version
     properties {
+      __typename
       uid
-      name
-      description
-      references {
-        type
-        ref
-        name
-      }
     }
   }
 }

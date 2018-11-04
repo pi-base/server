@@ -1,7 +1,7 @@
 import * as React from 'react'
 
 export interface Props {
-  aliases: string[]
+  aliases: string[] | undefined
 }
 
 function Aliases({ aliases }: Props) {

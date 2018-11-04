@@ -10,17 +10,24 @@
     ],
     "sourceMap": true,
     "allowJs": true,
-    "jsx": "react",
+    "jsx": "preserve",
     "moduleResolution": "node",
     "rootDir": "src",
     "forceConsistentCasingInFileNames": true,
     "noImplicitReturns": false,
     "noImplicitThis": true,
-    "noImplicitAny": false, // FIXME
+    "noImplicitAny": false,
     "strictNullChecks": true,
     "suppressImplicitAnyIndexErrors": true,
     "noUnusedLocals": false,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "skipLibCheck": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true
   },
   "exclude": [
     "node_modules",
@@ -30,5 +37,8 @@
     "webpack",
     "jest",
     "src/setupTests.ts"
+  ],
+  "include": [
+    "src"
   ]
 }

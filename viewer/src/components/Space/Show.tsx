@@ -31,7 +31,7 @@ const Traits = (props: Props) => (
       <TraitPager {...props} />
     </div>
     <div className="col-md-8">
-      {props.match.params.propertyId && <Trait {...props} />}
+      {props.match.params.propertyId && <Trait {...props} trait={undefined}/>}
     </div>
   </div>
 )

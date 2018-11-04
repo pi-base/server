@@ -31,7 +31,7 @@ const Space: React.SFC<Props> = props => {
   )
 }
 
-export default connect<StateProps, {}, Props>(
+export default connect(
   (state: State, props: Props) => ({
     space: state.spaces.get(props.match.params.spaceId)
   })

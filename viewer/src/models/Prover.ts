@@ -1,7 +1,8 @@
+import { Formula, and, negate } from '../models/Formula'
+import { Id, Theorem } from '../types'
 import { Proof, disprove } from '../logic'
-import { Formula, Id, Table, Theorem } from '../types'
 
-import * as F from '../models/Formula'
+import { Table } from '../models/Table'
 
 export class Prover {
   traits: Table<Id, Id, boolean>
@@ -17,9 +18,9 @@ export class Prover {
   }
 
   prove(theorem: Theorem): Proof | undefined {
-    return disprove(this.theorems, F.and(
+    return disprove(this.theorems, and(
       theorem.if,
-      F.negate(theorem.then)
+      negate(theorem.then)
     ))
   }
 }

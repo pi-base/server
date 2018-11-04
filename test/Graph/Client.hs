@@ -39,7 +39,7 @@ initialize = do
 
   Client
     <$> newIORef Nothing
-    <*> newIORef (PatchInput (branchName base) sha)
+    <*> newIORef (PatchInput (branchName base) (Just sha))
     <*> newIORef (M.fromList [(branchName base, sha)])
 
 login :: Client -> User -> TestM (Entity User)
@@ -57,7 +57,7 @@ checkout Client{..} branch = do
   sha <- Branch.headSha branch
   writeIORef patch $ PatchInput
     { branch = branchName branch
-    , sha    = sha
+    , sha    = Just sha
     }
   modifyIORef' savepoints $ M.alter (maybe (Just sha) Just) (branchName branch)
 
@@ -86,7 +86,7 @@ run Client{..} name vs = do
 
   let dat = fromMaybe Null $ res ^? key "data" . _Value
 
-  writeIORef patch $ p { sha = dat ^. key (operationKey operation) . key "version" . _String }
+  writeIORef patch $ p { sha = Just $ dat ^. key (operationKey operation) . key "version" . _String }
 
   return dat
 

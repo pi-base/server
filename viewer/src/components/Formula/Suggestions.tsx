@@ -2,31 +2,37 @@ import * as React from 'react'
 
 import { Property } from '../../types'
 
-export interface Props {
+export const Suggestion: React.SFC<{
+  property: Property
+  selected: boolean
+  onSelect: () => void
+}> = ({ property, selected, onSelect }) => {
+  return (
+    <a
+      className={'list-group-item ' + (selected ? 'active' : '')}
+      onClick={onSelect}
+      href="#"
+    >
+      {property.name}
+    </a>
+  )
+}
+
+export const Suggestions: React.SFC<{
   suggestions: Property[]
   limit: number
   selected: number
-  visible: boolean
-  onSelect: (selected: number) => void
-}
-
-function Suggestions({ suggestions, selected, visible, limit, onSelect }: Props) {
-  const divStyle = {
-    display: (visible ? 'block' : 'none'),
-    marginTop: '5px'
-  }
-
+  onSelect: (p: Property) => void
+}> = ({ suggestions, limit, selected, onSelect }) => {
   return (
-    <div className="list-group" style={divStyle}>
+    <div className="list-group">
       {suggestions.slice(0, limit).map((p, i) => (
-        <a
-          className={'list-group-item ' + (selected === i ? 'active' : '')}
+        <Suggestion
           key={p.uid}
-          onMouseDown={() => onSelect(i!)}
-          href="#"
-        >
-          {p.name}
-        </a>
+          property={p}
+          selected={selected === i}
+          onSelect={() => onSelect(p)}
+        />
       ))}
     </div>
   )

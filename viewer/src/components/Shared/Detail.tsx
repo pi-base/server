@@ -14,8 +14,8 @@ interface Detailable {
 
 type Props<T extends Detailable> = {
   object: T
-  showEditLink?: boolean
   children: React.ReactNode
+  editable?: boolean
 }
 
 const Edit = withRouter(({ match }) => (
@@ -24,11 +24,11 @@ const Edit = withRouter(({ match }) => (
   </EditLink>
 ))
 
-const Detail = <T extends Detailable>({ object, showEditLink, children }: Props<T>) => (
+const Detail = <T extends Detailable>({ object, editable = true, children }: Props<T>) => (
   <div>
     <h1>
       {children}
-      {showEditLink !== false && <Edit />}
+      {editable && <Edit />}
     </h1>
     <Tex><Markdown text={object.description} /></Tex>
 

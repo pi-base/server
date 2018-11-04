@@ -1,7 +1,4 @@
-import * as React from 'react'
-
-import { State, User } from './types'
-
+import { User } from './types'
 import { connect } from 'react-redux'
 import { getPatch } from './queries'
 
@@ -53,7 +50,7 @@ export interface RollbarProps {
 }
 
 export const withRollbar = connect(
-  (state: State) => ({
+  (state: any) => ({
     report: (message: string, opts: RollbarOpts = {}) => {
       const level = opts.level || 'error'
       const extra = opts.extra || {}

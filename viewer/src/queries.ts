@@ -1,6 +1,6 @@
 import * as F from './models/Formula'
 
-import { Id, Property, State, Theorem } from './types'
+import { Id, Property, Theorem } from './types'
 
 import { Finder } from './models/Finder'
 import { PatchInput } from './graph'
@@ -47,7 +47,7 @@ export function relatedTheorems(
   })
 }
 
-export const getPatch = (state: State): PatchInput | undefined => {
+export const getPatch = (state: any): PatchInput | undefined => {
   const active = state.version.active
   if (!active) { return }
   const branch = state.version.branches.get(active)!

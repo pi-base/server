@@ -5,9 +5,9 @@ import Detail from '../Shared/Detail'
 import { Property } from '../../types'
 import Tex from '../Tex'
 
-type Props = { property: Property }
+type Props = { property: Property, editable?: boolean }
 
-const Property: React.SFC<Props> = ({ property, ...props }) => (
+const PropertyDetail: React.SFC<Props> = ({ property, ...props }) => (
   <Detail<Property> {...props} object={property}>
     <Tex>
       {property.name}
@@ -16,4 +16,4 @@ const Property: React.SFC<Props> = ({ property, ...props }) => (
   </Detail>
 )
 
-export default Property
+export default PropertyDetail

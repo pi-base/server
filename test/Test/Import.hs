@@ -39,6 +39,7 @@ headSha = "4fbad4eba4b72b429eaf176df19103a06bd9ca80"
 
 reset :: TestM ()
 reset = do
+  -- FIXME: wipeDB
   Branch.reset_ testBranch $ CommitSha headSha
 
   env <- ask
@@ -46,10 +47,7 @@ reset = do
   writeIORef (env ^. log ) []
   writeIORef (env ^. userRef) Nothing
 
-  -- FIXME: wipeDB
-
--- FIXME:
--- wipeDB :: Env -> IO ()
+-- wipeDB :: TestM ()
 -- wipeDB env = runTest env $ db $ do
 --   tables <- getTables
 --   sqlBackend <- ask

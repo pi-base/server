@@ -1,29 +1,35 @@
 import { Action } from '../actions'
-import { Client } from '../graph'
 import { Formula } from '../models/Formula'
 import { State } from '../reducers'
 import { Store } from 'redux'
 import { ThunkDispatch } from 'redux-thunk'
 
-export { Action } from '../actions'
+import ClientApi from '../graph/Client/Api'
+export type Api = ClientApi
+
 export { Finder } from '../models/Finder'
-export { Formula } from '../models/Formula'
 export { Prover } from '../models/Prover'
-export { Table } from '../models/Table'
-export { State } from '../reducers'
+
+export * from '../types/graph/globalTypes'
+
+export type New<T> = Pick<T, Exclude<keyof T, 'uid'>>
 
 export type Config = {
-  readonly graph: Client
+  readonly graph: Api
   readonly store: Store<State>
   readonly setToken: (token: Token) => void
 }
 
-export type PiBase = {
-  debug: () => void
-  refreshRedux: () => void
-  clearStorage: () => void
-  clientError: () => void
-  showError: (e?: Object) => void
+export interface Persist<T extends Object> {
+  get: <K extends keyof T>(k: K) => T[K] | undefined
+  update: (patch: Partial<T>) => void
+  clear: () => void
+}
+
+export type DB = {
+  token?: string
+  returnTo?: string
+  reduxState?: State
 }
 
 export type TokenStorage = {

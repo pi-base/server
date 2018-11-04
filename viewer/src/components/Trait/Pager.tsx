@@ -1,14 +1,14 @@
 import * as React from 'react'
-import { connect } from 'react-redux'
 
+import { Space, Trait } from '../../types'
 import { asserted, spaceTraits } from '../../selectors'
-import { Space, Trait, State as RootState } from '../../types'
 
-import Icon from '../Icon'
 import Filter from '../Filter'
+import Icon from '../Icon'
 import Limiter from '../Limiter'
 import Tex from '../Tex'
 import TraitItem from './Item'
+import { connect } from 'react-redux'
 
 type OwnProps = {
   space: Space
@@ -144,7 +144,7 @@ class TraitPager extends React.Component<Props, State> {
 }
 
 export default connect(
-  (state: RootState, ownProps: OwnProps): StateProps => ({
+  (state: any, ownProps: OwnProps): StateProps => ({
     traits: spaceTraits(state, ownProps.space).sort(
       (a, b) => a.property.name >= b.property.name ? 1 : -1
     ),

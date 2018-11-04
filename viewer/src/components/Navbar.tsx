@@ -3,7 +3,6 @@ import * as S from '../selectors'
 
 import { Link, NavLink } from 'react-router-dom'
 
-import { State } from '../types'
 import UserTab from './Layout/UserTab'
 import { connect } from 'react-redux'
 
@@ -25,7 +24,7 @@ const Navbar = ({ editing }: Props) => (
   </nav>
 )
 
-export default connect<StateProps, {}, {}, State>(
+export default connect<StateProps, {}, {}, any>(
   state => ({
     editing: S.editing(state)
   })

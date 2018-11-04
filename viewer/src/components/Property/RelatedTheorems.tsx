@@ -1,7 +1,7 @@
 import * as Q from '../../queries'
 import * as React from 'react'
 
-import { Property, State, Theorem } from '../../types'
+import { Property, Theorem } from '../../types'
 
 import Implication from '../Implication'
 import { Link } from 'react-router-dom'
@@ -34,7 +34,7 @@ function RelatedTheorems({ property, theorems, properties }: Props) {
   )
 }
 
-export default connect<StateProps, {}, OwnProps, State>(
+export default connect<StateProps, {}, OwnProps, any>(
   state => ({
     properties: Array.from(state.properties.values()),
     theorems: Array.from(state.theorems.values())

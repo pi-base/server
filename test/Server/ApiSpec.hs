@@ -2,6 +2,7 @@ module Server.ApiSpec (spec) where
 
 import Test.Server.Import
 
+import qualified Build
 import           Control.Lens (view)
 import qualified Data.Git     as Git
 
@@ -22,7 +23,7 @@ spec run = do
           "data": {
             "head": #{sha}
           },
-          "build": null,
+          "build": #{Build.info},
           "startedAt": #{env ^. envBootTime}
         }|]
 

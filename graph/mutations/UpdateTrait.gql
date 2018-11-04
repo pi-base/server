@@ -7,13 +7,6 @@ mutation UpdateTrait($patch: PatchInput!, $trait: UpdateTraitInput!) {
         property {
           uid
         }
-        value
-        description
-        references {
-          type
-          ref
-          name
-        }
       }
     }
   }

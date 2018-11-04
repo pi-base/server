@@ -27,8 +27,8 @@ spec run = do
 
         stub "https://api.github.com/user" [json|{
           "id": 123,
-          "name": "test",
-          "email": "test@example.com"
+          "name": "Create Test",
+          "email": "create.test@example.com"
         }|]
 
         res@Response{..} <- get app "/auth/github/callback?code=test"
@@ -39,8 +39,8 @@ spec run = do
               (T.pack $ header res "Location")
 
         Just (Entity _ User{..}) <- Auth.userWithToken token
-        userName `shouldBe` "test"
-        userEmail `shouldBe` "test@example.com"
+        userName `shouldBe` "Create Test"
+        userEmail `shouldBe` "create.test@example.com"
 
       it "expects a token" $ run $ do
         res@Response{..} <- get app "/auth/github/callback"

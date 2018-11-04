@@ -7,6 +7,7 @@ import Icon from '../Icon'
 import Markdown from '../Markdown'
 import Proof from '../Proof'
 import { RouteComponentProps } from 'react-router'
+import { State as ST } from '../../reducers'
 import Tex from '../Tex'
 import { connect } from 'react-redux'
 import { withRouter } from 'react-router'
@@ -75,8 +76,8 @@ class Trait extends React.Component<Props, State> {
   }
 }
 
-export default connect<StateProps, {}, OwnProps, T.State>(
-  (state: T.State, props: Props): StateProps => ({
+export default connect(
+  (state: ST, props: Props): StateProps => ({
     trait: S.getTrait(state, props.space, props.match.params.propertyId)
   })
 )(Trait)

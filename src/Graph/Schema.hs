@@ -82,6 +82,10 @@ type SubmitBranchResponse = Object "SubmitBranchResponse" '[]
    , Field "url"        Text
    ]
 
+type CreateUserResponse = Object "CreateUserResponse" '[]
+  '[ Field "token" Text
+   ]
+
 type QueryRoot = Object "Query" '[]
   '[ Introspection.SchemaField
    , Introspection.TypeField
@@ -125,6 +129,7 @@ type MutationRoot = Object "Mutation" '[]
    , Argument "input" ResetBranchInput :> Field "resetBranch" Viewer
    , Argument "input" BranchInput :> Field "submitBranch" SubmitBranchResponse
    , Argument "input" BranchInput :> Field "approveBranch" Viewer
+   , Argument "input" CreateUserInput :> Field "createUser" CreateUserResponse
    ]
 
 type Root m = SchemaRoot m QueryRoot MutationRoot
@@ -198,7 +203,12 @@ data UpdateTraitInput = UpdateTraitInput
   , references  :: Maybe [CitationInput]
   } deriving (Show, Generic)
 
+data CreateUserInput = CreateUserInput
+  { name     :: Text
+  , reviewer :: Maybe Bool
+  } deriving (Show, Generic)
+
 data PatchInput = PatchInput
   { branch :: Text
-  , sha    :: Text
+  , sha    :: Maybe Text
   } deriving (Show, Generic)

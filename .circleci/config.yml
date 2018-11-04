@@ -1,4 +1,3 @@
-# TODO: cache stack, node build dependencies
 version: 2
 jobs:
   build_server:
@@ -10,8 +9,8 @@ jobs:
           name: Build binary
           command: |
             stack build --pedantic
-            mkdir -p /tmp/workspace/server/bin
-            cp -r $(stack path --local-install-root)/bin config static /tmp/workspace/server
+            mkdir -p /tmp/workspace/server
+            cp $(stack path --local-install-root)/bin/pibase /tmp/workspace/server
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
@@ -22,6 +21,10 @@ jobs:
       - image: circleci/node:10.11
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - v1-npm-{{ checksum "viewer/package.json" }}
+            - v1-npm-
       - run:
           name: Build bundle
           command: |
@@ -30,6 +33,10 @@ jobs:
             yarn run build
             mkdir /tmp/workspace
             cp -r build /tmp/workspace/viewer
+      - save_cache:
+          key: v1-npm-{{ checksum "viewer/package.json" }}
+          paths:
+            - ~/viewer/node_modules
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
@@ -43,14 +50,16 @@ jobs:
           POSTGRES_USER: root
           POSTGRES_DB: pi_base_test
     environment:
-      CI:        true
-      REPO_PATH: /data/repo
+      CI:            true
+      REPO_PATH:     /data/repo
+      REPO_UPSTREAM: /data/upstream
     steps:
       - checkout
       - run:
           name: Clone data repo
           command: |
-            git clone --bare https://github.com/pi-base/data.git /data/repo/.git
+            git clone --bare https://github.com/pi-base/test-data.git /data/upstream/.git
+      # TODO: compile and publish coverage metrics
       - run:
           name: Run tests
           command: stack test --fast --no-terminal
@@ -62,6 +71,10 @@ jobs:
       - checkout
       - attach_workspace:
           at: /tmp/workspace
+      - restore_cache:
+          keys:
+            - v1-npm-{{ checksum "viewer/package.json" }}
+            - v1-npm-
       - run:
           name: Run tests
           command: |
@@ -71,28 +84,37 @@ jobs:
 
   release:
     docker:
-      - image: quay.io/jamesdabbs/pibase:ci
+      - image: circleci/python:3.7.0
     steps:
       - attach_workspace:
           at: /tmp/workspace
       - run:
+          name: Install awscli
+          command: sudo pip install awscli
+      - run:
           name: Upload to S3
           command: |
-            aws s3 sync --region us-east-2 --delete /tmp/workshop/server s3://pi-base/deploy/server
-            aws s3 sync --region us-east-2 --acl public-read --delete /tmp/workshop/viewer s3://topology.pi-base.org
+            aws s3 sync --region us-east-2 /tmp/workspace/server s3://pi-base/deploy/$CIRCLE_BUILD_NUM/server
+            aws s3 sync --region us-east-2 /tmp/workspace/viewer s3://pi-base/deploy/$CIRCLE_BUILD_NUM/viewer
 
 workflows:
   version: 2
   release:
     jobs:
       - build_server
-      - build_viewer
+      # - build_viewer
       - test_server
-      - test_frontend:
-          requires:
-            - build_server
-            - build_viewer
-            - test_server
+      # TODO: the frontend tests aren't currently configured to run against the built backend, so
+      #   any integration tests are expected to fail. Once that configuration is done, we should
+      #   make release depend on test_frontend passing.
+      # - test_viewer:
+      #     requires:
+      #       - build_server
+      #       - build_viewer
+      #       - test_server
       - release:
           requires:
-            - test_frontend
+            # - test_viewer
+            - build_server
+            # - build_viewer
+            - test_server

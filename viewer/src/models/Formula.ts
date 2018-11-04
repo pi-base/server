@@ -1,8 +1,9 @@
 /* tslint:disable switch-default */
-import * as Parser from './formula/parser.js'
 import * as T from '../types'
 
 import { union } from '../utils'
+
+const Parser = require('./formula.pegjs')
 
 interface Atom<P> {
   kind: 'atom'
@@ -55,6 +56,22 @@ export function compact<P>(f: Formula<P | undefined>): Formula<P> | undefined {
   }
 }
 
+// N.B. Equivalence is a hard problem; we're only checking value equality here
+export function equals(a: Formula<T.Property>, b: Formula<T.Property>): boolean {
+  switch (a.kind) {
+    case 'atom':
+      if (b.kind !== 'atom') { return false }
+      return a.property.uid === b.property.uid && a.value === b.value
+    default:
+      if (b.kind !== a.kind) { return false }
+      if (b.subs.length !== a.subs.length) { return false }
+      for (let i = 0; i < b.subs.length; i++) {
+        if (equals(b.subs[i], a.subs[i]) === false) { return false }
+      }
+      return true
+  }
+}
+
 export function toString(f: Formula<T.Property>): string {
   switch (f.kind) {
     case 'atom':
@@ -99,23 +116,23 @@ export function evaluate(f: Formula<T.Id>, traits: Map<T.Id, boolean>): boolean 
     case 'and':
       result = true // by default
       f.subs.forEach(sub => {
+        if (result === false) { return }
         const sv = evaluate(sub!, traits)
         if (sv === false) { // definitely false
-          result = false // TODO: break early
-        }
-        if (result && sv === undefined) { // maybe false
+          result = false
+        } else if (result && sv === undefined) { // maybe false
           result = undefined
         }
       })
       return result
     case 'or':
-      result = false // by default
+      result = false
       f.subs.forEach(sub => {
+        if (result === true) { return }
         const sv = evaluate(sub!, traits)
         if (sv === true) { // definitely true
-          result = true // TODO: break early
-        }
-        if (result === false && sv === undefined) { // maybe true
+          result = true
+        } else if (result === false && sv === undefined) { // maybe true
           result = undefined
         }
       })
@@ -165,6 +182,24 @@ export function parse(q: string): Formula<string> | undefined {
   }
 
   return fromJSON(parsed)
+}
+
+export function parseWith<T>(lookup: (term: string) => T | undefined, q: string): Formula<T> | undefined {
+  const parsed = parse(q)
+  if (!parsed) { return }
+
+  let errors = false
+  const result = mapProperty(
+    term => {
+      const found = lookup(term)
+      if (!found) { errors = true }
+      return found
+    },
+    parsed
+  )
+
+  return errors ? undefined : result as Formula<T>
+
 }
 
 export function and<P>(...subs: Formula<P>[]): And<P> {

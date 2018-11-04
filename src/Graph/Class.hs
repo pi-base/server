@@ -218,9 +218,13 @@ instance HasAnnotatedInputType UpdateTraitInput where
     , ("description", TypeNamed $ BuiltinInputType GString)
     , ("references",  referencesInputType)
     ]
-
 instance Defaultable UpdateTraitInput where
   defaultFor _ = panic "No default for UpdateTraitInput"
+
+instance FromValue CreateUserInput
+instance HasAnnotatedInputType CreateUserInput
+instance Defaultable CreateUserInput where
+  defaultFor _ = panic "No default for CreateUserInput"
 
 instance ToJSON PatchInput
 instance FromValue PatchInput

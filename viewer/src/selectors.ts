@@ -1,8 +1,9 @@
 import * as F from './models/Formula'
 
-import { Formula, Id, Proof, Property, SearchModifier, Space, Table, Theorem, Trait } from './types'
+import { Id, Proof, Property, SearchModifier, Space, Theorem, Trait } from './types'
 
 import { Finder } from './models/Finder'
+import { Formula } from './models/Formula'
 import { Prover } from './models/Prover'
 import { State } from './reducers'
 import { createSelector } from 'reselect'
@@ -144,20 +145,6 @@ export const search = (
 
   return spaces
 }
-
-export const searchFormula = createSelector(
-  (state: State) => state.search.formulaMemo,
-  (state: State) => state.properties,
-  (formula, properties) => {
-    if (!formula) { return }
-    return F.compact(
-      F.mapProperty(
-        (p) => properties.get(p),
-        formula
-      )
-    )
-  }
-)
 
 export const parseFormula = (
   state: State,

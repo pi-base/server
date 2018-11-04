@@ -6,6 +6,7 @@ module Util
   , indexBy
   , insertNested
   , repsertBy
+  , slugify
   , traverseDir
   ) where
 
@@ -13,7 +14,9 @@ import Core hiding (replace)
 
 import           Data.Aeson               (ToJSON, encode)
 import qualified Data.ByteString.Lazy     as LBS
+import           Data.Char                (isAlpha, toLower)
 import qualified Data.Map                 as M
+import qualified Data.Text                as T
 import           Database.Persist
 import           Database.Persist.Sql
 import           System.Directory         (listDirectory)
@@ -48,6 +51,13 @@ insertNested :: (Ord a, Ord b) => a -> b -> v -> Map a (Map b v) -> Map a (Map b
 insertNested a b v = M.alter add a
   where
     add = Just . M.insert b v . maybe mempty identity
+
+slugify :: Text -> Text
+slugify = T.foldl convert ""
+  where
+    convert acc c
+      | isAlpha c = acc `T.snoc` toLower c
+      | otherwise = acc `T.snoc` '-'
 
 traverseDir :: (a -> FilePath -> IO a) -> FilePath -> a -> IO a
 traverseDir f top = go [top]

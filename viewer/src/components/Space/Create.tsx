@@ -7,12 +7,19 @@ import { RouteComponentProps } from 'react-router'
 import { connect } from 'react-redux'
 import { createSpace } from '../../actions'
 
-type Props = RouteComponentProps<{}>
+interface DispatchProps {
+  onSubmit: (space: Space) => void
+}
+
+const mapDispatchToProps = (
+  dispatch: Dispatch,
+  { history }: RouteComponentProps<{}>
+): DispatchProps => ({
+  onSubmit: (values: Space) => dispatch(createSpace(values)).
+    then(space => history.push(`/spaces/${space.uid}`))
+})
 
 export default connect(
   null,
-  (dispatch: Dispatch, ownProps: Props) => ({
-    save: (values: Space) => dispatch(createSpace(values)).
-      then(space => ownProps.history.push(`/spaces/${space.uid}`))
-  })
+  mapDispatchToProps
 )(Form)

@@ -1,17 +1,16 @@
 import * as React from 'react'
-import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
-
-import { State as StoreState } from '../../reducers'
 import * as S from '../../selectors'
+
+import EditLink from '../Form/EditLink'
+import Filter from '../Filter'
+import Implication from '../Implication'
+import { Link } from 'react-router-dom'
+import Preview from '../Preview'
+import { State as StoreState } from '../../reducers'
+import Tex from '../Tex'
 import { Theorem } from '../../types'
 import { by } from '../../utils'
-
-import Filter from '../Filter'
-import EditLink from '../Form/EditLink'
-import Implication from '../Implication'
-import Preview from '../Preview'
-import Tex from '../Tex'
+import { connect } from 'react-redux'
 
 type StateProps = {
   theorems: Theorem[]
@@ -73,7 +72,7 @@ class Theorems extends React.Component<Props, State> {
   }
 }
 
-export default connect<StateProps, {}, {}>(
+export default connect(
   (state: StoreState): StateProps => ({
     theorems: Array.from(state.theorems.values()).sort(by('uid')).reverse()
   })

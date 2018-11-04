@@ -22,6 +22,7 @@ server = Settings
   <$> def "FRONTEND_URL" "https://viewer.counterxamples.info"
   <*> def "VERBOSITY"    Logger.LevelInfo
   <*> def "PORT"         3141
+  <*> pure False
   <*> do
       connString <- mkConnStr
         <$> def "DATABASE_NAME" "pi_base_development"
@@ -59,6 +60,7 @@ test = Settings
   <$> pure "https://viewer.example.com"
   <*> pure LevelError
   <*> pure 3999
+  <*> pure False
   <*> do
       connString <- mkConnStr
         <$> pure "pi_base_test"
@@ -80,10 +82,10 @@ test = Settings
       <$> pure (Just "graph")
       )
   <*> ( Store.Settings
-      <$> pure "tmp/repo.git"
+      <$> def "REPO_PATH" "tmp/repo.git"
       <*> pure "test"
       <*> pure False
-      <*> pure "tmp/upstream.git"
+      <*> def "REPO_UPSTREAM" "tmp/upstream.git"
       )
   <*> ( Rollbar.Settings
       <$> pure Nothing
@@ -138,5 +140,5 @@ mkConnStr name host muser mpass = BS.pack $ intercalate " "
   [ "host=" <> host
   , "dbname=" <> name
   , maybe "" ("user=" <>) muser
-  , maybe "" ("pass=" <>) mpass
+  , maybe "" ("password=" <>) mpass
   ]

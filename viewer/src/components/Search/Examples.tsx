@@ -1,17 +1,10 @@
 import * as React from 'react'
 
-import { Dispatch, State } from '../../types'
-
-import { connect } from 'react-redux'
-import { search } from '../../actions'
-
 type Example = { name: string, query: string }
 
-type DispatchProps = {
-  search: (formula: string) => void
+interface Props {
+  onSelect?: (example: string) => void
 }
-type OwnProps = React.HTMLProps<HTMLDivElement>
-type Props = DispatchProps & OwnProps
 
 const examples: Example[] = [
   {
@@ -33,22 +26,16 @@ const Example = ({ example, onClick }: { example: Example, onClick: () => void }
   </article>
 )
 
-const Examples = (props: Props) => {
+// TODO: better passthrough props
+const Examples = ({ onSelect, ...rest }: Props & Partial<any>) => {
   return (
-    <div className={props.className}>
+    <div {...rest}>
       <p>Not sure where to start? Try one of the following searches</p>
       {examples.map(example =>
-        <Example key={example.name} example={example} onClick={() => props.search(example.query)} />
+        <Example key={example.name} example={example} onClick={() => onSelect && onSelect(example.query)} />
       )}
     </div>
   )
 }
 
-const mapDispatchToProps = (dispatch: Dispatch): DispatchProps => ({
-  search: (formula) => dispatch(search({ text: '', formula }))
-})
-
-export default connect<{}, DispatchProps, OwnProps, State>(
-  null,
-  mapDispatchToProps
-)(Examples)
+export default Examples

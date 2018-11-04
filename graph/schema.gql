@@ -106,11 +106,14 @@ type Mutation {
   approveBranch(
     input: BranchInput!
   ): Viewer!
+  createUser(
+    input: CreateUserInput!
+  ): CreateUserResponse!
 }
 
 input PatchInput {
   branch: String!
-  sha: String!
+  sha: String
 }
 
 input CreateSpaceInput {
@@ -183,6 +186,15 @@ type SubmitBranchResponse {
 
 input BranchInput {
   branch: String!
+}
+
+type CreateUserResponse {
+  token: String!
+}
+
+input CreateUserInput {
+  name: String!
+  reviewer: Boolean
 }
 
 

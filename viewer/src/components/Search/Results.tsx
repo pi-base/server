@@ -1,22 +1,21 @@
-import * as React from 'react'
-import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
-
-import { State } from '../../reducers'
 import * as F from '../../models/Formula'
-import * as L from '../../logic'
+import * as React from 'react'
 import * as S from '../../selectors'
 import * as T from '../../types'
 
 import Examples from './Examples'
 import Formula from '../Formula'
 import Implication from '../Implication'
+import { Link } from 'react-router-dom'
+import { State } from '../../reducers'
 import TraitTable from '../Trait/Table'
+import { connect } from 'react-redux'
 
 type OwnProps = {
-  text: string | undefined
-  formula: T.Formula<T.Property> | undefined
-  modifier: T.SearchModifier
+  text?: string
+  formula?: F.Formula<T.Property>
+  modifier?: T.SearchModifier
+  onExampleSelect?: (example: string) => void
 }
 type StateProps = {
   results: T.Space[]
@@ -58,9 +57,9 @@ const NoneFound = ({ formula }) => (
   </div>
 )
 
-function Results({ text, formula, results, prover }: Props) {
+function Results({ text, formula, results, prover, onExampleSelect }: Props) {
   if (!text && !formula) {
-    return <Examples className="search-examples" />
+    return <Examples className="search-examples" onSelect={onExampleSelect} />
   }
 
   if (formula && results.length === 0) {
@@ -82,7 +81,7 @@ function Results({ text, formula, results, prover }: Props) {
   )
 }
 
-export default connect<StateProps, {}, OwnProps>(
+export default connect(
   (state: State, ownProps: OwnProps): StateProps => ({
     results: S.search(state, {
       formula: ownProps.formula ? F.mapProperty(p => p.uid, ownProps.formula) : undefined,

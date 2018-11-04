@@ -22,6 +22,7 @@ data Settings = Settings
   { _frontendUrl    :: Text
   , _logLevel       :: LogLevel
   , _port           :: Int
+  , _testMode       :: Bool
 
   , _databaseSettings :: PostgresConf
   , _githubSettings   :: Github.Settings

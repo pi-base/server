@@ -2,10 +2,10 @@ import * as React from 'react'
 
 import { Finder, Record, Weights } from '../models/Finder'
 
-export interface Props {
-  collection: Record[]
+export interface Props<R> {
+  collection: R[]
   weights?: Weights
-  onChange: (results: Record[]) => void
+  onChange: (results: R[]) => void
   name?: string
   placeholder?: string
 }
@@ -14,21 +14,26 @@ export interface State {
   q: string
 }
 
-class Filter extends React.Component<Props, State> {
-  finder: Finder<Record>
+class Filter<R extends Record> extends React.Component<Props<R>, State> {
+  finder: Finder<R>
 
-  constructor(props: Props) {
+  constructor(props: Props<R>) {
     super(props)
     this.state = { q: '' }
+    this.finder = this.buildFinder(props)
   }
 
   componentWillMount() {
+    this.finder = this.buildFinder(this.props)
+  }
+
+  buildFinder(props) {
     const weights = this.props.weights || [
       { name: 'name', weight: 0.7 },
       { name: 'aliases', weight: 0.6 },
       { name: 'description', weight: 0.3 }
     ]
-    this.finder = new Finder(this.props.collection, weights)
+    return new Finder(this.props.collection, weights)
   }
 
   onChange(q: string) {

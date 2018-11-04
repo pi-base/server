@@ -1,23 +1,25 @@
-import * as G from './graph'
-
-import { Action, TokenStorage } from './types'
 import { Store, applyMiddleware, compose, createStore } from 'redux'
-import field, { Field } from './store/field'
-import rootReducer, { State } from './reducers'
+import { State, makeReducer } from './reducers'
 import thunk, { ThunkMiddleware } from 'redux-thunk'
+import Api from './graph/Client/Api'
 
+import { AnyAction } from 'redux'
+import { DB, Persist } from './types'
 import { createLogger } from 'redux-logger'
 
-const inDevelopment = false // process.env.NODE_ENV === 'development'
+const inDevelopment = process.env.NODE_ENV === 'development'
 
 // tslint:disable-next-line no-any
 const composeEnhancers = (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose
 
-export const localToken: Field<string> = field('token')
+type MiddlewareOpts = {
+  graph: Api
+  storage?: Storage
+}
 
-const makeMiddleware = ({ graph, token }: { graph: G.Client, token: TokenStorage }) => {
+const makeMiddleware = ({ graph }: MiddlewareOpts) => {
   const middleware = [
-    thunk.withExtraArgument({ graph, token }) as ThunkMiddleware<State, Action>
+    thunk.withExtraArgument({ graph }) as ThunkMiddleware<State, AnyAction>
   ]
 
   if (inDevelopment) {
@@ -29,10 +31,8 @@ const makeMiddleware = ({ graph, token }: { graph: G.Client, token: TokenStorage
   return middleware
 }
 
-const persist = next => (reducer, _) => {
+const persistState = ({ storage, graph }: { storage: Storage, graph: Api }) => next => (reducer, _) => {
   let load, dump
-
-  const db = field('state')
 
   if (inDevelopment) {
     dump = state => state
@@ -71,27 +71,43 @@ const persist = next => (reducer, _) => {
     }
   }
 
-  const loaded = db.get()
-  const initialState = loaded ? load(loaded) : undefined
+  const loaded = storage.getItem('piBase.reduxState')
+
+  let initialState: State | undefined
+  if (loaded) {
+    try {
+      initialState = load(JSON.parse(loaded))
+      if (initialState && initialState.client) {
+        graph.host = initialState.client.host
+      }
+      if (initialState && initialState.client.token) {
+        graph.login(initialState.client.token)
+      }
+    } catch (e) {
+      console.error('Failed to load state from storage:', e)
+    }
+  }
   const store = next(reducer, initialState)
 
   store.subscribe(() => {
     const state = store.getState()
 
-    db.set(dump(state))
+    storage.setItem('piBase.reduxState', JSON.stringify(dump(state)))
   })
 
   return store
 }
 
-export function makeStore({ graph, token }: { graph: G.Client, token: TokenStorage }): Store<State> {
-  const enhancers = [
-    applyMiddleware(...makeMiddleware({ graph, token })),
-    persist
-  ]
+export function makeStore({ graph, storage = localStorage }: MiddlewareOpts): Store<State> {
+  const reducer = makeReducer(graph)
 
-  return createStore<State, Action, {}, {}>(
-    rootReducer,
-    composeEnhancers(...enhancers)
+  const middleware = makeMiddleware({ graph })
+
+  return createStore(
+    reducer,
+    composeEnhancers(
+      applyMiddleware(...middleware),
+      persistState({ storage, graph })
+    )
   )
 }

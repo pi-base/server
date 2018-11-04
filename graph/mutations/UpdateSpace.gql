@@ -2,14 +2,8 @@ mutation UpdateSpace($patch: PatchInput!, $space: UpdateSpaceInput!) {
   updateSpace(patch: $patch, space: $space) {
     version
     spaces {
+      __typename
       uid
-      name
-      description
-      references {
-        type
-        ref
-        name
-      }
     }
   }
 }

@@ -1,12 +1,11 @@
 import * as A from '../../actions'
 import * as React from 'react'
 
-import { Dispatch, State } from '../../types'
 import { RouteComponentProps, withRouter } from 'react-router'
 
+import { Dispatch } from '../../types'
 import { Link } from 'react-router-dom'
 import { connect } from 'react-redux'
-import { loginUrl } from '../../graph'
 
 type StateProps = {
   username: string | undefined
@@ -42,20 +41,15 @@ const UserTab = ({ username, startLogin, logout }: Props) => {
   }
 }
 
-const mapStateToProps = (state: State): StateProps => ({
+const mapStateToProps = (state: any): StateProps => ({
   username: state.user === 'unauthenticated' ? undefined : state.user.name
 })
 
 const mapDispatchToProps = (dispatch: Dispatch): DispatchProps => ({
-  startLogin: () => {
-    // FIXME: decouple
-    localStorage.setItem('piBase.returnTo', window.location.pathname);
-    // tslint:disable-next-line no-any
-    (window as any).location = loginUrl({ redirectTo: window.location })
-  },
+  startLogin: () => dispatch(A.startLogin(window)),
   logout: () => dispatch(A.logout())
 })
 
 export default withRouter(
-  connect<StateProps, DispatchProps, OwnProps, State>(mapStateToProps, mapDispatchToProps)(UserTab)
+  connect<StateProps, DispatchProps, OwnProps, any>(mapStateToProps, mapDispatchToProps)(UserTab)
 )

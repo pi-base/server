@@ -47,6 +47,7 @@ configP s = do
     <> metavar "PORT"
     <> help "Port to listen on"
     <> value (s ^. port)
+    <> showDefault
     )
 
   repoPath' <- option str
@@ -54,11 +55,19 @@ configP s = do
     <> metavar "REPO"
     <> help "Path to working repo"
     <> value (s ^. repoSettings . Store.repoPath)
+    <> showDefault
+    )
+
+  testMode' <- flag (s ^. testMode) True
+    ( long "test"
+    <> help "Enable integration test mode"
+    <> showDefault
     )
 
   return $ s
     & logLevel .~ logLevel'
     & port .~ port'
+    & testMode .~ testMode'
     & repoSettings . Store.repoPath .~ repoPath'
 
 data Command

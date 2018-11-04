@@ -1,11 +1,11 @@
-import * as A from '../actions'
-import * as T from '../types'
+import { Action } from '../actions'
+import { Citation, Id, Space } from '../types'
 
-export type State = Map<T.Id, T.Space>
+export type State = Map<Id, Space>
 
 export const reducer = (
   state: State | undefined,
-  action: A.Action
+  action: Action
 ): State => {
   state = state || new Map()
 
@@ -18,13 +18,13 @@ export const reducer = (
 
     case 'LOAD_VIEWER':
       const next = new Map(state)
-      action.viewer.viewer.spaces.forEach(s => {
+      action.viewer.spaces.forEach(s => {
         next.set(s.uid, {
           uid: s.uid,
           name: s.name,
           aliases: s.aliases,
           description: s.description,
-          references: s.references as T.Citation[] // TODO: check `type` against enum
+          references: s.references as Citation[] // TODO: check `type` against enum
         })
       })
       return new Map(next)

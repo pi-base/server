@@ -1,7 +1,5 @@
 import * as React from 'react'
 
-import { Action, State, User } from '../types'
-
 import Branches from './Branch/Table'
 import { connect } from 'react-redux'
 
@@ -12,7 +10,7 @@ type StateProps = {
 }
 type Props = StateProps
 
-const User = ({ user }: Props) => {
+const UserDetail = ({ user }: Props) => {
   if (!user) {
     return (<div />)
   } else {
@@ -26,12 +24,12 @@ const User = ({ user }: Props) => {
   }
 }
 
-export default connect<StateProps, {}, {}, State>(
-  state => {
+export default connect(
+  (state: any) => {
     if (state.user === 'unauthenticated') {
       return { user: undefined }
     } else {
       return { user: { name: state.user.name } }
     }
   }
-)(User)
+)(UserDetail)

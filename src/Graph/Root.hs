@@ -13,7 +13,7 @@ import           Graph.Queries       as G (queries)
 import           Graph.Mutations     as G (mutations)
 import           Graph.Queries.Cache as Cache
 import           Graph.Schema        as G
-import           Graph.Types         (Context(..))
+import           Graph.Types         (Context(..), unName)
 
 handler :: Graph m => SchemaRoot m QueryRoot MutationRoot
 handler = SchemaRoot G.queries G.mutations
@@ -35,11 +35,15 @@ run :: (DB m, HasEnv m, Git m, Http m, MonadLogger m)
     -> QueryData
     -> m Response
 run env user req = do
-  let context = Context user (env ^. envSettings . Core.githubSettings)
+  let context = Context
+        { _currentUser    = user
+        , _githubSettings = env ^. envSettings . Core.githubSettings
+        , _testMode       = env ^. envSettings . Core.testMode
+        }
       exec = case env ^. envFoundation . appQueries of
         Just cache -> compiled cache
         Nothing    -> interpreted
   runReaderT (exec req) context
 
 opName :: Operation -> Maybe Text
-opName op = show <$> unOp op
+opName op = unName <$> unOp op

@@ -18,4 +18,4 @@ yarn-debug.log*
 yarn-error.log*
 
 schema.json
-src/graph/types.ts
+src/types/graph

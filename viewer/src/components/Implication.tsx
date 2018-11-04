@@ -1,7 +1,7 @@
 import * as F from '../models/Formula'
 import * as React from 'react'
 
-import { Id, Property, State, Theorem } from '../types'
+import { Id, Property, Theorem } from '../types'
 
 import Formula from './Formula'
 import Tex from './Tex'
@@ -32,7 +32,7 @@ function Implication({ theorem, properties, link }: Props) {
   )
 }
 
-export default connect<StateProps, {}, OwnProps, State>(
+export default connect<StateProps, {}, OwnProps, any>(
   (state) => ({
     properties: state.properties
   })

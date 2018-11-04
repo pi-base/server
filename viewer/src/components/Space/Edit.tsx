@@ -1,5 +1,3 @@
-import * as React from 'react'
-
 import { Dispatch, Space } from '../../types'
 
 import Form from './Form'
@@ -7,15 +5,23 @@ import { RouteComponentProps } from 'react-router'
 import { connect } from 'react-redux'
 import { updateSpace } from '../../actions'
 
-type OwnProps = {
+interface OwnProps {
   space: Space
 }
-type Props = OwnProps & RouteComponentProps<{}>
+interface DispatchProps {
+  onSubmit: (space: Space) => Promise<any>
+}
+
+const mapDispatchToProps = (
+  dispatch: Dispatch,
+  { history, space }: OwnProps & RouteComponentProps<{}>
+): DispatchProps => ({
+  onSubmit: values => dispatch(updateSpace(values)).then(_ => {
+    history.push(`/spaces/${space.uid}`)
+  })
+})
 
 export default connect(
   null,
-  (dispatch: Dispatch, ownProps: Props) => ({
-    save: values => dispatch(updateSpace(values)).
-      then(_ => ownProps.history.push(`/spaces/${ownProps.space.uid}`))
-  })
+  mapDispatchToProps
 )(Form)

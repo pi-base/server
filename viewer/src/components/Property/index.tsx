@@ -15,7 +15,7 @@ type StateProps = {
 }
 type Props = StateProps & RouteComponentProps<{ id: string }>
 
-const Property: React.SFC<Props> = props => {
+const PropertyDetail: React.SFC<Props> = props => {
   const { property } = props
 
   if (!property) { return <NotFound {...props} /> }
@@ -31,8 +31,8 @@ const Property: React.SFC<Props> = props => {
   )
 }
 
-export default connect<StateProps, {}, Props>(
+export default connect(
   (state: State, props: Props) => ({
     property: state.properties.get(props.match.params.id)
   })
-)(Property)
+)(PropertyDetail)

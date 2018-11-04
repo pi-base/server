@@ -2,7 +2,7 @@ import * as F from '../models/Formula'
 import * as React from 'react'
 import * as query from 'query-string'
 
-import { Formula, Property, Space, State } from '../types'
+import { Property, Space } from '../types'
 import { RollbarProps, withRollbar } from '../errors'
 import { RouteComponentProps, withRouter } from 'react-router'
 import { propertyFinder, spaceFinder } from '../selectors'
@@ -13,7 +13,7 @@ import { connect } from 'react-redux'
 
 interface StateProps {
   findSpace: (id: string) => Space | undefined
-  convertFormula: (q: string) => Formula<Property> | undefined
+  convertFormula: (q: string) => F.Formula<Property> | undefined
 }
 
 type Props = StateProps & RouteComponentProps<{}> & RollbarProps
@@ -75,7 +75,7 @@ class NotFound extends React.PureComponent<Props> {
   }
 }
 
-const mapStateToProperties = (state: State) => ({
+const mapStateToProps = (state: any) => ({
   findSpace: spaceFinder(state).find,
   convertFormula: (q: string) => {
     if (!q) { return }
@@ -91,8 +91,4 @@ const mapStateToProperties = (state: State) => ({
   }
 })
 
-export default compose(
-  withRouter,
-  withRollbar,
-  connect(mapStateToProperties)
-)(NotFound)
+export default withRouter(withRollbar(connect(mapStateToProps)(NotFound)))

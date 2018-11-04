@@ -33,15 +33,20 @@ logWithLoc :: (MonadIO m, ToLogStr msg)
     -> Loc -> LogSource -> LogLevel -> msg
     -> m ()
 logWithLoc logger loc src lvl msg = log logger lvl $ mconcat
-  [ "["
-  , toLogStr src
-  , "] "
-  , toLogStr msg
+  [ toLogStr msg
   , " -- "
-  , toLogStr (loc_filename loc)
-  , ":"
-  , toLogStr (show (fst $ loc_start loc) :: Text)
+  , location
   ]
+  where
+    location = mconcat $ if toLogStr src == ""
+      then [ toLogStr (loc_filename loc)
+           , ":"
+           , toLogStr (show (fst $ loc_start loc) :: Text)
+           ]
+      else [ "["
+           , toLogStr src
+           , "]"
+           ]
 
 log :: (MonadIO m, ToLogStr msg) => Logger -> LogLevel -> msg -> m ()
 log Logger{..} lvl msg = when (lvl >= loggerLevel) $

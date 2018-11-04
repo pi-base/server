@@ -20,6 +20,7 @@ import Graph.Import
 import           Control.Lens     (view)
 import           Database.Persist (Entity(..))
 
+import qualified Auth
 import           Data.Store        (getDefaultBranch)
 import qualified Data.Branch       as Branch
 import qualified Data.Branch.Merge as Branch
@@ -31,8 +32,9 @@ import qualified Data.Theorem      as Theorem
 import qualified Data.Trait        as Trait
 import qualified Graph.Queries     as G
 import qualified Graph.Schema      as G
-import           Graph.Types
+import           Graph.Types       as G
 import qualified Services.Github   as Github
+import           Util              (slugify)
 import qualified View              as View
 
 mutations :: Graph m => Handler m G.MutationRoot
@@ -48,6 +50,7 @@ mutations =
      :<> resetBranch
      :<> submitBranch
      :<> approveBranch
+     :<> createUser
 
 assertTrait :: Graph m => G.PatchInput -> G.AssertTraitInput -> Handler m G.Viewer
 assertTrait patch G.AssertTraitInput{..} = do
@@ -213,6 +216,25 @@ updateTrait patch G.UpdateTraitInput{..} = do
         }
   Trait.put branch meta updated >>= G.presentView
 
+createUser :: (Graph m, MonadLogger m)
+           => G.CreateUserInput -> Handler m G.CreateUserResponse
+createUser G.CreateUserInput{..} = do
+  testing <- view G.testMode <$> getContext
+  unless testing $ throwIO NotAuthenticated
+
+  let user = User
+        { userName       = name
+        , userEmail      = slugify name <> "@example.com"
+        , userIsReviewer = fromMaybe False reviewer
+        }
+  id <- Auth.ensureIdent "test" name name user
+  token <- Auth.generateToken id
+
+  let euser = Entity id user
+  void $ Branch.ensureUserBranch euser
+
+  return $ pure (tokenUuid token)
+
 -- Helpers
 
 citations :: [G.CitationInput] -> [Citation]
@@ -223,11 +245,13 @@ checkPatch :: Graph m => G.PatchInput -> m (User, Branch)
 checkPatch G.PatchInput{..} = do
   (user, b) <- requireBranchAccess branch BranchWrite
   currentSha <- Branch.headSha b
-  unless (sha == currentSha) $
-    throwIO $ ConflictError
-      { expectedSha = sha
-      , actualSha = currentSha
-      }
+  case sha of
+    Just expected -> unless (expected == currentSha) $
+      throwIO $ ConflictError
+        { expectedSha = expected
+        , actualSha = currentSha
+        }
+    _ -> return ()
   return $ (entityVal user, b)
 
 requireBranchAccess :: Graph m => BranchName -> BranchAccess -> m (Entity User, Branch)

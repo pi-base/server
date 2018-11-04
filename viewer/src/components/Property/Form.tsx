@@ -1,62 +1,74 @@
 import * as React from 'react'
 
-import { Citation, Property } from '../../types'
-import { Field, FieldArray } from 'redux-form'
-import { Text, Textarea } from '../Form/Labeled'
-
 import Citations from '../Form/Citations'
 import Detail from './Detail'
-import { previewForm } from '../PreviewForm'
+import { Field } from '../Form'
+import PreviewForm from '../PreviewForm'
+import { Property } from '../../types'
 import uuid from 'uuid/v4'
 
-type Values = {
-  name: string
-  description: string
-  references: Citation[]
-}
-type Errors = {
-  name?: string
-}
 interface Props {
-  property: Property
+  property?: Property
+  onSubmit: (property: Property) => any
 }
+
+const validate = (values: Property) => {
+  let errors: any = {}
+
+  if (!values.name) {
+    errors.name = 'Name is required'
+  }
+
+  return { result: values, errors }
+}
+
+const Preview = ({ result, ...props }) => (
+  <Detail
+    {...props}
+    property={result}
+    editable={false}
+  />
+)
 
 const Fields = _ => (
   <>
     <Field
       name="name"
       label="Name"
-      component={Text}
+      input="input"
     />
     <Field
       name="description"
       label="Description"
-      component={Textarea}
+      input="textarea"
     />
-    <FieldArray name="references" component={Citations} />
+    <Field
+      name="references"
+      input={Citations}
+    />
   </>
 )
 
-const run = (values: Values, { property }: Props) => {
-  const errors: Errors = {}
-  if (!values.name) { errors.name = 'Required' }
+const Form: React.SFC<Props> = props => {
+  const { property, onSubmit } = props
 
-  let result: Property | undefined
-  if (property) {
-    result = { ...property, ...values }
-  } else {
-    result = {
-      uid: uuid(),
-      ...values,
-      references: values.references || []
-    }
+  const initial = {
+    uid: uuid(),
+    name: '',
+    description: '',
+    references: [],
+    ...property || {}
   }
 
-  return { result, errors }
+  return (
+    <PreviewForm<Property, Property>
+      Fields={Fields}
+      Preview={Preview}
+      initialValues={initial}
+      validate={validate}
+      onSubmit={onSubmit}
+    />
+  )
 }
 
-const Preview = props => <Detail {...props} property={props.preview} />
-
-const Form = previewForm<Property, Values>({ name: 'property', Preview, run })
-
-export default props => <Form {...props} Fields={Fields} />
+export default Form
