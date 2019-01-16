@@ -13,6 +13,7 @@ import qualified Server.Middleware.Cors    as Cors
 import qualified Server.Middleware.Logging as Logging
 import qualified Server.Middleware.Errors  as Errors
 import qualified Server.Middleware.Rollbar as Rollbar
+import qualified Server.Middleware.Session as Session
 
 data Stack = Stack
   { cors    :: Middleware
@@ -20,16 +21,20 @@ data Stack = Stack
   , logger  :: Middleware
   , rollbar :: Middleware
   , errors  :: Middleware
+  , session :: Middleware
   }
 
-def :: Env -> Stack
-def env = Stack
-  { cors    = Cors.middleware
-  , auth    = Auth.middleware env
-  , logger  = Logging.middleware env
-  , rollbar = Rollbar.middleware env
-  , errors  = Errors.middleware env
-  }
+def :: Env -> IO Stack
+def env = do
+  session <- Session.makeMiddleware
+  return Stack
+    { cors    = Cors.middleware
+    , auth    = Auth.middleware env
+    , logger  = Logging.middleware env
+    , rollbar = Rollbar.middleware env
+    , errors  = Errors.middleware env
+    , session = session
+    }
 
 build :: Stack -> Middleware
 build Stack{..} = foldr (.) identity
@@ -37,5 +42,6 @@ build Stack{..} = foldr (.) identity
   , auth
   , logger
   , rollbar
+  , session
   , errors
   ]

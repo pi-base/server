@@ -10,7 +10,7 @@ import Server.Import
 import qualified Data.ByteString as BS
 import qualified Data.Vault.Lazy as V
 import           Network.Wai
-import           System.IO.Unsafe
+import           System.IO.Unsafe (unsafePerformIO)
 
 import qualified Auth
 

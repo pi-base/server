@@ -58,8 +58,8 @@ class Client implements Api {
     return this.mutate(createUser, { input }).then(data => data.createUser)
   }
 
-  loginUrl({ redirectTo }: { redirectTo: string }) {
-    return `${this.host}/auth/github?location=${redirectTo}`
+  loginUrl({ returnUrl }: { returnUrl: string }) {
+    return `${this.host}/auth/github?returnUrl=${returnUrl}`
   }
 
   login(token: string) {

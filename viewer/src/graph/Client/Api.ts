@@ -10,7 +10,7 @@ type Response<T> = Promise<T>
 
 export default interface Api {
   // Client state management
-  loginUrl: (opts: { redirectTo: string }) => string
+  loginUrl: (opts: { returnUrl: string }) => string
   login: (token: string) => void
   logout: () => void
   branch: BranchName

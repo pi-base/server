@@ -50,6 +50,8 @@ library:
     - attoparsec
     - aeson-pretty
     - conduit
+    - cookie
+    - data-default
     - deepseq
     - directory
     - either
@@ -73,6 +75,7 @@ library:
     - vault
     - vector
     - wai-cors
+    - wai-session
     - warp
     - wreq
     - yaml

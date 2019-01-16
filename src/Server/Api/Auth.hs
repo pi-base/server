@@ -8,14 +8,17 @@ module Server.Api.Auth
   , server
   ) where
 
-import Server.Import hiding (header)
+import Server.Import hiding (header, state)
 
 import           Control.Lens hiding ((.=))
-import           Data.String (String)
+import           Data.String  (String)
+import qualified Data.UUID    as UUID
+import qualified Data.UUID.V4 as UUID
 
 import qualified Auth
+import qualified Server.Middleware.Session as Session
 import           Server.Util
-import qualified Services.Github as Github
+import qualified Services.Github           as Github
 
 type HTML = String
 instance Accept HTML where
@@ -23,42 +26,63 @@ instance Accept HTML where
 instance MimeRender HTML () where
   mimeRender _ _ = ""
 
-type API = "github" :> Get '[HTML] ()
-      :<|> "github" :> "callback" :> QueryParam "code" Text :> Get '[HTML] ()
+type API =
+  Vault :>
+    (    "github"
+         :> QueryParam "returnUrl" Text
+         :> Get '[HTML] ()
+    :<|> "github" :> "callback"
+         :> QueryParam "code" Text
+         :> QueryParam "state" Text
+         :> Get '[HTML] ()
+    )
 
 server :: App m => ServerT API m
-server = githubStart
-    :<|> githubCallback
+server vault = githubStart vault
+          :<|> githubCallback vault
 
 -- TODO: track state as CSRF protection
 
-githubStart :: App m => m ()
-githubStart = do
+githubStart :: App m => Vault -> Maybe Text -> m ()
+githubStart vault returnUrl = do
   OAuth2{..} <- getApp
+
+  Session.set vault returnUrlKey returnUrl
+
+  state <- UUID.toText <$> liftIO UUID.nextRandom
+  Session.set vault stateKey state
+
   redirectTo $ mconcat
     [ "https://github.com/login/oauth/authorize"
     , "?client_id=" <> clientId
     , "&response_type=code"
     , "&redirect_uri=" <> callbackUri
     , "&scope=user:email,public_repo"
+    , "&state=" <> state
     ]
 
-githubCallback :: App m => Maybe Text -> m ()
-githubCallback (Just code) = do
+githubCallback :: App m => Vault -> Maybe Text -> Maybe Text -> m ()
+githubCallback vault (Just code) state = do
   app <- getApp
-  Github.getOAuthTokenFromCode app code >>= \case
-    Just accessToken ->
-      ensureUserWithAccessToken accessToken >>= \case
-        Left err -> fail err
-        Right (user, token) -> do
-          $(logInfo) $ userName user <> " logged in"
-          redirectToFrontend $ "/login/" <> tokenUuid token
-    _ -> fail "Could not retreive access_token from code"
 
-githubCallback _ = do
-  let message = "Did not receive a login code from Github"
-  $(logInfo) message
-  redirectToFrontend $ "?error=" <> message
+  returnUrl   <- Session.delete vault returnUrlKey
+  storedState <- Session.delete vault stateKey
+
+  if state /= storedState
+    then fail returnUrl "CSRF state did not match"
+    else do
+      Github.getOAuthTokenFromCode app code >>= \case
+        Just accessToken ->
+          ensureUserWithAccessToken accessToken >>= \case
+            Left err -> fail returnUrl err
+            Right (user, token) -> do
+              $(logInfo) $ userName user <> " logged in"
+              redirectToFrontend returnUrl $ "/login/" <> tokenUuid token
+        _ -> fail returnUrl "Could not retreive access_token from code"
+
+githubCallback vault _ _ = do
+  returnUrl <- Session.delete vault returnUrlKey
+  fail returnUrl "Did not receive a login code from Github"
 
 getApp :: App m => m OAuth2
 getApp = Github.app <$> view envSettings <$> getEnv
@@ -78,7 +102,13 @@ ensureUserWithAccessToken accessToken =
       return $ Right (user, token)
 
 -- TODO: make sure frontend displays these errors somehow
-fail :: App m => Text -> m ()
-fail message = do
+fail :: App m => Maybe Text -> Text -> m ()
+fail viewerUrl message = do
   $(logInfo) message
-  redirectToFrontend $ "?error=" <> message
+  redirectToFrontend viewerUrl $ "?error=" <> message
+
+returnUrlKey :: Text
+returnUrlKey = "returnUrl"
+
+stateKey :: Text
+stateKey = "state"

@@ -137,7 +137,9 @@ export const changeBranch = (branch: BranchName | undefined): Async<void> =>
 export const startLogin = (window: Window): Async<void> =>
   async (dispatch, _, { graph }) => {
     dispatch({ type: 'LOGIN_STARTED', returnTo: window.location.pathname })
-    window.location.href = graph.loginUrl({ redirectTo: window.location.hostname })
+    window.location.href = graph.loginUrl({
+      returnUrl: `${window.location.protocol}//${window.location.host}`
+    })
   }
 
 export const login = (token: Token): Async<User> =>

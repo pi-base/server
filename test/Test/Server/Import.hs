@@ -38,7 +38,9 @@ makeApp :: Runner -> TestM Application
 makeApp run = do
   env <- ask
 
-  let app = Server.build (Middleware.def $ env ^. foundation) (liftIO . run)
+  middleware <- liftIO $ Middleware.def $ env ^. foundation
+
+  let app = Server.build middleware (liftIO . run)
 
   return $ Auth.dummyMiddleware (env ^. userRef) $ app
 

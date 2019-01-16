@@ -14,9 +14,10 @@ import Server.Middleware as Middleware
 
 start :: Settings -> IO ()
 start settings = do
-  env <- boot settings
+  env        <- boot settings
+  middleware <- Middleware.def env
   let
-    app = Server.build (Middleware.def env) (runApp env)
+    app = Server.build middleware (runApp env)
     appPort = env ^. envSettings . port
   runApp env $ $(logInfo) $ "Application starting on port " <> show appPort
   run appPort app

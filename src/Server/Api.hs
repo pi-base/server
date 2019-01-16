@@ -25,7 +25,7 @@ type API =
 -- FIXME: strip out "bearer " prefix
 server :: App m => ServerT API m
 server = root
-  :<|> redirectToFrontend ""
+  :<|> redirectToFrontend Nothing ""
   :<|> Auth.server
   :<|> Graph.server
 

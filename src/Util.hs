@@ -1,5 +1,6 @@
 module Util
-  ( encodeText
+  ( decodeText
+  , encodeText
   , fetch
   , findOrCreate
   , groupBy
@@ -12,7 +13,7 @@ module Util
 
 import Core hiding (replace)
 
-import           Data.Aeson               (ToJSON, encode)
+import           Data.Aeson               (ToJSON, decode, encode)
 import qualified Data.ByteString.Lazy     as LBS
 import           Data.Char                (isAlpha, toLower)
 import qualified Data.Map                 as M
@@ -46,6 +47,9 @@ fetch k m = case M.lookup k m of
 
 encodeText :: ToJSON a => a -> Text
 encodeText = decodeUtf8 . LBS.toStrict . encode
+
+decodeText :: FromJSON a => Text -> Maybe a
+decodeText = decode . LBS.fromStrict . encodeUtf8
 
 insertNested :: (Ord a, Ord b) => a -> b -> v -> Map a (Map b v) -> Map a (Map b v)
 insertNested a b v = M.alter add a
