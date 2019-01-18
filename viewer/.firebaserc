@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "pi-base-staging",
+    "production": "pi-base-production"
+  }
+}

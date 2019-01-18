@@ -102,19 +102,19 @@ workflows:
   release:
     jobs:
       - build_server
-      # - build_viewer
+      - build_viewer
       - test_server
       # TODO: the frontend tests aren't currently configured to run against the built backend, so
       #   any integration tests are expected to fail. Once that configuration is done, we should
       #   make release depend on test_frontend passing.
-      # - test_viewer:
-      #     requires:
-      #       - build_server
-      #       - build_viewer
-      #       - test_server
+      - test_viewer:
+          requires:
+            - build_server
+            - build_viewer
+            - test_server
       - release:
           requires:
             # - test_viewer
             - build_server
-            # - build_viewer
+            - build_viewer
             - test_server
