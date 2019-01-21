@@ -4,6 +4,7 @@ import { TokenStorage } from '../src/types'
 import TestClient from './Client'
 
 import configureStore from 'redux-mock-store'
+import Server from './Server'
 
 import fs from 'fs'
 

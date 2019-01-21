@@ -122,7 +122,7 @@
   "scripts": {
     "build": "yarn run schema && node scripts/build.js",
     "deploy": "yarn run build && aws --profile pibase s3 sync build s3://pi-base/deploy/viewer",
-    "schema": "rm -rf src/**/*.gql && cp -r ../graph/* src/graph && apollo client:codegen --localSchemaFile src/graph/schema.gql --target typescript --outputFlat src/types/graph",
+    "schema": "cp -r ../graph/* src/graph && apollo client:codegen --localSchemaFile src/graph/schema.gql --target typescript --outputFlat src/types/graph",
     "push-schema": "apollo client:push --clientName=pi-base",
     "start": "node scripts/start.js",
     "test": "node scripts/test.js",

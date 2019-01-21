@@ -1,6 +1,7 @@
 import { Store } from 'redux'
 import { State } from '../reducers'
 import { toggleDebug } from '../actions'
+import { STAGE } from '../constants'
 import Api from '../graph/Client/Api'
 
 class Debug {
@@ -22,6 +23,10 @@ class Debug {
 
   set debug(on: boolean | undefined) {
     this._store.dispatch(toggleDebug(on))
+  }
+
+  get stage() {
+    return STAGE
   }
 
   error() {

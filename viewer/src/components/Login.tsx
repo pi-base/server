@@ -1,6 +1,5 @@
 import * as React from 'react'
 
-import { ConfigProps, withConfig } from './Config'
 import { Dispatch, Token } from '../types'
 
 import { RouteComponentProps } from 'react-router'
@@ -9,9 +8,9 @@ import { login } from '../actions'
 
 type RouteProps = RouteComponentProps<{ token: string }>
 type DispatchProps = {
-  login: (token: Token) => Promise<Token>
+  login: (token: Token) => Promise<any>
 }
-type Props = RouteProps & DispatchProps & ConfigProps
+type Props = RouteProps & DispatchProps
 
 class Login extends React.PureComponent<Props> {
   componentWillMount() {
@@ -23,16 +22,9 @@ class Login extends React.PureComponent<Props> {
   }
 }
 
-export default withConfig(connect(
+export default connect(
   () => ({}),
-  (dispatch: Dispatch, ownProps: RouteProps): DispatchProps => ({
-    login: (token: Token) => {
-      return dispatch(login(token)).then(user => {
-        const next = localStorage.getItem('piBase.returnTo') || '/'
-        localStorage.removeItem('piBase.returnTo')
-        ownProps.history.push(next)
-        return token
-      })
-    }
+  (dispatch: Dispatch): DispatchProps => ({
+    login: (token: Token) => dispatch(login(token))
   })
-)(Login))
+)(Login)
