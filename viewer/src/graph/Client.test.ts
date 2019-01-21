@@ -1,12 +1,17 @@
 import fetch from 'isomorphic-fetch'
 
 import Client from './Client'
-// import MockClient from '../../test/Client'
+import Server from '../../test/Server'
 
 import isClient from '../../test/shared_examples/client.test'
 
+const server = new Server()
+
 describe('Integrated client', () => {
-  const build = () => new Client({ root: 'http://localhost:3141', fetch })
+  beforeAll(done => server.boot().then(() => done()))
+  afterAll(() => server.shutdown())
+
+  const build = () => new Client({ host: server.host, fetch })
 
   isClient(build)
 
@@ -23,6 +28,7 @@ describe('Integrated client', () => {
   })
 })
 
-// test('Mock client', () =>
-//   new MockClient()
+// import MockClient from '../../test/Client'
+// describe('Mock client', () =>
+//   isClient(() => new MockClient())
 // )

@@ -4,7 +4,6 @@ import thunk, { ThunkMiddleware } from 'redux-thunk'
 import Api from './graph/Client/Api'
 
 import { AnyAction } from 'redux'
-import { DB, Persist } from './types'
 import { createLogger } from 'redux-logger'
 
 const inDevelopment = process.env.NODE_ENV === 'development'

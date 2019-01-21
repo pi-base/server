@@ -20,18 +20,6 @@ export type Config = {
   readonly setToken: (token: Token) => void
 }
 
-export interface Persist<T extends Object> {
-  get: <K extends keyof T>(k: K) => T[K] | undefined
-  update: (patch: Partial<T>) => void
-  clear: () => void
-}
-
-export type DB = {
-  token?: string
-  returnTo?: string
-  reduxState?: State
-}
-
 export type TokenStorage = {
   get: () => string | null
   set: (token: string) => void
