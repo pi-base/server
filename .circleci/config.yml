@@ -18,7 +18,7 @@ jobs:
 
   build_viewer:
     docker:
-      - image: circleci/node:10.11
+      - image: quay.io/jamesdabbs/pibase:ci
     steps:
       - checkout
       - restore_cache:
@@ -66,7 +66,19 @@ jobs:
 
   test_viewer:
     docker:
-      - image: circleci/node:10.11
+      - image: quay.io/jamesdabbs/pibase:ci
+      - image: circleci/postgres:9.6-alpine
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_DB: pi_base_development
+    environment:
+      GITHUB_TOKEN: xxx
+      GITHUB_CLIENT_ID: xxx
+      GITHUB_CLIENT_SECRET: xxx
+      GITHUB_CALLBACK_URI: xxx
+      GITHUB_WEBHOOK_SECRET: xxx
+      SERVER_BIN_PATH: /tmp/workspace/server/pibase
+      SERVER_TRACING: true
     steps:
       - checkout
       - attach_workspace:
@@ -80,6 +92,7 @@ jobs:
           command: |
             cd viewer
             yarn install
+            yarn run schema
             yarn test
 
   release:
@@ -104,9 +117,6 @@ workflows:
       - build_server
       - build_viewer
       - test_server
-      # TODO: the frontend tests aren't currently configured to run against the built backend, so
-      #   any integration tests are expected to fail. Once that configuration is done, we should
-      #   make release depend on test_frontend passing.
       - test_viewer:
           requires:
             - build_server
@@ -114,7 +124,4 @@ workflows:
             - test_server
       - release:
           requires:
-            # - test_viewer
-            - build_server
-            - build_viewer
-            - test_server
+            - test_viewer

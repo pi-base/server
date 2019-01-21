@@ -8,8 +8,11 @@ MAINTAINER James Dabbs <james.dabbs@gmail.com>
 
 ARG STACK_VERSION=1.7.1
 
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && \
+    echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+
 RUN apt-get update && \
-    apt-get install -yqq apt-transport-https build-essential curl wget libgmp3-dev libpq-dev libicu-dev git libssl-dev
+    apt-get install -yqq apt-transport-https build-essential curl wget libgmp3-dev libpq-dev libicu-dev git libssl-dev nodejs yarn
 
 RUN wget -qO- https://github.com/commercialhaskell/stack/releases/download/v$STACK_VERSION/stack-$STACK_VERSION-linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C /usr/local/bin '*/stack'
 
@@ -17,5 +20,4 @@ COPY package.yaml package.yaml
 COPY stack.yaml stack.yaml
 
 RUN stack build --only-dependencies && \
-    stack test --only-dependencies && \
-    stack build yesod-bin
+    stack test --only-dependencies

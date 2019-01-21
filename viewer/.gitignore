@@ -20,3 +20,4 @@ yarn-error.log*
 schema.json
 src/graph/**/*.gql
 src/types/graph
+.firebase
