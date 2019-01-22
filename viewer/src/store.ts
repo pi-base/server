@@ -3,10 +3,9 @@ import { State, makeReducer } from './reducers'
 import thunk, { ThunkMiddleware } from 'redux-thunk'
 import Api from './graph/Client/Api'
 
+import { STAGE } from './constants'
 import { AnyAction } from 'redux'
 import { createLogger } from 'redux-logger'
-
-const inDevelopment = process.env.NODE_ENV === 'development'
 
 // tslint:disable-next-line no-any
 const composeEnhancers = (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose
@@ -21,7 +20,7 @@ const makeMiddleware = ({ graph }: MiddlewareOpts) => {
     thunk.withExtraArgument({ graph }) as ThunkMiddleware<State, AnyAction>
   ]
 
-  if (inDevelopment) {
+  if (STAGE === 'development') {
     middleware.push(createLogger({ collapsed: true }))
   }
 
@@ -30,10 +29,12 @@ const makeMiddleware = ({ graph }: MiddlewareOpts) => {
   return middleware
 }
 
+const STATE_KEY = 'piBase.reduxState'
+
 const persistState = ({ storage, graph }: { storage: Storage, graph: Api }) => next => (reducer, _) => {
   let load, dump
 
-  if (inDevelopment) {
+  if (STAGE === 'development') {
     dump = state => state
     load = json => {
       const traits = new Map()
@@ -59,9 +60,15 @@ const persistState = ({ storage, graph }: { storage: Storage, graph: Api }) => n
       }
     }
   } else {
-    dump = (state: State) => ({ version: state.version })
+    dump = (state: State) => ({
+      client: state.client,
+      user: state.user,
+      version: state.version
+    })
     load = json => {
       return {
+        client: json.client,
+        user: json.user,
         version: json.version && {
           active: json.version.active,
           branches: new Map(json.version.branches)
@@ -70,7 +77,7 @@ const persistState = ({ storage, graph }: { storage: Storage, graph: Api }) => n
     }
   }
 
-  const loaded = storage.getItem('piBase.reduxState')
+  const loaded = storage.getItem(STATE_KEY)
 
   let initialState: State | undefined
   if (loaded) {
@@ -79,11 +86,12 @@ const persistState = ({ storage, graph }: { storage: Storage, graph: Api }) => n
       if (initialState && initialState.client) {
         graph.host = initialState.client.host
       }
-      if (initialState && initialState.client.token) {
+      if (initialState && initialState.client && initialState.client.token) {
         graph.login(initialState.client.token)
       }
     } catch (e) {
       console.error('Failed to load state from storage:', e)
+      storage.removeItem(STATE_KEY)
     }
   }
   const store = next(reducer, initialState)
@@ -91,7 +99,7 @@ const persistState = ({ storage, graph }: { storage: Storage, graph: Api }) => n
   store.subscribe(() => {
     const state = store.getState()
 
-    storage.setItem('piBase.reduxState', JSON.stringify(dump(state)))
+    storage.setItem(STATE_KEY, JSON.stringify(dump(state)))
   })
 
   return store
