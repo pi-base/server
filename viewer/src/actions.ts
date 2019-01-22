@@ -25,9 +25,8 @@ export type AddSpace = { type: 'ADD_SPACE', space: Space }
 export type AssertTheorem = { type: 'ASSERT_THEOREM', theorem: Theorem }
 export type AssertTrait = { type: 'ASSERT_TRAIT', trait: Trait }
 export type CheckProofs = { type: 'CHECK_PROOFS', trait?: Trait, theorem?: Theorem }
-export type ChangeBranch = { type: 'CHANGE_BRANCH', branch: BranchName | undefined }
+export type ChangeBranch = { type: 'CHANGE_BRANCH', branch: BranchName }
 export type ChangeServer = { type: 'CHANGE_SERVER', host: string }
-export type Initialize = { type: 'INITIALIZE' }
 export type LoadViewer = { type: 'LOAD_VIEWER', viewer: Viewer, reset: boolean }
 export type Login = { type: 'LOGIN', token: Token, user: User, branches: Branch[] }
 export type LoginStarted = { type: 'LOGIN_STARTED', returnTo: string }
@@ -46,7 +45,6 @@ export type Action
   | ChangeBranch
   | ChangeServer
   | CheckProofs
-  | Initialize
   | LoadViewer
   | Login
   | LoginStarted

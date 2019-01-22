@@ -83,12 +83,15 @@ const persistState = ({ storage, graph }: { storage: Storage, graph: Api }) => n
   if (loaded) {
     try {
       initialState = load(JSON.parse(loaded))
+
+      // Setup graph client from loaded client state
+      // TODO: this feels hacky
       if (initialState && initialState.client) {
         graph.host = initialState.client.host
+        if (initialState.client.token) { graph.login(initialState.client.token) }
+        if (initialState.client.branch) { graph.branch = initialState.client.branch }
       }
-      if (initialState && initialState.client && initialState.client.token) {
-        graph.login(initialState.client.token)
-      }
+
     } catch (e) {
       console.error('Failed to load state from storage:', e)
       storage.removeItem(STATE_KEY)

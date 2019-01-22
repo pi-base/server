@@ -121,7 +121,8 @@
   },
   "scripts": {
     "build": "yarn run schema && node scripts/build.js",
-    "deploy": "yarn run build && aws --profile pibase s3 sync build s3://pi-base/deploy/viewer",
+    "deploy:staging": "yarn run build && firebase use pi-base-staging && firebase deploy",
+    "deploy:production": "yarn run build && firebase use pi-base-production && firebase deploy && firebase use pi-base-staging",
     "schema": "cp -r ../graph/* src/graph && apollo client:codegen --localSchemaFile src/graph/schema.gql --target typescript --outputFlat src/types/graph",
     "push-schema": "apollo client:push --clientName=pi-base",
     "start": "node scripts/start.js",

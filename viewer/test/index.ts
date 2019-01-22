@@ -1,10 +1,9 @@
 import { Store } from 'redux'
 import { State, makeReducer } from '../src/reducers'
-import { TokenStorage } from '../src/types'
+import { Action } from '../src/actions'
 import TestClient from './Client'
 
 import configureStore from 'redux-mock-store'
-import Server from './Server'
 
 import fs from 'fs'
 
@@ -17,16 +16,8 @@ const reducer = makeReducer(new TestClient())
 export const makeStore = (state: Partial<State>): Store<State> => {
   // Run through the root reducer once to make sure the state
   // is well-structured
-  const initialState = reducer(state as State, { type: 'INITIALIZE' })
+  const initialState = reducer(state as State, {} as Action)
   return mockStore(initialState)
-}
-
-let token: string | null = null
-
-export const storage: TokenStorage = {
-  get: () => token,
-  set: val => token = val,
-  clear: () => token = null
 }
 
 let _fixtureStore: Store<State> | undefined = undefined
