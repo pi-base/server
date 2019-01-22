@@ -13,6 +13,7 @@ import {
 
 import Api from './graph/Client/Api'
 import { MASTER } from './constants'
+import { Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
 import { Viewer as ViewerResponse } from './types/graph/Viewer'
 import { State } from './reducers'
@@ -134,7 +135,7 @@ export const changeBranch = (branch: BranchName | undefined): Async<void> =>
   }
 
 export const loginUrl = (window: Window) =>
-  (_dispatch, _state, { graph }) => graph.loginUrl({
+  (_dispatch: Dispatch, _state: () => State, { graph }: { graph: Api }) => graph.loginUrl({
     returnUrl: `${window.location.protocol}//${window.location.host}`
   })
 

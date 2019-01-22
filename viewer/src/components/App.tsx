@@ -18,7 +18,7 @@ interface AppParams {
 }
 
 const makeApp = ({ graph, store, window }: AppParams) => () => {
-  const layout = _ => <Layout>{routes}</Layout>
+  const layout = () => <Layout>{routes}</Layout>
 
   addWindowHooks({ graph, store, window })
 

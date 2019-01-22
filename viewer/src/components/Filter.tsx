@@ -27,7 +27,7 @@ class Filter<R extends Record> extends React.Component<Props<R>, State> {
     this.finder = this.buildFinder(this.props)
   }
 
-  buildFinder(props) {
+  buildFinder(props: Props<R>) {
     const weights = this.props.weights || [
       { name: 'name', weight: 0.7 },
       { name: 'aliases', weight: 0.6 },

@@ -1,7 +1,11 @@
 import * as F from 'formik'
 import * as React from 'react'
 
-export const Wrapped = props => {
+export const Wrapped = (props: {
+  component: React.ComponentClass<any>
+  name: string
+  label: string
+}) => {
   const Component = props.component
   return (
     <div className="form-group">
@@ -20,7 +24,7 @@ interface Props {
   placeholder?: string
 }
 
-const Labeled = (Component, label: string) => (props: F.FieldProps & Props) => {
+const Labeled = (Component: React.ComponentClass<any>, label: string) => (props: F.FieldProps & Props) => {
   const { placeholder, field, form } = props
 
   const showError = !!(form.errors[field.name] && form.touched[field.name])

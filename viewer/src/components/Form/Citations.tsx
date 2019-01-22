@@ -12,7 +12,10 @@ const citationTypes: Map<CitationType, string> = Map([
   ['wiki', 'Wikipedia']
 ])
 
-const CitationDetail = ({ name, onRemove }) => {
+const CitationDetail = ({ name, onRemove }: {
+  name: string,
+  onRemove: () => void
+}) => {
   return (
     <div>
       <div className="form-group row">
@@ -78,7 +81,7 @@ const Citations = (props: F.FieldProps['field']) => {
               </button>
             </label>
             {
-              value.map((citation, index) => (
+              value.map((citation: Citation, index: number) => (
                 <CitationDetail key={index} name={`${name}.${index}`} onRemove={() => remove(index)} />
               ))
             }
