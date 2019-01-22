@@ -56,7 +56,14 @@ class Footer extends React.Component<Props, CState> {
         </div>
       </nav>
     )
+  }
+}
 
+const reload = () => {
+  if (window.location.pathname === '/') {
+    window.location.reload()
+  } else {
+    window.location.pathname = '/'
   }
 }
 
@@ -65,12 +72,8 @@ const mapStateToProps = (state: State): StateProps => ({
 })
 
 const mapDispatchToProps = (dispatch: Dispatch): DispatchProps => ({
-  clearCache: () =>
-    dispatch(A.clearCache()).
-      then(_ => window.location.pathname = '/'),
-  changeServer: host =>
-    dispatch(A.changeServer(host)).
-      then(_ => window.location.pathname = '/')
+  clearCache: () => dispatch(A.clearCache()).then(reload),
+  changeServer: host => dispatch(A.changeServer(host)).then(reload)
 })
 
 export default connect(

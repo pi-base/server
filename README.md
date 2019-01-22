@@ -29,3 +29,7 @@ and should see a message like `[Info] Application starting on port 3141`. You sh
 ## Running the Viewer
 
 See [the Viewer README](https://github.com/pi-base/server/tree/master/viewer#installation) for details about running the frontend viewer.
+
+## Questions
+
+We aim to keep this documentation as up-to-date as possible, but if you ever have any questions, please feel free to reach out - either by email or by opening a ticket on Github.

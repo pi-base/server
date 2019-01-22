@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { Dispatch, Token } from '../types'
 
-import { RouteComponentProps } from 'react-router'
+import { RouteComponentProps, withRouter } from 'react-router'
 import { connect } from 'react-redux'
 import { login } from '../actions'
 
@@ -22,9 +22,13 @@ class Login extends React.PureComponent<Props> {
   }
 }
 
-export default connect(
-  () => ({}),
-  (dispatch: Dispatch): DispatchProps => ({
-    login: (token: Token) => dispatch(login(token))
+const mapDispatchToProps = (dispatch: Dispatch, { history }: RouteProps): DispatchProps => ({
+  login: (token: Token) => dispatch(login(token)).then(({ returnTo }) => {
+    history.push(returnTo)
   })
-)(Login)
+})
+
+export default withRouter(connect(
+  null,
+  mapDispatchToProps
+)(Login))

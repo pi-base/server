@@ -16,6 +16,7 @@ import qualified Data.UUID    as UUID
 import qualified Data.UUID.V4 as UUID
 
 import qualified Auth
+import qualified Data.Branch               as Branch
 import qualified Server.Middleware.Session as Session
 import           Server.Util
 import qualified Services.Github           as Github
@@ -99,6 +100,7 @@ ensureUserWithAccessToken accessToken =
                    }
       id <- Auth.ensureIdent "github" (show ghUserId) accessToken user
       token <- Auth.generateToken id
+      void $ Branch.ensureUserBranch $ Entity id user
       return $ Right (user, token)
 
 -- TODO: make sure frontend displays these errors somehow

@@ -34,3 +34,7 @@ Once the dependencies are installed and a server is running, `cd` into the `view
     REACT_APP_GRAPH_URL=<Server URL> yarn start
 
 If everything worked, `http://localhost:3000` should open a copy of the viewer running against the configured server.
+
+## Questions
+
+We aim to keep this documentation as up-to-date as possible, but if you ever have any questions, please feel free to reach out - either by email or by opening a ticket on Github.

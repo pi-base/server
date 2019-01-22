@@ -1,4 +1,5 @@
 import * as A from '../../actions'
+import { State } from '../../reducers'
 import * as React from 'react'
 
 import { RouteComponentProps, withRouter } from 'react-router'
@@ -12,12 +13,13 @@ type StateProps = {
 }
 type DispatchProps = {
   startLogin: () => void
+  loginUrl: () => string
   logout: () => void
 }
 type OwnProps = RouteComponentProps<{}>
 type Props = StateProps & DispatchProps & OwnProps
 
-const UserTab = ({ username, startLogin, logout }: Props) => {
+const UserTab = ({ username, startLogin, loginUrl, logout }: Props) => {
   if (username) {
     return (
       <ul className="nav navbar-nav pull-right">
@@ -32,7 +34,7 @@ const UserTab = ({ username, startLogin, logout }: Props) => {
     return (
       <ul className="nav navbar-nav pull-right">
         <li>
-          <a href="#" onClick={() => startLogin()}>
+          <a href={loginUrl()} onClick={() => startLogin()}>
             Login with Github
           </a>
         </li>
@@ -41,11 +43,12 @@ const UserTab = ({ username, startLogin, logout }: Props) => {
   }
 }
 
-const mapStateToProps = (state: any): StateProps => ({
+const mapStateToProps = (state: State): StateProps => ({
   username: state.user === 'unauthenticated' ? undefined : state.user.name
 })
 
 const mapDispatchToProps = (dispatch: Dispatch): DispatchProps => ({
+  loginUrl: () => dispatch(A.loginUrl(window)),
   startLogin: () => dispatch(A.startLogin(window)),
   logout: () => dispatch(A.logout())
 })

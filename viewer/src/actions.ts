@@ -15,6 +15,7 @@ import Api from './graph/Client/Api'
 import { MASTER } from './constants'
 import { ThunkAction } from 'redux-thunk'
 import { Viewer as ViewerResponse } from './types/graph/Viewer'
+import { State } from './reducers'
 
 type Viewer = ViewerResponse['viewer']
 type CheckProofInput = { theorem: Theorem } | { trait: Trait } | {}
@@ -60,7 +61,7 @@ type New<T> = Exclude<T, 'uid'>
 
 type Async<R> = ThunkAction<
   Promise<R>,
-  any,
+  State,
   { graph: Api },
   Action
 >
@@ -134,16 +135,19 @@ export const changeBranch = (branch: BranchName | undefined): Async<void> =>
     dispatch(fetchViewer())
   }
 
+export const loginUrl = (window: Window) =>
+  (_dispatch, _state, { graph }) => graph.loginUrl({
+    returnUrl: `${window.location.protocol}//${window.location.host}`
+  })
+
 export const startLogin = (window: Window): Async<void> =>
-  async (dispatch, _, { graph }) => {
+  async (dispatch, state, { graph }) => {
     dispatch({ type: 'LOGIN_STARTED', returnTo: window.location.pathname })
-    window.location.href = graph.loginUrl({
-      returnUrl: `${window.location.protocol}//${window.location.host}`
-    })
+    window.location.href = loginUrl(window)(dispatch, state, { graph })
   }
 
-export const login = (token: Token): Async<User> =>
-  async (dispatch, _, { graph }) => {
+export const login = (token: Token): Async<{ user: User, returnTo: string }> =>
+  async (dispatch, getState, { graph }) => {
     graph.login(token)
     return graph.me().then(me => {
       const user = { name: me.name }
@@ -163,7 +167,10 @@ export const login = (token: Token): Async<User> =>
       }
       dispatch(action)
 
-      return user
+      return {
+        user,
+        returnTo: getState().client.returnTo || '/'
+      }
     })
   }
 

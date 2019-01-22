@@ -5,14 +5,14 @@ import { GRAPH_URL } from '../constants'
 
 export type State = {
   host: string
-  token: Token | undefined
-  returnTo: string | undefined
+  token: Token | null
+  returnTo: string | null
 }
 
 export const initial: State = {
   host: GRAPH_URL,
-  token: undefined,
-  returnTo: undefined
+  token: null,
+  returnTo: null
 }
 
 export const makeReducer = (api: Api) =>
@@ -28,7 +28,7 @@ export const makeReducer = (api: Api) =>
         return { ...state, host: action.host }
       case 'LOGIN':
         api.login(action.token)
-        return { ...state, token: action.token }
+        return { ...state, token: action.token, returnTo: null }
     }
 
     return state
