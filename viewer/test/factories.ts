@@ -1,10 +1,10 @@
-import { Branch, Property } from '../src/types'
+import { BranchState, Property } from '../src/types'
 
 let sequence = 1
 
 type Factory<Value, Required = {}> = (opts: Required & Partial<Value>) => Value
 
-const branch: Factory<Branch> = opts => ({
+const branch: Factory<BranchState> = opts => ({
   name: 'test',
   sha: 'abc' + sequence++,
   access: 'admin',

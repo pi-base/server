@@ -1,7 +1,7 @@
 import {
   Branch,
   BranchAccess,
-  BranchName,
+  BranchState,
   Property,
   Sha,
   Space,
@@ -25,14 +25,14 @@ export type AddSpace = { type: 'ADD_SPACE', space: Space }
 export type AssertTheorem = { type: 'ASSERT_THEOREM', theorem: Theorem }
 export type AssertTrait = { type: 'ASSERT_TRAIT', trait: Trait }
 export type CheckProofs = { type: 'CHECK_PROOFS', trait?: Trait, theorem?: Theorem }
-export type ChangeBranch = { type: 'CHANGE_BRANCH', branch: BranchName }
+export type ChangeBranch = { type: 'CHANGE_BRANCH', branch: Branch }
 export type ChangeServer = { type: 'CHANGE_SERVER', host: string }
 export type LoadViewer = { type: 'LOAD_VIEWER', viewer: Viewer, reset: boolean }
-export type Login = { type: 'LOGIN', token: Token, user: User, branches: Branch[] }
+export type Login = { type: 'LOGIN', token: Token, user: User, branches: BranchState[] }
 export type LoginStarted = { type: 'LOGIN_STARTED', returnTo: string }
 export type Logout = { type: 'LOGOUT' }
 export type Search = { type: 'SEARCH', text?: string, formula?: string }
-export type UpdateBranch = { type: 'UPDATE_BRANCH', branch: BranchName, sha: Sha }
+export type UpdateBranch = { type: 'UPDATE_BRANCH', branch: Branch, sha: Sha }
 export type ToggleDebug = { type: 'TOGGLE_DEBUG', on?: boolean }
 export type SubmittingBranch = { type: 'SUBMITTING_BRANCH', branch: Branch }
 export type SubmittedBranch = { type: 'SUBMITTED_BRANCH', branch: Branch, url: string }
@@ -125,7 +125,7 @@ export const changeServer = (host: string): Async<void> =>
     dispatch(fetchViewer())
   }
 
-export const changeBranch = (branch: BranchName | undefined): Async<void> =>
+export const changeBranch = (branch: Branch | undefined): Async<void> =>
   async (dispatch, _, { graph }) => {
     branch = branch || MASTER
     graph.branch = branch
@@ -179,7 +179,7 @@ export const logout = (): Async<void> =>
     return
   }
 
-export const resetBranch = (branch: BranchName, to: Sha): Async<void> =>
+export const resetBranch = (branch: Branch, to: Sha): Async<void> =>
   async (dispatch, _, { graph }) =>
     graph.resetBranch(branch, to).then(_ => {
       dispatch(fetchViewer())
@@ -188,7 +188,7 @@ export const resetBranch = (branch: BranchName, to: Sha): Async<void> =>
 export const submitBranch = (branch: Branch): Async<void> =>
   async (dispatch, _, { graph }) => {
     dispatch(submittingBranch(branch))
-    graph.submitBranch(branch.name).then(submitted =>
+    graph.submitBranch(branch).then(submitted =>
       dispatch(submittedBranch({ branch, url: submitted.url }))
     )
   }

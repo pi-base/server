@@ -2,7 +2,7 @@ import { MASTER } from '../src/constants'
 import * as F from '../src/models/Formula'
 import {
   Api,
-  BranchName,
+  Branch,
   CreateUserInput,
   Citation,
   Id,
@@ -17,7 +17,7 @@ const serializeFormula = (f: F.Formula<string>): string => JSON.stringify(F.toJS
 
 class Client implements Api {
   _token: string | null
-  _branch: BranchName
+  _branch: Branch
   _properties: Map<Id, Property>
   _spaces: Map<Id, Space>
   _theorems: Map<Id, Theorem>

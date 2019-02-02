@@ -94,7 +94,6 @@
   },
   "resolutions": {
     "//": "See https://github.com/apollographql/apollo-tooling/issues/577",
-    "//": "Also, it's _insane_ that this config format doesn't support comments",
     "@types/graphql": "14.0.1",
     "graphql": "14.0.2"
   },

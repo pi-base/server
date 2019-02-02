@@ -1,3 +1,5 @@
+import { Branch } from './types'
+
 type Stage = 'development' | 'staging' | 'production'
 
 const PRODUCTION_VIEWER_URLS = [
@@ -22,6 +24,6 @@ export const GRAPH_URLS = {
   development: 'http://localhost:3141'
 }
 
-export const STAGE = stage
-export const GRAPH_URL = process.env.REACT_APP_GRAPH_URL || GRAPH_URLS[stage]
-export const MASTER = 'master'
+export const STAGE: Stage = stage
+export const GRAPH_URL: string = process.env.REACT_APP_GRAPH_URL || GRAPH_URLS[stage]
+export const MASTER: Branch = 'master'

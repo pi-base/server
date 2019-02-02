@@ -3,6 +3,7 @@ import * as React from 'react'
 import { RouteComponentProps, withRouter } from 'react-router'
 
 import { Dispatch } from '../types'
+import EditBanner from './EditBanner'
 import Footer from './Footer'
 import Navbar from './Navbar'
 import { State } from '../reducers'
@@ -31,6 +32,8 @@ class Layout extends React.PureComponent<Props> {
     return (
       <div>
         <Navbar />
+
+        <EditBanner />
 
         <div className="container">
           {booted || location.pathname === '/'

@@ -23,9 +23,9 @@ export type Config = {
 export type BranchAccess = 'read' | 'admin'
 
 export type Sha = string
-export type BranchName = string
-export type Branch = {
-  name: BranchName,
+export type Branch = string
+export type BranchState = {
+  name: Branch,
   sha: Sha,
   access: BranchAccess,
   active: boolean,

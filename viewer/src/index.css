@@ -3,10 +3,6 @@ body {
   font-family: sans-serif;
 }
 
-.navbar.editing {
-  background-color: #00f;
-}
-
 .search article {
   margin-bottom: 2em;
 }

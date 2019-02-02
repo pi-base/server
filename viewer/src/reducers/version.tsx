@@ -1,14 +1,15 @@
-import { Branch, BranchName } from '../types'
+import { Branch, BranchState } from '../types'
 
 import { Action } from '../actions'
+import { MASTER } from '../constants'
 
 export type State = {
-  active: BranchName | undefined
-  branches: Map<BranchName, Branch>
+  active: Branch
+  branches: Map<Branch, BranchState>
 }
 
 export const initial = {
-  active: undefined,
+  active: MASTER,
   branches: new Map()
 }
 
@@ -41,11 +42,11 @@ export const reducer = (
       let active = state.active || action.branches.find(b => b.access === 'read')!.name
       return { ...state, branches, active }
     case 'SUBMITTING_BRANCH':
-      return updateBranch(state, action.branch.name, {
+      return updateBranch(state, action.branch, {
         submitting: true
       })
     case 'SUBMITTED_BRANCH':
-      return updateBranch(state, action.branch.name, {
+      return updateBranch(state, action.branch, {
         submitting: false,
         pullRequestUrl: action.url
       })

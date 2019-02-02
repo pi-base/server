@@ -1,6 +1,8 @@
 import * as F from './models/Formula'
 
-import { Id, Proof, Property, SearchModifier, Space, Theorem, Trait } from './types'
+import { MASTER } from './constants'
+
+import { Branch, BranchAccess, Id, Proof, Property, SearchModifier, Space, Theorem, Trait } from './types'
 
 import { Finder } from './models/Finder'
 import { Formula } from './models/Formula'
@@ -184,15 +186,22 @@ export const theoremProperties = (state: State, theorem: Theorem): Property[] =>
   return props
 }
 
-export const activeBranch = (state: State) => {
-  if (!state.version.active) { return undefined } // FIXME
-  return state.version.branches.get(state.version.active)!
+export const canEdit = (ual: BranchAccess): boolean => ual !== 'read'
+export const canSubmit = (branch: Branch, ual: BranchAccess): boolean => {
+  if (branch === MASTER) { return false }
+  return canEdit(ual)
 }
-export const editing = (state: State) => {
-  const branch = activeBranch(state)
-  if (!branch) { return false }
-  return branch.access === 'admin'
+
+export const activeBranch = (state: State): Branch => state.version.active
+
+export const branchAccess = (state: State, branch: Branch): BranchAccess => {
+  if (branch === MASTER) { return 'read' }
+  const branchState = state.version.branches.get(branch)
+  return branchState ? branchState.access : 'read'
 }
+
+export const editing = (state: State) =>
+  canEdit(branchAccess(state, activeBranch(state)))
 
 export const proof = (state: State, spaceId: string, propertyId: string): Proof | undefined => {
   const space = state.spaces.get(spaceId)

@@ -1,16 +1,17 @@
 import * as React from 'react'
+import * as S from '../../selectors'
 
-import { Branch } from '../../types'
+import { Branch, BranchState } from '../../types'
 
 type Props = {
-  branch: Branch
+  branch: BranchState
   submitBranch: (b: Branch) => void
 }
 
 const Submit: React.SFC<Props> = ({ branch, submitBranch }) => {
   const { access, submitting, pullRequestUrl } = branch
 
-  if (access !== 'admin') { return null }
+  if (!S.canSubmit(branch.name, access)) { return null }
 
   if (pullRequestUrl) {
     return <a href={pullRequestUrl}>View pull request</a>
@@ -19,7 +20,7 @@ const Submit: React.SFC<Props> = ({ branch, submitBranch }) => {
   return (
     <button
       className="btn btn-primary btn-sm branch-submit"
-      onClick={() => submitBranch(branch)}
+      onClick={() => submitBranch(branch.name)}
       disabled={submitting}
     >
       Submit for Review

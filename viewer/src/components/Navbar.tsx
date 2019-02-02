@@ -1,16 +1,11 @@
 import * as React from 'react'
-import * as S from '../selectors'
 
 import { Link, NavLink } from 'react-router-dom'
 
 import UserTab from './Layout/UserTab'
-import { connect } from 'react-redux'
 
-type StateProps = { editing: boolean }
-type Props = StateProps
-
-const Navbar = ({ editing }: Props) => (
-  <nav className={`navbar navbar-${editing ? 'inverse' : 'default'} navbar-static-top`}>
+const Navbar = () => (
+  <nav className={'navbar navbar-default navbar-static-top'}>
     <div className="container">
       <Link to="/" className="navbar-brand">π-Base</Link>
       <ul className="nav navbar-nav">
@@ -24,8 +19,4 @@ const Navbar = ({ editing }: Props) => (
   </nav>
 )
 
-export default connect<StateProps, {}, {}, any>(
-  state => ({
-    editing: S.editing(state)
-  })
-)(Navbar)
+export default Navbar

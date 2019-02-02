@@ -1,7 +1,7 @@
 import * as A from '../../actions'
 import * as React from 'react'
 
-import { Branch, BranchName, Dispatch } from '../../types'
+import { Branch, BranchState, Dispatch } from '../../types'
 
 import { State } from '../../reducers'
 import Submit from './Submit'
@@ -10,11 +10,11 @@ import { by } from '../../utils'
 import { connect } from 'react-redux'
 
 type DispatchProps = {
-  changeBranch: (branch: BranchName) => void
+  changeBranch: (branch: Branch) => void
   submitBranch: (branch: Branch) => void
 }
 
-export const Row: React.SFC<{ branch: Branch } & DispatchProps> = ({ branch, changeBranch, submitBranch }) => {
+export const Row: React.SFC<{ branch: BranchState } & DispatchProps> = ({ branch, changeBranch, submitBranch }) => {
   return (
     <tr>
       <td>
@@ -35,8 +35,7 @@ export const Row: React.SFC<{ branch: Branch } & DispatchProps> = ({ branch, cha
   )
 }
 
-type BranchWithActive = Branch & { active: boolean }
-type Props = { branches: BranchWithActive[] } & DispatchProps
+type Props = { branches: BranchState[] } & DispatchProps
 
 export const Table: React.SFC<Props> = ({ branches, changeBranch, submitBranch }) => {
   if (branches.length === 0) { return null }

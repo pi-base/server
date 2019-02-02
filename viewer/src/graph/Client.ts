@@ -1,6 +1,6 @@
 import * as F from '../models/Formula'
 
-import { BranchName, New, Property, Sha, Space, Theorem, Trait } from '../types'
+import { Branch, New, Property, Sha, Space, Theorem, Trait } from '../types'
 import {
   GQL,
   assertTheorem,
@@ -36,7 +36,7 @@ const serializeFormula = (f: F.Formula<string>): string => JSON.stringify(F.toJS
 class Client implements Api {
   _options: Opts
 
-  _branch: BranchName
+  _branch: Branch
   _token: string | null
   _host: string
 
@@ -77,7 +77,7 @@ class Client implements Api {
   get branch() { return this._branch }
   set branch(branch) { this._branch = branch }
 
-  async resetBranch(branch: BranchName, to: Sha) {
+  async resetBranch(branch: Branch, to: Sha) {
     return this.mutate(resetBranch, {
       input: { branch, to }
     }).then(data => data.resetBranch.version)
@@ -143,7 +143,7 @@ class Client implements Api {
     })
   }
 
-  async submitBranch(name: BranchName) {
+  async submitBranch(name: Branch) {
     return this.mutate(submitBranch, {
       input: { branch: name }
     }).then(data => data.submitBranch)

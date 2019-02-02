@@ -1,10 +1,12 @@
 import * as React from 'react'
 
+import Alert from './Alert'
+import Icon from './Icon'
 import { Link } from 'react-router-dom'
 import Tex from './Tex'
 
 const Home = () => (
-  <div className="container">
+  <>
     <Tex className="jumbotron">
       <h1>π-Base</h1>
       <p>a community database of topological examples with expressive searches like</p>
@@ -14,13 +16,13 @@ const Home = () => (
     </Tex>
 
     <h2>Contributing and Collaborating</h2>
-    <div className="alert alert-info">
-      <p><span className="glyphicon glyphicon-alert" /> There is a major
-        data cleanup and standardization effort underway
+    <Alert type="info">
+      <p>
+        <Icon type="alert" /> There is a major data cleanup and standardization effort underway
         {' '}<a href="https://github.com/pi-base/data">on Github</a>.
         Data will be in-flux while that effort is in progress.
       </p>
-    </div>
+    </Alert>
     <p>See something wrong? Want to add a property or theorem of your own?</p>
     <p>
       The data powering this site is hosted
@@ -61,7 +63,7 @@ const Home = () => (
         {' '}<a href="http://www.amazon.com/Counterexamples-Topology-Dover-Books-Mathematics/dp/048668735X">
           Counterexamples in Topology</a>{' '}in the first place and inspiring this project</li>
     </ul>
-  </div>
+  </>
 )
 
 export default Home
