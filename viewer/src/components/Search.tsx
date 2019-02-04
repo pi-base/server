@@ -12,6 +12,7 @@ import _Results from './Search/Results'
 import { State } from '../reducers'
 import { connect } from 'react-redux'
 import { useLast, useSearch } from '../hooks'
+import Title from './Title'
 
 export const Results = _Results
 
@@ -73,6 +74,7 @@ const Search = ({
   // TODO: add widget to allow displaying extra traits inline
   return (
     <form className="search row" >
+      <Title title="Search" />
       <div className="col-md-4">
         <Control
           label="Filter by Text"
@@ -96,12 +98,13 @@ const Search = ({
         </EditLink>
       </div>
 
-      <div className="col-md-8">
+      <div className="col-md-8" data-test="search-results">
         <Results
           text={query.text}
           formula={search && search.formula}
           modifier={search && search.modifier}
           onExampleSelect={ex => setQuery({ text: '', formula: ex })}
+          data-test="search-results"
         />
       </div>
     </form >

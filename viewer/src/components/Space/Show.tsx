@@ -5,9 +5,8 @@ import { Route, RouteComponentProps, Switch } from 'react-router'
 import Detail from './Detail'
 import EditLink from '../Form/EditLink'
 import { Space } from '../../types'
-import Trait from '../Trait/Show'
+import Trait from '../Trait'
 import TraitCreate from '../Trait/Create'
-import TraitEdit from '../Trait/Edit'
 import TraitPager from '../Trait/Pager'
 
 interface OwnProps {
@@ -31,7 +30,7 @@ const Traits = (props: Props) => (
       <TraitPager {...props} />
     </div>
     <div className="col-md-8">
-      {props.match.params.propertyId && <Trait {...props} trait={undefined}/>}
+      {props.match.params.propertyId && <Trait {...props} />}
     </div>
   </div>
 )
@@ -48,12 +47,8 @@ const Show: React.SFC<Props> = props => (
         render={ps => <TraitCreate {...ps} space={props.space} />}
       />
       <Route
-        path={props.match.url + '/properties/:propertyId/edit'}
-        render={ps => <TraitEdit {...ps} space={props.space} />}
-      />
-      <Route
         path={props.match.url + '/properties/:propertyId'}
-        render={ps => <Traits {...ps} space={props.space} />}
+        render={ps => <Trait {...ps} space={props.space} />}
       />
       <Route
         render={ps => <Traits {...ps} space={props.space} />}

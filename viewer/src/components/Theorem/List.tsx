@@ -1,5 +1,4 @@
 import * as React from 'react'
-import * as S from '../../selectors'
 
 import EditLink from '../Form/EditLink'
 import Filter from '../Filter'
@@ -9,6 +8,7 @@ import Preview from '../Preview'
 import { State as StoreState } from '../../reducers'
 import Tex from '../Tex'
 import { Theorem } from '../../types'
+import Title from '../Title'
 import { by } from '../../utils'
 import { connect } from 'react-redux'
 
@@ -40,6 +40,8 @@ class Theorems extends React.Component<Props, State> {
     const visible = this.state.theorems.slice(0, this.state.limit)
     return (
       <section className="theorems">
+        <Title title="Theorems" />
+
         <EditLink to="/theorems/new" className="btn btn-default">New</EditLink>
 
         <Filter

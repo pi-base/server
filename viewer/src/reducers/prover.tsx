@@ -86,7 +86,7 @@ export const reducer = (
   let proofs: State
   switch (action.type) {
     case 'LOAD_VIEWER':
-      proofs = new Map(state.proofs)
+      proofs = new Map(action.reset ? [] : state.proofs)
       action.viewer.spaces.forEach(space => {
         space.traits.forEach(trait => {
           proofs.set(
@@ -109,7 +109,7 @@ export const reducer = (
       let spaces
       let theorems
       if (action.theorem) {
-        theorems = [theorems]
+        theorems = [action.theorem]
       } else if (action.trait) {
         spaces = [action.trait.space]
       }

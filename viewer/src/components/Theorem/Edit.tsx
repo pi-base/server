@@ -23,7 +23,7 @@ interface OwnProps {
 }
 type Props = OwnProps & DispatchProps
 
-export const Fields = _ => (
+export const Fields = () => (
   <>
     <Field
       name="description"

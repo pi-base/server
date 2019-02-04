@@ -1,5 +1,5 @@
 import * as React from 'react'
-import * as T from '../../types'
+import { Space } from '../../types'
 
 import { Route, RouteComponentProps, Switch } from 'react-router'
 
@@ -11,11 +11,11 @@ import Title from '../Title'
 import { connect } from 'react-redux'
 
 type StateProps = {
-  space: T.Space | undefined
+  space: Space | undefined
 }
 type Props = StateProps & RouteComponentProps<{ spaceId: string }>
 
-const Space: React.SFC<Props> = props => {
+const Component: React.SFC<Props> = props => {
   const { space } = props
 
   if (!space) { return <NotFound {...props} /> }
@@ -35,4 +35,4 @@ export default connect(
   (state: State, props: Props) => ({
     space: state.spaces.get(props.match.params.spaceId)
   })
-)(Space)
+)(Component)

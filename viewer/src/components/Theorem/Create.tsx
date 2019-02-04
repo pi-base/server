@@ -18,7 +18,7 @@ import uuid from 'uuid/v4'
 type Values = {
   if: string
   then: string
-  description
+  description: string
 } & EditValues
 
 interface StateProps {
@@ -30,7 +30,7 @@ interface DispatchProps {
 }
 type Props = StateProps & DispatchProps
 
-export const Fields = _ => (
+export const Fields = () => (
   <>
     <Field
       name="if"
@@ -54,7 +54,6 @@ const Create = ({
   counterexamples
 }: Props) => {
   const initialValues = {
-    uid: uuid(),
     if: '',
     then: '',
     description: '',
@@ -97,7 +96,7 @@ const Create = ({
 
     const cxs = counterexamples(result)
     if (cxs.length > 0) {
-      errors.then = 'Has counterexamples'
+      errors.then = 'Counterexamples found'
     }
 
     return { result, errors }
@@ -126,7 +125,10 @@ const mapDispatchToProps = (
 ): DispatchProps => ({
   onSubmit: result => {
     dispatch(assertTheorem(result)).
-      then(theorem => history.push(`/theorems/${theorem.uid}`))
+      then(theorem => {
+        dispatch(checkProofs({ theorem }))
+        history.push(`/theorems/${theorem.uid}`)
+      })
   }
 })
 

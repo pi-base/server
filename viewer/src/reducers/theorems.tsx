@@ -15,7 +15,7 @@ export const reducer = (
 
   switch (action.type) {
     case 'LOAD_VIEWER':
-      next = new Map(state)
+      next = new Map(action.reset ? [] : state)
       action.viewer.theorems.forEach(t => {
         next.set(t.uid, {
           uid: t.uid,

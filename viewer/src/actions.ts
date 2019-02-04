@@ -93,9 +93,12 @@ export const addTrait = (trait: Trait): Action => ({
   type: 'ASSERT_TRAIT', trait
 })
 
-export const checkProofs = (input: CheckProofInput = {}): Action => ({
-  type: 'CHECK_PROOFS', ...input
-})
+export const checkProofs = (input: CheckProofInput = {}): Async<void> =>
+  async dispatch => {
+    setTimeout(() => {
+      dispatch({ type: 'CHECK_PROOFS', ...input })
+    }, 0)
+  }
 
 export const search = ({ text, formula }: { text?: string, formula?: string }): Action => {
   return { type: 'SEARCH', text, formula }

@@ -10,7 +10,7 @@ const Home = () => (
     <Tex className="jumbotron">
       <h1>π-Base</h1>
       <p>a community database of topological examples with expressive searches like</p>
-      <p>□ <Link to="/spaces?q=compact%20%2B%20connected%20%2B%20t_2%20%2B%20~metrizable">Non-metric continua</Link></p>
+      <p>□ <Link to="/spaces?formula=compact%20%2B%20connected%20%2B%20t_2%20%2B%20~metrizable">Non-metric continua</Link></p>
       <p>□ <Link to="/spaces?text=compactification">Compactifications</Link></p>
       <p>□ <Link to="/theorems/I000112">Evidence that $T_5$ ⇒ $T_4$ does not reverse</Link></p>
     </Tex>

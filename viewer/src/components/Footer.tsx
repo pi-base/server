@@ -21,6 +21,8 @@ type CState = {
   host: string
 }
 
+const triggerError = () => ('' as any).floop()
+
 class Footer extends React.Component<Props, CState> {
   constructor(props: Props) {
     super(props)
@@ -35,6 +37,7 @@ class Footer extends React.Component<Props, CState> {
         <div className="container">
           <ul className="nav navbar-nav">
             <li><a href="#" onClick={clearCache}>Clear Cache</a></li>
+            <li><a href="#" onClick={triggerError}>Trigger Error</a></li>
           </ul>
           <form className="navbar-form navbar-right">
             <div className="form-group">

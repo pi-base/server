@@ -1,9 +1,11 @@
 import * as React from 'react'
 import * as S from '../../selectors'
 
-import { Property, Prover, Space, Theorem } from '../../types'
+import { List } from 'immutable'
 
-import { Finder } from '../../models/Finder'
+import { Property, Space, Theorem } from '../../types'
+import { State } from '../../reducers'
+
 import Implication from '../Implication'
 import { Link } from 'react-router-dom'
 import TraitTable from '../Trait/Table'
@@ -14,13 +16,15 @@ type OwnProps = {
   theorem: Theorem
 }
 type StateProps = {
-  counterexamples: Space[]
   properties: Property[]
-  prover: Prover
+  converse: {
+    counterexamples: Space[]
+    proof: List<Theorem> | 'tautology' | false | undefined
+  }
 }
 type Props = OwnProps & StateProps
 
-const Counterexamples = ({ theorem, properties, counterexamples, prover }: Props) => {
+const Counterexamples = ({ theorem, properties, converse: { counterexamples, proof } }: Props) => {
   // TODO: check DB for recorded converses
 
   if (counterexamples.length > 0) {
@@ -35,7 +39,6 @@ const Counterexamples = ({ theorem, properties, counterexamples, prover }: Props
     )
   }
 
-  const proof = prover.prove(converse(theorem))
   if (proof) {
     if (proof === 'tautology') { return <span /> }
 
@@ -50,7 +53,7 @@ const Counterexamples = ({ theorem, properties, counterexamples, prover }: Props
             </tr>
           </thead>
           <tbody>
-            {proof.map(thrm => (
+            {proof.toSet().toList().map(thrm => (
               <tr key={thrm!.uid}>
                 <td>
                   <Implication theorem={thrm!} link={false} />
@@ -69,10 +72,18 @@ const Counterexamples = ({ theorem, properties, counterexamples, prover }: Props
   return <aside>No examples found disproving the converse.</aside>
 }
 
+const mapStateToProps = (
+  state: State,
+  { theorem }: OwnProps
+): StateProps => {
+  const reverse = converse(theorem)
+  const counterexamples = S.counterexamples(state, reverse) || []
+  const proof = counterexamples.length == 0 && S.prover(state).prove(reverse)
+  const properties = S.theoremProperties(state, theorem)
+
+  return { properties, converse: { counterexamples, proof } }
+}
+
 export default connect(
-  (state: any, ownProps: OwnProps): StateProps => ({
-    counterexamples: S.counterexamples(state, ownProps.theorem),
-    properties: S.theoremProperties(state, ownProps.theorem),
-    prover: S.prover(state)
-  })
+  mapStateToProps
 )(Counterexamples)

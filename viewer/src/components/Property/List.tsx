@@ -10,6 +10,7 @@ import { State } from '../../reducers'
 import Tex from '../Tex'
 import { by } from '../../utils'
 import { connect } from 'react-redux'
+import Title from '../Title'
 
 interface Props {
   object: T.Property
@@ -52,6 +53,8 @@ interface StateProps {
 const Index = ({ properties }: StateProps) => {
   return (
     <div>
+      <Title title="Properties" />
+
       <EditLink to="/properties/new" className="btn btn-default">New</EditLink>
 
       <List<T.Property>

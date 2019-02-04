@@ -17,7 +17,7 @@ export const reducer = (
       return new Map()
 
     case 'LOAD_VIEWER':
-      const next = new Map(state)
+      const next = new Map(action.reset ? [] : state)
       action.viewer.spaces.forEach(s => {
         next.set(s.uid, {
           uid: s.uid,

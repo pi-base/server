@@ -1,24 +1,18 @@
 import * as React from 'react'
-import * as S from '../../selectors'
-import * as T from '../../types'
+import { Trait } from '../../types'
 
 import EditLink from '../Form/EditLink'
 import Icon from '../Icon'
 import Markdown from '../Markdown'
 import Proof from '../Proof'
 import { RouteComponentProps } from 'react-router'
-import { State as ST } from '../../reducers'
 import Tex from '../Tex'
-import { connect } from 'react-redux'
 import { withRouter } from 'react-router'
 
 type OwnProps = {
-  space: T.Space
+  trait: Trait
 }
-type StateProps = {
-  trait: T.Trait | undefined
-}
-type Props = OwnProps & StateProps & RouteComponentProps<{ propertyId: string }>
+type Props = OwnProps & RouteComponentProps<{ propertyId: string }>
 
 type State = {
   showProperty: boolean
@@ -39,7 +33,7 @@ const Question = ({ onClick }) => (
   </button>
 )
 
-class Trait extends React.Component<Props, State> {
+class Show extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props)
     this.state = { showProperty: false }
@@ -55,6 +49,7 @@ class Trait extends React.Component<Props, State> {
 
     const label = trait.value === false ? '¬' : ''
 
+    // TODO: add related traits
     return (
       <div>
         <h3>
@@ -76,8 +71,4 @@ class Trait extends React.Component<Props, State> {
   }
 }
 
-export default connect(
-  (state: ST, props: Props): StateProps => ({
-    trait: S.getTrait(state, props.space, props.match.params.propertyId)
-  })
-)(Trait)
+export default Show

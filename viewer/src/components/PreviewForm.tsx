@@ -1,6 +1,6 @@
 import * as F from 'formik'
 import * as React from 'react'
-import { useRef } from 'react'
+import { useState } from 'react'
 
 interface PreviewFormProps<Values, Result> {
   // FIXME: sort out these component types
@@ -28,19 +28,23 @@ function PreviewForm<Values, Result>(
     onSubmit,
     ...rest
   } = props
-  const preview = useRef<Result | undefined>(undefined)
+  const [preview, setPreview] = useState<Result | undefined>(undefined)
 
   const handleValidate = (values: Values) => {
     const { result, errors } = validate(values)
-    if (result) { preview.current = result }
+    if (result && result !== preview) {
+      setPreview(result)
+    }
     return errors
   }
-
-  handleValidate(initialValues)
 
   const handleSubmit = (values: Values) => {
     const { result, errors } = validate(values)
     if (noErrors(errors)) { onSubmit(result!) }
+  }
+
+  if (!preview) {
+    handleValidate(initialValues)
   }
 
   return (
@@ -65,7 +69,7 @@ function PreviewForm<Values, Result>(
               </button>
             </F.Form>
             <div className="col-md-6">
-              {preview.current && <Preview result={preview.current} />}
+              {preview && <Preview result={preview} />}
             </div>
           </div>
         )

@@ -9,7 +9,7 @@ import { Map } from 'immutable'
 const citationTypes: Map<CitationType, string> = Map([
   ['doi', 'DOI'],
   ['mr', 'Math Reviews'],
-  ['wiki', 'Wikipedia']
+  ['wikipedia', 'Wikipedia']
 ])
 
 const CitationDetail = ({ name, onRemove }) => {

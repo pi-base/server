@@ -90,7 +90,9 @@ class Client implements Api {
   }
 
   async viewer(version?: string) {
-    return this.query(viewer, { version }).then(data => data.viewer)
+    return this.query(viewer, {
+      version: version || this.branch
+    }).then(data => data.viewer)
   }
 
   // Mutations

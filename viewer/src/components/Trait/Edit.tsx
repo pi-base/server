@@ -1,50 +1,85 @@
-// import * as React from 'react'
+import * as React from 'react'
+import * as F from 'formik'
 
-// import { Dispatch, Space, Trait } from '../../types'
-// import { Field, FieldArray } from 'redux-form'
-// import { checkProofs, updateTrait } from '../../actions'
+import { Citation, Dispatch, Trait } from '../../types'
+import { updateTrait } from '../../actions'
+import { RouteComponentProps } from 'react-router'
 
-// import Citations from '../Form/Citations'
-// import { RouteComponentProps } from 'react-router'
-// import { Textarea } from '../Form/Labeled'
-// import TraitForm from './Form'
-// import { connect } from 'react-redux'
-// import { getTrait } from '../../selectors'
+import Citations from '../Form/Citations'
+import Form from './Form'
+import { Field } from '../Form'
+import { connect } from 'react-redux'
 
-// interface StateProps {
-//   trait: Trait
-// }
-// interface DispatchProps {
-//   save: (trait: Trait) => void
-// }
-// type OwnProps = {
-//   space: Space
-// } & RouteComponentProps<{ propertyId: string }>
+export type Values = {
+  description: string
+  references: Citation[]
+}
 
-// export const Fields = _ => (
-//   <>
-//     <Field name="description" label="Description" component={Textarea} />
-//     <FieldArray name="references" component={Citations} />
-//   </>
-// )
+type OwnProps = {
+  trait: Trait
+} & RouteComponentProps<{}>
+type DispatchProps = {
+  onSubmit: (trait: Trait) => void
+}
+type Props = OwnProps & DispatchProps
 
-// const mapStateToProps = (state: any, props: OwnProps): StateProps => ({
-//   trait: getTrait(state, props.space, props.match.params.propertyId)! // FIXME: handle NotFound
-// })
+export const Fields = () => (
+  <>
+    <Field
+      name="description"
+      label="Description"
+      input="textarea"
+    />
+    <Field
+      name="references"
+      input={Citations}
+    />
+  </>
+)
 
-// const mapDispatchToProps = (dispatch: Dispatch, ownProps: OwnProps): DispatchProps => ({
-//   save: result => {
-//     dispatch(updateTrait(result)).then(trait => {
-//       ownProps.history.push(`/spaces/${trait.space.uid}/properties/${trait.property.uid}`)
-//       dispatch(checkProofs()) // TODO: only for this trait
-//     })
-//   }
-// })
+const Edit = ({
+  trait,
+  onSubmit
+}: Props) => {
+  const initialValues = {
+    description: trait.description,
+    references: trait.references
+  }
 
-// const Edit = props => <TraitForm {...props} Fields={Fields} />
+  const validate = (values: Values) => {
+    let errors: F.FormikErrors<Values> = {}
 
-// export default connect(
-//   mapStateToProps,
-//   mapDispatchToProps
-// )(Edit)
-export default _ => null
+    if (trait.description && !values.description) {
+      errors.description = 'Description is required'
+    }
+
+    const result: Trait = { ...trait, ...values }
+
+    return { result, errors }
+  }
+
+  return (
+    <Form<Values>
+      Fields={Fields}
+      initialValues={initialValues}
+      validate={validate}
+      onSubmit={onSubmit}
+    />
+  )
+}
+
+const mapDispatchToProps = (
+  dispatch: Dispatch,
+  { history }: OwnProps
+): DispatchProps => ({
+  onSubmit: result => {
+    dispatch(updateTrait(result)).then(trait => {
+      history.push(`/spaces/${trait.space.uid}/properties/${trait.property.uid}`)
+    })
+  }
+})
+
+export default connect(
+  null,
+  mapDispatchToProps
+)(Edit)

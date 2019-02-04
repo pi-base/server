@@ -1,82 +1,41 @@
-// import * as React from 'react'
+import * as F from 'formik'
+import * as React from 'react'
 
-// import { Citation, Property, Space, Trait } from '../../types'
+import { Trait } from '../../types'
 
-// import Detail from './Detail'
-// import { connect } from 'react-redux'
-// import { previewForm } from '../PreviewForm'
-// import uuid from 'uuid/v4'
+import PreviewForm from '../PreviewForm'
+import Detail from './Detail'
 
-// type Values = Partial<{
-//   propertyId: string
-//   value: string
-//   description: string
-//   references: Citation[]
-// }>
-// type Errors = Partial<{
-//   propertyId: string
-//   description: string
-// }>
+const Preview = ({ result, ...props }) =>
+  <Detail {...props} trait={result} />
 
-// interface StateProps {
-//   findProperty: (propertyId: string) => Property | undefined
-// }
-// interface OwnProps {
-//   trait?: Trait
-//   space: Space
-// }
-// type Props = StateProps & OwnProps
+interface Props<Values> {
+  Fields: React.SFC<{}>
+  initialValues: Values
+  validate: (values: Values) => {
+    result?: Trait
+    errors: F.FormikErrors<Values>
+  }
+  onSubmit: (result: Trait) => any
+}
 
-// const Preview = props => {
-//   return (<Detail {...props} trait={props.preview} />)
-// }
+function Form<Values>(props: Props<Values>) {
+  const {
+    Fields,
+    initialValues,
+    validate,
+    onSubmit
+  } = props
 
-// const run = (values: Values, { trait, space, findProperty }: Props) => {
-//   const errors: Errors = {}
+  return (
+    <PreviewForm<Values, Trait>
+      Preview={Preview}
+      Fields={Fields}
+      initialValues={initialValues}
+      validate={validate}
+      onSubmit={onSubmit}
+    />
+  )
+}
 
-//   if (!values.description) {
-//     errors.description = 'Required'
-//   }
-
-//   const property = trait ? trait.property : findProperty(values.propertyId || '')
-//   if (!property) {
-//     errors.propertyId = 'Required'
-//     return { result: undefined, errors }
-//   }
-
-//   let result: Trait
-//   if (trait) {
-//     result = {
-//       ...trait,
-//       description: values.description || '',
-//       references: values.references || []
-//     }
-//   } else {
-//     result = {
-//       uid: uuid(),
-//       space,
-//       property,
-//       description: values.description || '',
-//       references: values.references || [],
-//       value: values.value! === 'true',
-//       deduced: false
-//     }
-//   }
-//   return { result, errors }
-// }
-
-// const Form = previewForm<Trait, Values, any>({
-//   name: 'trait',
-//   Preview,
-//   run
-// })
-
-// const mapStateToProps = (state: any): StateProps => ({
-//   findProperty: propertyId => state.properties.get(propertyId)
-// })
-
-// export default connect(
-//   mapStateToProps
-// )(Form)
-
-export default _ => null
+export default Form

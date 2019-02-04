@@ -167,7 +167,6 @@ export function apply(opts: ApplyOptions) {
 
 export function disprove(theorems: T.Theorem[], formula: Formula): (Proof | undefined) {
   let traits = new Map<string, TraitData>()
-  let contradiction: Proof | undefined = undefined
 
   let theoremsByProp = {}
   theorems.forEach((t: T.Theorem) => {

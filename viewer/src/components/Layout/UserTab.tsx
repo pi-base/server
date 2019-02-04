@@ -47,12 +47,18 @@ const mapStateToProps = (state: State): StateProps => ({
   username: state.user === 'unauthenticated' ? undefined : state.user.name
 })
 
-const mapDispatchToProps = (dispatch: Dispatch): DispatchProps => ({
+const mapDispatchToProps = (
+  dispatch: Dispatch,
+  { history }: RouteComponentProps<{}>
+): DispatchProps => ({
   loginUrl: () => dispatch(A.loginUrl(window)),
   startLogin: () => dispatch(A.startLogin(window)),
-  logout: () => dispatch(A.logout())
+  logout: () => dispatch(A.logout()).then(() => history.push('/'))
 })
 
 export default withRouter(
-  connect<StateProps, DispatchProps, OwnProps, any>(mapStateToProps, mapDispatchToProps)(UserTab)
+  connect(
+    mapStateToProps,
+    mapDispatchToProps
+  )(UserTab)
 )

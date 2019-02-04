@@ -74,5 +74,5 @@ function TraitTable({ spaces, properties, traits }: Props) {
 export default connect(
   (state: any) => ({
     traits: traitValues(state)
-  })
+  }),
 )(TraitTable)

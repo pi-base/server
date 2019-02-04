@@ -1,16 +1,10 @@
 import * as F from 'formik'
 import * as React from 'react'
-import * as S from '../../selectors'
-import { Formula } from '../../models/Formula'
 
-import { Citation, Id, Property, Space, Theorem } from '../../types'
-import { State } from '../../reducers'
+import { Theorem } from '../../types'
 
 import PreviewForm from '../PreviewForm'
 import Preview from './Preview'
-import { RouteComponentProps } from 'react-router'
-import { connect } from 'react-redux'
-import uuid from 'uuid/v4'
 
 interface Props<Values> {
   Fields: React.SFC<{}>

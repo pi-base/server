@@ -41,6 +41,8 @@ export const reducer = (
       // TODO: this should check that the SHA matches the loaded data
       let active = state.active || action.branches.find(b => b.access === 'read')!.name
       return { ...state, branches, active }
+    case 'LOGOUT':
+      return initial
     case 'SUBMITTING_BRANCH':
       return updateBranch(state, action.branch, {
         submitting: true

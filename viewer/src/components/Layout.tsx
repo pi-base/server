@@ -10,6 +10,9 @@ import { State } from '../reducers'
 import { boot } from '../actions'
 import { connect } from 'react-redux'
 
+// tslint:disable-next-line no-any
+declare var MathJax: any
+
 type StateProps = {
   booted: boolean
   debug: boolean
@@ -20,10 +23,20 @@ type DispatchProps = {
 type Props = StateProps & DispatchProps & RouteComponentProps<{}>
 
 class Layout extends React.PureComponent<Props> {
+  unlisten: any
+
   componentWillMount() {
-    if (!this.props.booted) {
-      this.props.boot()
-    }
+    const { boot, booted, history } = this.props
+
+    if (!booted) { boot() }
+
+    this.unlisten = history.listen(() => {
+      MathJax.Hub.Typeset()
+    })
+  }
+
+  componentWillUnmount() {
+    this.unlisten && this.unlisten()
   }
 
   render() {

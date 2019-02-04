@@ -22,8 +22,9 @@ const validate = (values: Space) => {
   return { result: values, errors }
 }
 
-const Preview = ({ result, ...props }) =>
-  <Detail {...props} space={result} editable={false} />
+const Preview = ({ result, ...props }) => {
+  return (<Detail {...props} space={result} editable={false} />)
+}
 
 const Fields = _ => (
   <>

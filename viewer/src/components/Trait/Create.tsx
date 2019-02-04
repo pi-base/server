@@ -1,72 +1,137 @@
-// import * as React from 'react'
-// import * as S from '../../selectors'
+import * as React from 'react'
+import * as S from '../../selectors'
 
-// import { Property, Space, Trait } from '../../types'
-// import { assertTrait, checkProofs } from '../../actions'
+import { Dispatch, Id, Property, Space, Trait } from '../../types'
+import { Fields as EditFields, Values as EditValues } from './Edit'
+import { assertTrait, checkProofs } from '../../actions'
 
-// import { Fields as EditFields } from './Edit'
-// import { Field } from 'redux-form'
-// import Labeled from '../Form/Labeled'
-// import TraitForm from './Form'
-// import { by } from '../../utils'
-// import { connect } from 'react-redux'
+import { Field } from '../Form'
+import Form from './Form'
+import { FormikErrors } from 'formik'
+import { RouteComponentProps } from 'react-router'
+import { State } from '../../reducers'
+import { by } from '../../utils'
+import { connect } from 'react-redux'
+import uuid from 'uuid/v4'
 
-// type OwnProps = {
-//   space: Space
-// }
-// type StateProps = {
-//   unknownProperties: Property[]
-// }
-// type DispatchProps = {
-//   save: (trait: Trait) => void
-// }
+type Values = {
+  uid: string
+  propertyId: string
+  value: string
+  deduced: boolean
+} & EditValues
 
-// const PropertySelect = props => (
-//   <Labeled {...props} Component="select">
-//     <option />
-//     {props.unknownProperties.sort(by('name')).map(p => (
-//       <option key={p.uid} value={p.uid}>{p.name}</option>
-//     ))}
-//   </Labeled>
-// )
+type OwnProps = {
+  space: Space
+} & RouteComponentProps<{}>
 
-// const ValueSelect = props => (
-//   <Labeled {...props} Component="select">
-//     <option key="true" value="true">True</option>
-//     <option key="false" value="false">False</option>
-//   </Labeled>
-// )
+type StateProps = {
+  findProperty: (propertyId: Id) => Property | undefined
+  unknownProperties: Property[]
+}
+type DispatchProps = {
+  onSubmit: (trait: Trait) => void
+}
+type Props = OwnProps & StateProps & DispatchProps
 
-// const mapStateToProps = (state: any, ownProps: OwnProps): StateProps => ({
-//   unknownProperties: S.unknownProperties(state, ownProps.space)
-// })
+const PropertySelect = (unknownProperties: Property[]) => props => (
+  <select {...props}>
+    <option />
+    {unknownProperties.sort(by('name')).map(p => (
+      <option key={p.uid} value={p.uid}>{p.name}</option>
+    ))}
+  </select>
+)
 
-// const Fields = ({ unknownProperties }) => (
-//   <>
-//     <Field
-//       name="propertyId"
-//       label="Property"
-//       component={PropertySelect}
-//       unknownProperties={unknownProperties}
-//     />
-//     <Field name="value" label="Value" component={ValueSelect} />
-//     <EditFields />
-//   </>
-// )
+const ValueSelect = props => (
+  <select {...props}>
+    <option key="true" value="true">True</option>
+    <option key="false" value="false">False</option>
+  </select>
+)
 
-// const mapDispatchToProps = (dispatch, ownProps) => ({
-//   save: result => {
-//     dispatch(assertTrait(result)).then(trait => {
-//       ownProps.history.push(`/spaces/${ownProps.space.uid}/properties/${trait.property.uid}`)
-//       dispatch(checkProofs([trait.space]))
-//     })
-//   }
-// })
+const makeFields = ({ unknownProperties }) => () => (
+  <>
+    <Field
+      name="propertyId"
+      label="Property"
+      input={PropertySelect(unknownProperties)}
+    />
+    <Field name="value" label="Value" input={ValueSelect} />
+    <EditFields />
+  </>
+)
 
-// const Create = props => <TraitForm {...props} Fields={Fields} />
+const Create = ({
+  space,
+  onSubmit,
+  findProperty,
+  unknownProperties
+}: Props) => {
+  const Fields = makeFields({ unknownProperties })
 
-// export default connect(
-//   mapStateToProps,
-//   mapDispatchToProps
-// )(Create)
-export default _ => null
+  const initialValues = {
+    uid: uuid(),
+    propertyId: '',
+    value: 'true',
+    description: '',
+    references: [],
+    deduced: false
+  }
+
+  const validate = (values: Values) => {
+    let errors: FormikErrors<Values> = {}
+
+    // TODO: verify that propertyId, value are in select?
+    if (!values.description) {
+      errors.description = 'Description is required'
+    }
+
+    const property = findProperty(values.propertyId)
+
+    if (!property) {
+      errors.description = 'Could not find property'
+      return { errors }
+    }
+
+    const result: Trait = {
+      ...values,
+      space,
+      property,
+      value: values.value === 'true',
+    }
+
+    return { result, errors }
+  }
+
+  return (
+    <Form<Values>
+      Fields={Fields}
+      initialValues={initialValues}
+      validate={validate}
+      onSubmit={onSubmit}
+    />
+  )
+}
+
+const mapStateToProps = (state: State, ownProps: OwnProps): StateProps => ({
+  findProperty: (propertyId: Id) => state.properties.get(propertyId),
+  unknownProperties: S.unknownProperties(state, ownProps.space)
+})
+
+const mapDispatchToProps = (
+  dispatch: Dispatch,
+  { history }: OwnProps
+) => ({
+  onSubmit: (result: Trait) => {
+    dispatch(assertTrait(result)).then(trait => {
+      dispatch(checkProofs({ trait }))
+      history.push(`/spaces/${trait.space.uid}/properties/${trait.property.uid}`)
+    })
+  }
+})
+
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(Create)
