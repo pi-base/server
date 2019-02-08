@@ -9,6 +9,8 @@ import Navbar from './Navbar'
 import { State } from '../reducers'
 import { boot } from '../actions'
 import { connect } from 'react-redux'
+import Tex from './Tex'
+import { Link } from 'react-router-dom'
 
 // tslint:disable-next-line no-any
 declare var MathJax: any
@@ -45,6 +47,19 @@ class Layout extends React.PureComponent<Props> {
     return (
       <div>
         <Navbar />
+
+
+        { location.pathname === '/' ? 
+          <Tex className="jumbotron wide">
+            <div className="container">
+              <h1>π-Base</h1>
+              <p>a community database of topological examples with expressive searches like</p>
+              <p>⮕ <Link to="/spaces?formula=compact%20%2B%20connected%20%2B%20t_2%20%2B%20~metrizable">Non-metric continua</Link></p>
+              <p>⮕ <Link to="/spaces?text=compactification">Compactifications</Link></p>
+              <p>⮕ <Link to="/theorems/I000112">Evidence that T₅ ⇒ T₄ does not reverse</Link></p>
+            </div>
+          </Tex>
+	  : ''}
 
         <EditBanner />
 
