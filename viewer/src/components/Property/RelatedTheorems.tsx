@@ -5,6 +5,7 @@ import { Property, Theorem } from '../../types'
 
 import Implication from '../Implication'
 import { Link } from 'react-router-dom'
+import { EditLink } from '../Form'
 import { connect } from 'react-redux'
 
 interface OwnProps {
@@ -29,7 +30,7 @@ function RelatedTheorems({ property, theorems, properties }: Props) {
           </Link>
         </div>
       ))}
-      <Link to="/theorems/new" className="btn btn-default btn-xs">Add</Link>
+      <EditLink to="/theorems/new" className="btn btn-default btn-xs">Add</EditLink>
     </div>
   )
 }
