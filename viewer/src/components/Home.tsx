@@ -7,49 +7,46 @@ import Tex from './Tex'
 
 const Home = () => (
   <>
-    <h2>Contributing and Collaborating</h2>
-    <Alert type="info">
-      <p>
-        <Icon type="alert" /> There is a major data cleanup and standardization effort underway
-        {' '}<a href="https://github.com/pi-base/data">on Github</a>.
-        Data will be in-flux while that effort is in progress.
-      </p>
-    </Alert>
-    <p>See something wrong? Want to add a property or theorem of your own?</p>
+    <h2>Contributing</h2>
     <p>
-      The data powering this site is hosted
-      {' '}<a href="https://github.com/pi-base/data">on Github</a>{' '}
-      and pull requests are welcome. If you're interested in getting involved
-      but unsure about how this all works, do feel free to post an issue on the
-      {' '}<a href="http://github.com/pi-base/viewer/issues">issue tracker</a>{' '}
-      or get in touch{' '}<a href="mailto:jamesdabbs@gmail.com">by email</a>.
+      The π-Base relies on volunteers like yourself to submit new spaces, properties, and theorems.
+      More information may be found on our{' '} 
+      <a href="https://github.com/pi-base/contributing">Contributing</a>{' '}page. 
+    </p>
+    <p>
+      π-Base’s{' '}<a href="https://github.com/pi-base/data">data</a>{' '}
+      and{' '}<a href="https://github.com/pi-base/server">source code</a>{' '}
+      are available on GitHub. Code contributions are welcomed as well!
     </p>
 
-    <h3>On Definitions</h3>
-    <Tex>
-      We have broken with Counterexamples in a few notable places, mostly to
-      update things like the separation axioms to their more modern useage
-      (where $T_i$ ⇒ $T_j$ whenever $i > j$). Our definitions should
-      match those given in e.g.
-      {' '}<a href="http://www.amazon.com/General-Topology-Dover-Books-Mathematics/dp/0486434796">
-        Willard's <i>General Topology</i></a>.
-    </Tex>
+    <h2>About Us</h2>
+    <p>
+      The π-Base was founded in 2014 by {' '}
+      <a href="https://github.com/jamesdabbs">James Dabbs</a>, who continues
+      to maintain the project and serve as its main developer.
+    </p>
+    <p>
+      <a href="https://github.com/stevenclontz">Steven Clontz</a>{' '}
+      joined the project in 2017, serving as its lead mathematical editor.
+    </p>
 
-    <h3> Acknowledgements</h3>
+    <h2> Acknowledgements</h2>
     <p> Many people have contributed to this project, and all contributions are
       appreciated, but a few individuals deserve special recognition:</p>
     <ul>
       <li>
-        <a href="http://clontz.org/">Steven Clontz</a>{' '}for his continued advice and friendship</li>
-      <li>
         <a href="http://www.montevallo.edu/staff-bio/scott-varagona/">Scott Varagona</a>{' '}
         for his heroic work entering data into the database</li>
       <li>
-        My advisor,{' '}<a href="http://www.auburn.edu/~gruengf/">Gary Gruenhage</a>{' '}
+        Our graduate advisor,{' '}<a href="http://www.auburn.edu/~gruengf/">Gary Gruenhage</a>{' '}
         for all his support and guidance</li>
       <li>
         <a href="http://austinmohr.com/home/">Austin Mohr</a>{' '}for his work using
-        the 𝜋-Base as a pedagogical tool, and all his invaluable feedback</li>
+        the π-Base as a pedagogical tool, and all his invaluable feedback</li>
+      <li>
+        The{' '}<a href="https://www.southalabama.edu/">University of South Alabama</a>{' '}
+        Faculty Development Program
+        for providing funding to host the π-Base server.</li>
       <li>
         Steen and Seebach for writing
         {' '}<a href="http://www.amazon.com/Counterexamples-Topology-Dover-Books-Mathematics/dp/048668735X">

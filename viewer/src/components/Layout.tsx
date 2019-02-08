@@ -53,10 +53,10 @@ class Layout extends React.PureComponent<Props> {
           <Tex className="jumbotron wide">
             <div className="container">
               <h1>π-Base</h1>
-              <p>a community database of topological examples with expressive searches like</p>
-              <p>⮕ <Link to="/spaces?formula=compact%20%2B%20connected%20%2B%20t_2%20%2B%20~metrizable">Non-metric continua</Link></p>
-              <p>⮕ <Link to="/spaces?text=compactification">Compactifications</Link></p>
-              <p>⮕ <Link to="/theorems/I000112">Evidence that T₅ ⇒ T₄ does not reverse</Link></p>
+              <p>a community database of topological counterexamples</p>
+              <p>⮕ Search by propery, such as <Link to="/spaces?formula=compact%20%2B%20connected%20%2B%20t_2%20%2B%20~metrizable">non-metric continua</Link></p>
+              <p>⮕ Find spaces by name, such as <Link to="/spaces?text=compactification">compactifications</Link></p>
+              <p>⮕ View counterexamples to the converse of a theorem, such as <Link to="/theorems/I000112">T₅ ⇒ T₄</Link></p>
             </div>
           </Tex>
 	  : ''}
