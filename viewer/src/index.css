@@ -14,3 +14,20 @@ body {
 .graphiql-container {
   min-height: 800px;
 }
+
+.jumbotron.wide {
+  margin-top:-20px; 
+  background-color: #222;
+  background-image: url('/peanocurve.svg');
+  background-repeat: repeat;
+  color: #fff;
+}
+
+.navbar-default {
+  background-image: url('/peanocurvelight.svg');
+  background-repeat: repeat;
+}
+
+.jumbotron.wide a {
+  color: #afcee9;
+}
