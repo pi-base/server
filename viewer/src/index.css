@@ -28,6 +28,12 @@ body {
   background-repeat: repeat;
 }
 
+@media (max-width: 767px) {
+    .nav.pull-right {
+        float: left!important;
+    }
+}
+
 .jumbotron.wide a {
   color: #afcee9;
 }
