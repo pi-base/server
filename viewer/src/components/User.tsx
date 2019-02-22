@@ -16,8 +16,8 @@ const UserDetail = ({ user }: Props) => {
   } else {
     return (
       <div>
-        <h1>{user.name}</h1>
-        <h2>Active Branches</h2>
+        <h1>User: {user.name}</h1>
+        <h3>Available Branches</h3>
         <Branches />
       </div>
     )

@@ -14,7 +14,11 @@ const Submit: React.SFC<Props> = ({ branch, submitBranch }) => {
   if (!S.canSubmit(branch.name, access)) { return null }
 
   if (pullRequestUrl) {
-    return <a href={pullRequestUrl}>View pull request</a>
+    return (
+      <a className="btn btn-success btn-sm" href={pullRequestUrl}>
+        Review Status
+      </a>
+    )
   }
 
   return (
@@ -23,7 +27,10 @@ const Submit: React.SFC<Props> = ({ branch, submitBranch }) => {
       onClick={() => submitBranch(branch.name)}
       disabled={submitting}
     >
-      Submit for Review
+      {submitting
+        ? "Submitted"
+        : "Submit for Review"
+      }
     </button>
   )
 }
