@@ -16,14 +16,15 @@ interface StateProps {
 type Props = StateProps
 
 const EditBanner = ({ branch, access }: Props) => {
-  if (!branch || branch === MASTER) { return null }
+  if (!branch ) { return null }
 
   return (
     <div className="container">
       <Alert type="info">
         <p>
-          You are currently {S.canEdit(access) ? 'editing' : 'reading'} {branch}.
-          Click <Link to="/user">here</Link> to manage branches.
+          You are currently {S.canEdit(access) ? 'editing ' : 'reading '}
+          the <b>{branch}</b> branch.
+          {' '}<Link to="/user" className="btn btn-default btn-sm">Manage Branches</Link>
         </p>
       </Alert>
     </div>

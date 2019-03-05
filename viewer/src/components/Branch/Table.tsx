@@ -17,19 +17,17 @@ type DispatchProps = {
 export const Row: React.SFC<{ branch: BranchState } & DispatchProps> = ({ branch, changeBranch, submitBranch }) => {
   return (
     <tr>
+      <td>{branch.name}</td>
       <td>
         {branch.active
-          ? <button className="btn btn-default" disabled={true}>
-            Current
-          </button>
-          : <button className="btn btn-default branch-change" onClick={() => changeBranch(branch.name)}>
+          ? <span className="btn-group">
+              <button className="btn btn-info btn-sm">Current</button> 
+              <Submit branch={branch} submitBranch={submitBranch} />
+            </span>
+          : <button className="btn btn-default btn-sm branch-change" onClick={() => changeBranch(branch.name)}>
             Switch
           </button>
         }
-      </td>
-      <td>{branch.name}</td>
-      <td>
-        <Submit branch={branch} submitBranch={submitBranch} />
       </td>
     </tr>
   )
@@ -41,12 +39,11 @@ export const Table: React.SFC<Props> = ({ branches, changeBranch, submitBranch }
   if (branches.length === 0) { return null }
 
   return (
-    <table className="table table-condensed">
+    <table className="table table-condensed table-hover">
       <thead>
         <tr>
-          <th />
-          <th />
-          <th />
+          <th>Branch Name</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
