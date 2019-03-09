@@ -4,11 +4,11 @@ module Page.Theorem
 
 import Protolude
 
-import Data.Aeson
-import Data.Aeson.Types (Parser)
+import           Data.Aeson
+import           Data.Aeson.Types    (Parser)
 import qualified Data.HashMap.Strict as HM
 
-import Core
+import           Core
 import qualified Page
 
 page :: Page (Theorem PropertyId)
@@ -16,7 +16,7 @@ page = Page.build write parse
 
 parse :: PageData -> Parser (Theorem PropertyId)
 parse PageData{..} = do
-  theoremId          <- pageFrontmatter .: "uid"
+  theoremId          <- convertTheoremIdPrefix <$> pageFrontmatter .: "uid"
   theoremConverse    <- pageFrontmatter .:? "converse"
   theoremImplication <- fmap Id <$>
     ( Implication

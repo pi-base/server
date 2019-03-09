@@ -33,7 +33,7 @@ instance Identifiable Property where
   getId      = propertyId
   setId p id = p { propertyId = id }
 instance Identifiable (Theorem PropertyId) where
-  prefix     = 'I'
+  prefix     = 'T'
   getId      = theoremId
   setId t id = t { theoremId = id }
 

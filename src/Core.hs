@@ -14,6 +14,7 @@ import Settings         as Core
 import Types            as Core
 
 import           Control.Lens hiding ((.=))
+import qualified Data.Text    as T
 import qualified Data.Set     as S
 
 import qualified Formula as F
@@ -79,3 +80,9 @@ hydrateTheorem props theorem =
 
 notFound :: MonadIO m => Text -> Text -> m b
 notFound resource ident = throwIO $ NotFoundError resource ident
+
+convertTheoremIdPrefix :: TheoremId -> TheoremId
+convertTheoremIdPrefix (Id txt) = Id $
+  case T.uncons txt of
+    Just ('I', rest) -> T.cons 'T' rest
+    _                -> txt
