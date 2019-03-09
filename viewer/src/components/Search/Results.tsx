@@ -81,13 +81,15 @@ function Results({ text, formula, results, prover, onExampleSelect }: Props) {
   )
 }
 
+const mapStateToProps = (state: State, ownProps: OwnProps): StateProps => ({
+  results: S.search(state, {
+    formula: ownProps.formula ? F.mapProperty(p => p.uid, ownProps.formula) : undefined,
+    text: ownProps.text,
+    modifier: ownProps.modifier
+  }),
+  prover: S.prover(state)
+})
+
 export default connect(
-  (state: State, ownProps: OwnProps): StateProps => ({
-    results: S.search(state, {
-      formula: ownProps.formula ? F.mapProperty(p => p.uid, ownProps.formula) : undefined,
-      text: ownProps.text,
-      modifier: ownProps.modifier
-    }),
-    prover: S.prover(state)
-  })
+  mapStateToProps
 )(Results)

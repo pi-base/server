@@ -127,6 +127,7 @@
     "deploy:production": "yarn run build && firebase use pi-base-production && firebase deploy && firebase use pi-base-staging",
     "schema": "cp -r ../graph/* src/graph && apollo client:codegen --localSchemaFile src/graph/schema.gql --target typescript --outputFlat src/types/graph",
     "push-schema": "apollo client:push --clientName=pi-base",
+    "serve": "yarn run build && serve -s build",
     "start": "node scripts/start.js",
     "test": "node scripts/test.js",
     "watch": "node scripts/watchSchema.js"
