@@ -78,7 +78,7 @@ jobs:
       GITHUB_CALLBACK_URI: xxx
       GITHUB_WEBHOOK_SECRET: xxx
       SERVER_BIN_PATH: /tmp/workspace/server/pibase
-      SERVER_TRACING: true
+      SERVER_TRACING: false
     steps:
       - checkout
       - attach_workspace:
