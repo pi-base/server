@@ -16,7 +16,7 @@ interface StateProps {
 type Props = StateProps
 
 const EditBanner = ({ branch, access }: Props) => {
-  if (!branch ) { return null }
+  if (!branch || branch === MASTER) { return null }
 
   return (
     <div className="container">
@@ -32,6 +32,13 @@ const EditBanner = ({ branch, access }: Props) => {
 }
 
 const mapStateToProps = (state: State): StateProps => {
+  if (state.user === 'unauthenticated') {
+    return {
+      branch: MASTER,
+      access: 'read'
+    }
+  }
+
   const branch = S.activeBranch(state)
 
   return {
