@@ -12,6 +12,7 @@ import           Options.Applicative
 import qualified Shelly                      as Sh
 import           System.IO                   (BufferMode(..), hSetBuffering)
 
+import qualified Auth
 import qualified Build
 import qualified Config
 import qualified Config.Boot         as Config (boot)
@@ -75,6 +76,7 @@ data Command
   | SchemaCmd
   | SettingsCmd
   | Server
+  | UserCmd UserCommand
   | VersionCmd
 
 commandsP :: Settings -> Parser Command
@@ -94,6 +96,10 @@ commandsP s = subparser $ mconcat
   , command "settings"
     ( info (pure SettingsCmd) $
       progDesc "Display the current settings"
+    )
+  , command "users"
+    ( info (UserCmd <$> userCommandP <**> helper) $
+      progDesc "Manage users"
     )
   , command "version"
     ( info (pure VersionCmd) $
@@ -176,6 +182,17 @@ mergeP settings = Merge
       <> help "Full commit message text"
       )
 
+data UserCommand
+  = UserUAT
+
+userCommandP :: Parser UserCommand
+userCommandP = subparser $ mconcat
+  [ command "uat"
+    ( info (pure UserUAT) $
+      progDesc "Create token for UAT user"
+    )
+  ]
+
 data Validate = Validate
   { branch :: Text
   }
@@ -245,7 +262,15 @@ main = do
     -- start the server
     Server -> Server.start config
 
+    -- print settings
     SettingsCmd -> putStrLn $ pj config
+
+    -- manage users
+    UserCmd u -> h $ case u of
+      -- generate token for UAT
+      UserUAT -> do
+        (user, token) <- Auth.forUAT
+        putStrLn $ "Authenticate for " <> userEmail user <> " with token " <> tokenUuid token
 
     -- display version
     VersionCmd -> case Build.info of

@@ -2,6 +2,7 @@
 module Auth
   ( currentUser
   , ensureIdent
+  , forUAT
   , generateToken
   , requireUser
   , userWithToken
@@ -66,3 +67,15 @@ ensureIdent provider uid accessToken user = do
                 }
   void $ db $ findOrCreate (\Ident{..} -> UniqueIdent identProvider identUid) ident
   return id
+
+forUAT :: (DB m, MonadLogger m) => m (User, Token)
+forUAT = do
+  let uat = User
+              { userName       = "UAT"
+              , userEmail      = "uat@uat.pi-base.org"
+              , userIsReviewer = False
+              }
+  uuid   <- UUID.toText <$> liftIO UUID.nextRandom
+  userId <- ensureIdent "test" "uat" uuid uat
+  token  <- generateToken userId
+  return (uat, token)
