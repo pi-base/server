@@ -32,7 +32,7 @@ describe('<Branch.Submit/>', () => {
     expect(c.exists('button')).toEqual(false)
 
     const link = c.find('a')
-    expect(link.html()).toContain('Review status')
+    expect(link.html()).toContain('Review Status')
     expect(link.props().href).toEqual('http://example.com')
   })
 
