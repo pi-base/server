@@ -2,6 +2,7 @@ import * as React from 'react'
 
 import EditLink from '../Form/EditLink'
 import Filter from '../Filter'
+import List from '../List'
 import Implication from '../Implication'
 import { Link } from 'react-router-dom'
 import Preview from '../Preview'
@@ -12,70 +13,61 @@ import Title from '../Title'
 import { by } from '../../utils'
 import { connect } from 'react-redux'
 
-type StateProps = {
-  theorems: Theorem[]
-}
-type Props = StateProps
-
-type State = {
-  limit: number
-  theorems: Theorem[]
+interface Props {
+  object: Theorem
 }
 
-class Theorems extends React.Component<Props, State> {
+class Item extends React.Component<Props, { expanded: boolean }> {
   constructor(props: Props) {
     super(props)
-
-    this.state = {
-      limit: 10,
-      theorems: props.theorems || []
-    }
+    this.state = { expanded: false }
   }
 
-  showMore() {
-    this.setState(({ limit }) => ({ limit: limit + 10 }))
+  toggle() {
+    this.setState({ expanded: !this.state.expanded })
   }
 
   render() {
-    const visible = this.state.theorems.slice(0, this.state.limit)
+    const theorem = this.props.object
+
     return (
-      <section className="theorems">
-        <Title title="Theorems" />
-
-        <EditLink to="/theorems/new" className="btn btn-default">New</EditLink>
-
-        <Filter
-          collection={this.props.theorems}
-          onChange={(theorems: Theorem[]) => this.setState({ theorems })}
-          weights={[
-            { name: 'if', weight: 0.7 },
-            { name: 'then', weight: 0.7 },
-            { name: 'description', weight: 0.5 }
-          ]}
-          placeholder="Filter theorems"
-        />
-
-        {visible.map(t => (
-          <Tex key={t.uid}>
+      <div className="row">
+        <div className="col-md-12">
+          <Tex key={theorem.uid}>
             <h3>
-              <Link to={`/theorems/${t.uid}`}>
-                <Implication theorem={t} link={false} />
+              <Link to={`/theorems/${theorem.uid}`}>
+                <Implication theorem={theorem} link={false} />
               </Link>
             </h3>
-            <Preview text={t.description} />
+            <Preview text={theorem.description} />
           </Tex>
-        ))}
-
-        {this.state.theorems.length > visible.length
-          ? <button className="btn btn-default" onClick={this.showMore}>Show More</button>
-          : ''}
-      </section>
+        </div>
+      </div>
     )
   }
+}
+
+interface StateProps {
+  theorems: Theorem[]
+}
+const Index = ({ theorems }: StateProps) => {
+  return (
+    <div>
+      <Title title="Properties" />
+
+      <EditLink to="/properties/new" className="btn btn-default">New</EditLink>
+
+      <List<Theorem>
+        name="properties"
+        objects={theorems}
+        component={Item}
+      />
+    </div>
+  )
 }
 
 export default connect(
   (state: StoreState): StateProps => ({
     theorems: Array.from(state.theorems.values()).sort(by('uid')).reverse()
   })
-)(Theorems)
+)(Index)
