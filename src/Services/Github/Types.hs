@@ -24,6 +24,7 @@ instance ToJSON Settings
 
 data User = User
   { ghUserId    :: Integer
+  , ghUserLogin :: Text
   , ghUserName  :: Maybe Text
   , ghUserEmail :: Maybe Text
   } deriving (Show, Eq, Generic)

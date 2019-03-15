@@ -10,6 +10,7 @@ spec run = specify "Services.Github" $ do
     it "can fetch a user" $ run $ do
       stub "https://api.github.com/user" [json|{
         "id": 123,
+        "login": "test-user",
         "name": "Test",
         "email": "test@example.com"
       }|]

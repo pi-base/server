@@ -27,6 +27,7 @@ spec run = do
 
         stub "https://api.github.com/user" [json|{
           "id": 123,
+          "login": "test-user",
           "name": "Create Test",
           "email": "create.test@example.com"
         }|]

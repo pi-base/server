@@ -82,10 +82,8 @@ user accessToken = do
                       & header "Accept" .~ ["application/vnd.github.v3+json"]
   response <- Http.get opts "https://api.github.com/user"
 
-  return $ case response ^? key "id" . _Integer of
-    Nothing -> Nothing
-    Just id -> Just $ Github.User
-                 { ghUserId    = id
-                 , ghUserName  = response ^? key "name" . _String
-                 , ghUserEmail = response ^? key "email" . _String
-                 }
+  return $ Github.User
+    <$> response ^? key "id" . _Integer
+    <*> response ^? key "login" . _String
+    <*> pure (response ^? key "name" . _String)
+    <*> pure (response ^? key "email" . _String)

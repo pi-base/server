@@ -96,8 +96,8 @@ ensureUserWithAccessToken accessToken =
       -- KLUDGE: we're rushing this one out and should rethink it
       --   What should we do if the user logs in later with more information?
       let user = User
-                   { userName = fromMaybe ("User " <> show ghUserId) ghUserName
-                   , userEmail = fromMaybe ("github:" <> show ghUserId <> "@topology.pi-base.org") ghUserEmail
+                   { userName = fromMaybe ghUserLogin ghUserName
+                   , userEmail = fromMaybe (ghUserLogin <> "@github.pi-base.org") ghUserEmail
                    , userIsReviewer = False
                    }
       id <- Auth.ensureIdent "github" (show ghUserId) accessToken user
