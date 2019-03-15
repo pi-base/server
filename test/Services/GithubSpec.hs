@@ -17,8 +17,8 @@ spec run = specify "Services.Github" $ do
       Just Github.User{..} <- Github.user "token"
 
       ghUserId `shouldBe` 123
-      ghUserName `shouldBe` "Test"
-      ghUserEmail `shouldBe` "test@example.com"
+      ghUserName `shouldBe` Just "Test"
+      ghUserEmail `shouldBe` Just "test@example.com"
 
     it "can fail to find a user" $ run $ do
       stub "https://api.github.com/user" [json|{
