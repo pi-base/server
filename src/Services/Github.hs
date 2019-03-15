@@ -81,7 +81,11 @@ user accessToken = do
   let opts = defaults & header "Authorization" .~ ["token " <> encodeUtf8 accessToken]
                       & header "Accept" .~ ["application/vnd.github.v3+json"]
   response <- Http.get opts "https://api.github.com/user"
-  return $ Github.User
-    <$> (response ^? key "id" . _Integer)
-    <*> (response ^? key "name" . _String)
-    <*> (response ^? key "email" . _String)
+
+  return $ case response ^? key "id" . _Integer of
+    Nothing -> Nothing
+    Just id -> Just $ Github.User
+                 { ghUserId    = id
+                 , ghUserName  = response ^? key "name" . _String
+                 , ghUserEmail = response ^? key "email" . _String
+                 }

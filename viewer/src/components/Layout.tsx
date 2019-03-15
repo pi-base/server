@@ -31,7 +31,7 @@ const Jumbotron = () => (
       <p>a community database of topological counterexamples</p>
       <p>➜ Search by propery, such as <Link to="/spaces?formula=compact%20%2B%20connected%20%2B%20t_2%20%2B%20~metrizable">non-metric continua</Link></p>
       <p>➜ Find spaces by name, such as <Link to="/spaces?text=compactification">compactifications</Link></p>
-      <p>➜ View counterexamples to the converse of a theorem, such as <Link to="/theorems/I000112">T₅ ⇒ T₄</Link></p>
+      <p>➜ View counterexamples to the converse of a theorem, such as <Link to="/theorems/T000112">T₅ ⇒ T₄</Link></p>
     </div>
   </Tex>
 )

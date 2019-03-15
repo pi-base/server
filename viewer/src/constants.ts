@@ -19,7 +19,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 export const GRAPH_URLS = {
-  production: 'https://server.counterexamples.info',
+  production: 'https://server.topology.pi-base.org',
   staging: 'https://server.staging.counterexamples.info',
   development: 'http://localhost:3141'
 }

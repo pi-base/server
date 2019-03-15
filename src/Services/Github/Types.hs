@@ -23,7 +23,7 @@ makeLenses ''Settings
 instance ToJSON Settings
 
 data User = User
-  { ghUserId :: Integer
-  , ghUserName :: Text
-  , ghUserEmail :: Text
+  { ghUserId    :: Integer
+  , ghUserName  :: Maybe Text
+  , ghUserEmail :: Maybe Text
   } deriving (Show, Eq, Generic)

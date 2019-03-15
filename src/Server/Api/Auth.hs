@@ -93,9 +93,11 @@ ensureUserWithAccessToken accessToken =
   Github.user accessToken >>= \case
     Nothing -> return $ Left "Could not find Github user"
     Just Github.User{..} -> do
+      -- KLUDGE: we're rushing this one out and should rethink it
+      --   What should we do if the user logs in later with more information?
       let user = User
-                   { userName = ghUserName
-                   , userEmail = ghUserEmail
+                   { userName = fromMaybe ("User " <> show ghUserId) ghUserName
+                   , userEmail = fromMaybe ("github:" <> show ghUserId <> "@topology.pi-base.org") ghUserEmail
                    , userIsReviewer = False
                    }
       id <- Auth.ensureIdent "github" (show ghUserId) accessToken user
