@@ -1,31 +1,50 @@
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 module Data.Property
-  ( fetch
-  , find
-  , put
+  ( Property'(..)
+  , Property
+  , PropertyId
+  , idL
+  , nameL
+  , aliasesL
+  , descriptionL
+  , refsL
   ) where
 
-import Core hiding (find, put)
+import Import
 
-import Data        (findParsed, required, updateBranch)
-import Data.Id     (assignId)
-import Data.Git    (writePages)
+import Data.Aeson     (FromJSON(..), ToJSON(..))
+import Data.Citation  (Citation)
+import Data.Id        as Id (Id, Encodable(..), parseJSON, toJSON)
+import Data.Structure (HKD, LensFor(..), getLenses)
 
-import qualified Data.Parse as Parse
-import qualified Page
-import Page.Property (page)
+type PropertyId = Id Property
 
-find :: Git m => Branch -> PropertyId -> m (Maybe Property)
-find = Data.findParsed Parse.property
+data Property' f = Property
+  { id          :: HKD f PropertyId
+  , name        :: HKD f Text
+  , aliases     :: HKD f [Text]
+  , description :: HKD f Text
+  , refs        :: HKD f [Citation]
+  } deriving Generic
 
-fetch :: Git m => Branch -> PropertyId -> m Property
-fetch sha _id =
-  find sha _id >>= Data.required "Property" (unId _id)
+Property
+  (LensFor idL)
+  (LensFor nameL)
+  (LensFor aliasesL)
+  (LensFor descriptionL)
+  (LensFor refsL)
+  = getLenses
 
-put :: (Git m, MonadLogger m)
-    => Branch -> CommitMeta -> Property -> m (Property, Sha)
-put branch meta prop' = do
-  prop <- assignId prop'
-  updateBranch branch meta $ \_ -> do
-    writePages [Page.write page prop]
-    return prop
+type Property = Property' Identity
 
+deriving instance Show Property
+deriving instance Eq   Property
+
+instance ToJSON PropertyId where
+  toJSON = Id.toJSON 'P'
+
+instance FromJSON PropertyId where
+  parseJSON = Id.parseJSON "P"
+
+instance Id.Encodable Property where
+  prefix = 'P'

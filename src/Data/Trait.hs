@@ -1,56 +1,56 @@
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 module Data.Trait
-  ( fetch
-  , put
+  ( Trait'(..)
+  , Trait
+  , TraitId
+  , Value(..)
+  , id
+  , idL
+  , spaceL
+  , propertyL
+  , valueL
+  , descriptionL
+  , refsL
   ) where
 
-import Core hiding (find, put)
+import Import
 
-import           Data  (required, updateView)
-import qualified Data.Branch as Branch
-import qualified Data.Parse as Parse
-import qualified Data.Property
-import qualified Data.Space
-import qualified Data.Loader as Load
-import qualified View
+import Control.Lens   (lens)
+import Data.Citation  (Citation)
+import Data.Property  as Property (PropertyId)
+import Data.Space     as Space (SpaceId)
+import Data.Structure (HKD, LensFor(..), getLenses)
 
-find :: Git m
-     => Branch
-     -> SpaceId
-     -> PropertyId
-     -> m (Maybe (Trait Space Property))
-find branch sid pid = do
-  tree     <- Branch.tree branch
-  parsed   <- Parse.trait tree sid pid
-  space    <- Data.Space.find branch sid
-  property <- Data.Property.find branch pid
-  return $ Trait
-    <$> space
-    <*> property
-    <*> Just (_traitValue parsed)
-    <*> Just (_traitRefs parsed)
-    <*> Just (_traitDescription parsed)
+newtype Value = Value Bool
+  deriving (Generic, Show, Eq, Ord, FromJSON, ToJSON)
 
-fetch :: Git m
-      => Branch
-      -> SpaceId
-      -> PropertyId
-      -> m (Trait Space Property)
-fetch branch sid pid =
-  Data.Trait.find branch sid pid >>= Data.required "Trait" (show (sid, pid))
+type TraitId = (SpaceId, PropertyId)
 
-put :: (Git m, MonadLogger m)
-    => Branch
-    -> CommitMeta
-    -> Trait SpaceId PropertyId
-    -> m View
-put branch meta trait' = updateView branch meta $ \loader -> do
-  -- TODO: for now, we're only going to validate for assertion conflicts
-  --   on the frontend and at review / merge time
-  -- result <- L.runLogicT loader $ L.assertTrait trait
-  -- case result of
-  --   Left      err -> throw $ LogicError err
-  --   Right updates -> viewDeductions loader $ updates
-  space    <- Load.space    loader $ _traitSpace    trait'
-  property <- Load.property loader $ _traitProperty trait'
-  let trait = trait' { _traitSpace = space, _traitProperty = property }
-  return $ View.build [space] [property] [trait] [] Nothing
+data Trait' f = Trait
+  { space       :: HKD f SpaceId
+  , property    :: HKD f PropertyId
+  , value       :: HKD f Value
+  , description :: HKD f Text
+  , refs        :: HKD f [Citation]
+  } deriving Generic
+
+type Trait = Trait' Identity
+
+deriving instance Show Trait
+deriving instance Eq   Trait
+
+Trait
+  (LensFor spaceL)
+  (LensFor propertyL)
+  (LensFor valueL)
+  (LensFor descriptionL)
+  (LensFor refsL)
+  = getLenses
+
+id :: Trait -> TraitId
+id Trait{..} = (space, property)
+
+idL :: Lens' Trait TraitId
+idL = lens
+  (\t -> (space t, property t))
+  (\t (s, p) -> t { space = s, property = p })

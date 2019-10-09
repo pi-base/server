@@ -4,85 +4,36 @@ module Core
 
 import Import as Core
 
-import Control.Monad.Logger as Core (LogLevel(..))
-import Database.Persist     as Core (Entity(..))
+import Class                    as Core ()
+import Control.Monad.Catch      as Core (MonadCatch, MonadMask)
+import Data.Access              as Core (Access(..))
+import Data.Citation            as Core (Citation(..), CitationType(..))
+import Data.Commit              as Core (Commit(..))
+import Data.Formula             as Core (Formula(..))
+import Data.Id                  as Core (Id(..))
+import Data.Implication         as Core (Implication(..), antecedent, consequent)
+import Data.Match               as Core (Match(..))
+import Data.Property            as Core (Property'(Property), Property, PropertyId)
+import Data.PullRequest         as Core (PullRequest(PullRequest), PullRequestError(PullRequestError))
+import Data.Space               as Core (Space'(Space), Space, SpaceId)
+import Data.Theorem             as Core (Theorem'(Theorem), Theorem, TheoremId)
+import Data.Trait               as Core (Trait'(Trait), Trait, TraitId)
+import Database.Persist         as Core (Entity(..))
+import Database.Persist.Sql     as Core (fromSqlKey, toSqlKey)
+import Persist.Backend.DB.Model as Core
+import Types                    as Core
 
-import Class            as Core
-import Data.Store.Types as Core (Store)
-import Model            as Core
-import Settings         as Core
-import Types            as Core
+import qualified Data.Map  as Map
+import qualified Data.Text as Text
+import qualified Prelude
 
-import           Control.Lens hiding ((.=))
-import qualified Data.Text    as T
-import qualified Data.Set     as S
+data ParseError = ParseError String
+  deriving (Show, Eq, Typeable)
 
-import qualified Formula as F
+instance Exception ParseError
 
-implicationProperties :: Ord p => Implication p -> S.Set p
-implicationProperties (Implication a c) = F.properties a `S.union` F.properties c
+error :: Text -> a
+error = Prelude.error . Text.unpack
 
-theoremIf :: Theorem p -> Formula p
-theoremIf t = let (Implication a _) = theoremImplication t in a
-
-theoremThen :: Theorem p -> Formula p
-theoremThen t = let (Implication _ c) = theoremImplication t in c
-
-theoremProperties :: Ord p => Theorem p -> S.Set p
-theoremProperties = implicationProperties . theoremImplication
-
-theoremName :: Theorem Property -> Text
-theoremName t = (F.format propertyName $ theoremIf t)
-             <> " ⇒ "
-             <> (F.format propertyName $ theoremThen t)
-
-traitId :: Trait Space Property -> TraitId
-traitId = (,) <$> traitSpaceId <*> traitPropertyId
-
-traitSpaceId :: Trait Space p -> SpaceId
-traitSpaceId t = spaceId $ t ^. traitSpace
-
-traitPropertyId :: Trait s Property -> PropertyId
-traitPropertyId t = propertyId $ t ^. traitProperty
-
-traitName :: Trait Space Property -> Text
-traitName Trait{..} = spaceName _traitSpace <> ": " <> label <> propertyName _traitProperty
-  where
-    label = if _traitValue then "" else "~"
-
-identifyTrait :: Trait Space Property -> Trait SpaceId PropertyId
-identifyTrait = over traitSpace spaceId
-              . over traitProperty propertyId
-
-(~>) :: F.Formula p -> F.Formula p -> Implication p
-(~>) = Implication
-infixl 3 ~>
-
-converse :: Implication p -> Implication p
-converse (Implication ant con) = Implication con ant
-
-contrapositive :: Implication p -> Implication p
-contrapositive (Implication ant con) = Implication (F.negate con) (F.negate ant)
-
-negative :: Implication p -> Implication p
-negative (Implication ant con) = Implication (F.negate ant) (F.negate con)
-
-hydrateTheorem :: Ord a => Map a b -> Theorem a -> Either [a] (Theorem b)
-hydrateTheorem props theorem =
-  let
-    (Implication a c) = theoremImplication theorem
-  in
-    case (F.hydrate props a, F.hydrate props c) of
-      (Left as, Left bs) -> Left $ as ++ bs
-      (Left as, _) -> Left as
-      (_, Left bs) -> Left bs
-      (Right a', Right c') -> Right $ theorem { theoremImplication = Implication a' c' }
-
-notFound :: MonadIO m => Text -> Text -> m b
-notFound resource ident = throwIO $ NotFoundError resource ident
-
-convertTheoremIdPrefix :: TheoremId -> TheoremId
-convertTheoremIdPrefix (Id txt) = Id $
-  case T.uncons txt of
-    Just ('I', rest) -> T.cons 'T' rest
-    _                -> txt
+indexBy :: Ord k => (a -> k) -> [a] -> Map k a
+indexBy f as = Map.fromList $ map (\a -> (f a, a)) as

@@ -1,55 +1,19 @@
 # For advanced use and comprehensive documentation of the format, please see:
 # http://docs.haskellstack.org/en/stable/yaml_configuration/
 
-resolver: lts-12.18
+resolver: lts-14.20
 
 packages:
 - '.'
-- location:
-#     git: https://github.com/haskell-graphql/graphql-api.git
-#     commit: f06c7af1bc0c9e475f88e47448218373eb9686b6
-    git: https://github.com/jamesdabbs/graphql-api.git
-    commit: e02923deffd14ad2685bd4d68c4ba9edbb06e250
-  extra-dep: true
-- location:
-    git: https://github.com/bitemyapp/esqueleto.git
-    commit: b81e0d951e510ebffca03c5a58658ad884cc6fbd
-  extra-dep: true
-- location:
-    git: https://github.com/jwiegley/gitlib.git
-    commit: 0463bcedf3ef37d0bf61b432c350ddf5c20089fd
-  subdirs:
-    - gitlib-libgit2
-  extra-dep: true
 
 extra-deps:
-- gitlib-3.1.2
-
-allow-newer: false
-
-flags: {}
-
-extra-package-dbs: []
+- gitlib-3.1.2@sha256:0f7142d8d58f7717242d65238e8814f17f9bbe7224a463adf34f75262c536227,2949
+- gitlib-libgit2-3.1.2.1@sha256:36bc92f117158440ca69e32051aabdf9df75be8a3fb5f45dff8828898e615a0a,2354
+- polysemy-1.2.3.0@sha256:d9cfa7942940c7c6d07d1f26ae70c4f1170f9bd6c331bdbe586e810fafc25f17,5878
+- reason-export-0.1.2.0@sha256:0b2747ef19bf6f3c8a305b5ad55e9fa19c917d96ef7d6bf4a238402338418f09,2823
+- servant-reason-0.1.2.0@sha256:f151c407f488017cf1ecdf834db957162a2e70d9ce03f104cad5a43b8a079674,2987
 
 extra-include-dirs:
 - /usr/local/opt/icu4c/include
 extra-lib-dirs:
 - /usr/local/opt/icu4c/lib
-
-docker:
-  enable: false
-  mount:
-    - '/data/src/pi-base/server/env/dev:/app/env'
-    - '/data/src/pi-base/data:/data'
-    - '/data/src/pi-base/gitlib:/data/src/pi-base/gitlib'
-    - '/data/src/pi-base/graphql-api:/data/src/pi-base/graphql-api'
-
-image:
-  container:
-    base: 'pibase/base:latest'
-    name: 'pibase/server'
-    add:
-      config: /app/config
-      static: /app/static
-    executables:
-      - 'pi-base-server'

@@ -1,83 +1,16 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Class where
 
-import Protolude
+import Import
 
-import           Control.Monad.Catch    (MonadThrow, MonadCatch, MonadMask)
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Logger   (MonadLogger(..))
-import           Control.Monad.Trans    (MonadTrans(..))
-import           Control.Lens           (view)
+import           Control.Monad.Fail     (MonadFail(..))
 import           Data.Aeson             (ToJSON(..), FromJSON(..), object, withObject, (.=), (.:))
-import           Database.Persist.Sql   (Entity, SqlBackend)
-import           Git                    (TreeT)
-import           Git.Libgit2            (HasLgRepo(..))
-import           UnliftIO               (MonadUnliftIO)
+import           Data.Aeson.Types       (Parser)
 
-import           Data.Store.Types (Store(..))
-import           Formula          ()
-import qualified Graph.Types      as Graph
-import           Http
-import           Model
-import           Settings
-import           Types
-
--- TODO: why does
---   instance Data m => HasLgRepo m
--- lead to overlapping instances?
-type Git m = (Data m, HasLgRepo m)
-type MonadExcept m = (MonadThrow m, MonadCatch m, MonadMask m)
-
-class DB m => Auth m where
-  currentUser :: m (Maybe (Entity User))
-
-class (MonadExcept m, MonadUnliftIO m) => Data m where
-  getStore :: m Store
-
-class MonadIO m => DB m where
-  db :: ReaderT SqlBackend m a -> m a
-
-class Monad m => HasEnv m where
-  getEnv :: m Env
-
-class (Auth m, Git m, Http m, MonadLogger m) => Graph m where
-  getContext :: m Graph.Context
-
-instance DB m => Auth (ReaderT Graph.Context m) where
-  currentUser = view Graph.currentUser
-
-instance Data m => Data (ReaderT a m) where
-  getStore = lift getStore
-
-instance DB m => DB (ReaderT a m) where
-  db sql = lift (db ask) >>= runReaderT sql
-
-instance (Monad m, HasLgRepo m) => HasLgRepo (ReaderT Graph.Context m) where
-  getRepository = lift getRepository
-
-instance Http m => Http (ReaderT Graph.Context m) where
-  get opts path = lift $ Http.get opts path
-  post opts path body = lift $ Http.post opts path body
-
-instance (DB m, Git m, Http m, MonadLogger m) => Graph (ReaderT Graph.Context m) where
-  getContext = ask
-
-instance MonadLogger m => MonadLogger (TreeT r m) where
-  monadLoggerLog a b c d = lift $ monadLoggerLog a b c d
-
-deriving instance (Eq s, Eq p) => Eq (Trait s p)
-deriving instance Generic CitationType
-
-instance Exception NotAuthenticated
-instance Exception ConflictError
-instance Exception ForcedError
-instance Exception GraphError
-instance Exception LoadError
-instance Exception LogicError
-instance Exception NotFoundError
-instance Exception ParseError
-instance Exception PermissionError
-instance Exception ValidationError
+import           Data.Citation    (Citation(..), CitationType(..))
+import           Data.Id          as Id (decode, encode)
+import           Data.Property    as Property (PropertyId)
+import           Data.Formula     as Formula (Formula)
 
 instance ToJSON Citation where
   toJSON Citation{..} =
@@ -98,3 +31,15 @@ instance FromJSON Citation where
       getRef c text type' = do
         citationRef <- c .: text
         return $ (type', citationRef)
+
+instance ToJSON (Formula PropertyId) where
+  toJSON f = toJSON $ Id.encode <$> f
+
+-- TODO: validate that these are well-formed ids
+-- and fail parsing if not
+instance FromJSON (Formula PropertyId) where
+  parseJSON raw = do
+    tFormula <- (parseJSON raw :: Parser (Formula Text))
+    case sequence $ fmap Id.decode tFormula of
+      Right f -> return f
+      _ -> fail "failed to parse Formula PropertyId"

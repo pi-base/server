@@ -1,51 +1,82 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.Class where
 
-import Server.Import
+import Core
 
-import Test.Class.Quickcheck ()
-import Test.Types
+import qualified Data.Text        as T
+import qualified Data.Trait       as Trait
+import qualified Data.UUID.V4     as UUID
+import           Test.QuickCheck
+import           System.IO.Unsafe (unsafePerformIO)
 
-import Control.Lens          (view)
-import Control.Monad.Logger  (MonadLogger(..), toLogStr)
-import Database.Persist.Sql  (runSqlPool)
-import System.Log.FastLogger (fromLogStr)
+instance Arbitrary UUID where
+  arbitrary = return $ unsafePerformIO UUID.nextRandom
 
-import Data.Store.Types (storeRepo)
-import Http
+instance Arbitrary (Id a) where
+  arbitrary = arbitrary >>= \heads ->
+    if heads
+      then CanonicalId . positive <$> arbitrary
+      else TemporaryId <$> arbitrary
 
-instance DB TestM where
-  db action = do
-    pool <- view (envFoundation . appConnPool) <$> getEnv
-    runSqlPool action pool
+positive :: Int -> Int
+positive n
+  | n == 0 = 1
+  | n > 0  = 2 * n
+  | otherwise = 2 * (-n) + 1
 
-instance Data TestM where
-  getStore = view (envFoundation . appStore) <$> getEnv
+-- TODO: these description instances should be arbitrary,
+--   but there are a few restrictions on what's valid
+instance Arbitrary Core.Property where
+  arbitrary = Property
+    <$> arbitrary
+    <*> string
+    <*> pure []
+    <*> pure "description"
+    <*> pure []
 
-instance HasEnv TestM where
-  getEnv = view foundation
+instance Arbitrary Space where
+  arbitrary = Space
+    <$> arbitrary
+    <*> string
+    <*> pure []
+    <*> pure "description"
+    <*> pure Nothing
+    <*> pure []
 
-instance HasLgRepo TestM where
-  getRepository = view (envFoundation . appStore . storeRepo) <$> getEnv
+instance Arbitrary Theorem where
+  arbitrary = Theorem
+    <$> arbitrary
+    <*> arbitrary
+    <*> pure Nothing
+    <*> pure "description"
+    <*> pure []
 
-instance Http TestM where
-  get _opt path = do
-    net <- view http
-    res <- atomicModifyIORef' net $ \case
-      (h:hs) -> (hs, Just h)
-      _ -> ([], Nothing)
-    case res of
-      Just body -> return body
-      Nothing -> throwIO $ NoRequestRegistered path
-  post opt path _body = get opt path
+instance Arbitrary Trait where
+  arbitrary = Trait
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> pure "description"
+    <*> pure []
 
-instance MonadError ServantErr TestM where
-  catchError = catch
-  throwError = throwIO
+instance Arbitrary Trait.Value where
+  arbitrary = Trait.Value <$> arbitrary
 
-instance MonadLogger TestM where
-  monadLoggerLog _ _ _ msg = do
-    l <- view log
-    -- TODO: difference list and append?
-    modifyIORef' l $ \ms -> (decodeUtf8 $ fromLogStr $ toLogStr msg) : ms
+instance Arbitrary p => Arbitrary (Implication p) where
+  arbitrary = Implication <$> arbitrary <*> arbitrary
+
+instance Arbitrary p => Arbitrary (Formula p) where
+  arbitrary = elements ([1,2,3] :: [Int]) >>= gen
+    where
+      gen 1 = do
+        n <- choose (2, 4)
+        And <$> replicateM n (gen 3)
+      gen 2 = do
+        n <- choose (2, 4)
+        Or <$> replicateM n (gen 3)
+      gen _ = Atom
+        <$> arbitrary
+        <*> (Trait.Value <$> arbitrary)
+
+string :: Gen Text
+string = fmap T.pack arbitrary

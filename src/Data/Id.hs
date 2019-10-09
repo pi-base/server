@@ -2,63 +2,81 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 module Data.Id
-  ( Identifiable(..)
-  , assignId
-  , toInt
+  ( Id(..)
+  , Encodable(..)
+  , decode
+  , encode
+  , format
   , fromInt
-  , pending
-  , succ
+  , parseJSON
+  , generate
+  , parse
+  , toJSON
   ) where
 
-import Protolude hiding (succ)
-import Types
+import Import
 
-import           Data.Attoparsec.Text as A
-import           Data.Text
+import           Control.Monad        (fail)
+import qualified Data.Aeson           as Aeson (Value(..), withText)
+import qualified Data.Aeson.Types     as Aeson (Parser)
+import           Data.Attoparsec.Text hiding (parse)
+import           Data.Char            (toLower, toUpper)
+import           Data.Text            (cons, justifyRight, pack)
 import qualified Data.UUID            as UUID
 import qualified Data.UUID.V4         as UUID
 
-class Identifiable a where
+data Id a
+  = CanonicalId Int
+  | TemporaryId UUID
+  deriving (Generic, Eq, Ord, Show)
+
+format :: Char -> Id a -> Text
+format c (CanonicalId n) =
+  cons (toUpper c) $ justifyRight 6 '0' $ show n
+format c (TemporaryId u) =
+  cons (toLower c) $ UUID.toText u
+
+fromInt :: Int -> Id a
+fromInt = CanonicalId
+
+generate :: MonadIO m => m (Id a)
+generate = TemporaryId <$> liftIO UUID.nextRandom
+
+parse :: String -> Text -> Either Text (Id a)
+parse chars = either (Left . pack) Right . parseOnly (parser chars)
+
+parseJSON :: String -> Aeson.Value -> Aeson.Parser (Id a)
+parseJSON chars = Aeson.withText "id" $ \text ->
+  case parse chars text of
+    Right id -> return id
+    _ -> fail "Could not parse id"
+
+toJSON :: Char -> Id a -> Aeson.Value
+toJSON c = Aeson.String . format c
+
+parser :: String -> Parser (Id a)
+parser chars = canonical chars <|> temporary chars
+
+canonical :: String -> Parser (Id a)
+canonical chars = do
+  _ <- satisfy (inClass $ map toUpper chars)
+  _ <- many "0"
+  n <- decimal
+  return $ fromInt n
+
+temporary :: String -> Parser (Id a)
+temporary chars = do
+  _ <- satisfy (inClass $ map toLower chars)
+  t <- takeText
+  case UUID.fromText t of
+    Just u  -> return $ TemporaryId u
+    Nothing -> fail "Could not parse UUID"
+
+class Encodable a where
   prefix :: Char
-  -- TODO: lensify
-  getId  :: a -> Id a
-  setId  :: a -> Id a -> a
 
-instance Identifiable Space where
-  prefix     = 'S'
-  getId      = spaceId
-  setId s id = s { spaceId = id }
-instance Identifiable Property where
-  prefix     = 'P'
-  getId      = propertyId
-  setId p id = p { propertyId = id }
-instance Identifiable (Theorem PropertyId) where
-  prefix     = 'T'
-  getId      = theoremId
-  setId t id = t { theoremId = id }
+encode :: forall a. Encodable a => Id a -> Text
+encode = format (prefix @a)
 
-toInt :: forall a. Identifiable a => Id a -> Maybe Int
-toInt (Id txt) = either (const Nothing) Just $ flip parseOnly txt $ do
-  _ <- char (prefix @a)
-  _ <- A.takeWhile $ \c -> c == '0'
-  decimal
-
-fromInt :: forall a. Identifiable a => Int -> Id a
-fromInt i = Id $ singleton (prefix @a) <> num
-  where num = justifyRight 6 '0' $ pack $ show i
-
-succ :: forall a. Identifiable a => Id a -> Id a
-succ id = case toInt @a id of
-  Just i  -> fromInt @a $ i + 1
-  Nothing -> fromInt @a 1
-
-pending :: forall a. Identifiable a => Id a
-pending = Id ""
-
-assignId :: forall a m. (Identifiable a, MonadIO m) => a -> m a
-assignId a = if getId a == pending
-  then do
-    uuid <- liftIO UUID.nextRandom
-    let uid = (toLower . singleton $ prefix @a) <> UUID.toText uuid
-    return $ setId a $ Id uid
-  else return a
+decode :: forall a. Encodable a => Text -> Either Text (Id a)
+decode = parse [prefix @a]

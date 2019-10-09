@@ -1,29 +1,53 @@
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 module Data.Space
-  ( fetch
-  , find
-  , put
+  ( Space'(..)
+  , Space
+  , SpaceId
+  , idL
+  , nameL
+  , aliasesL
+  , descriptionL
+  , topologyL
+  , refsL
   ) where
 
-import Core hiding (find, put)
+import Import
 
-import Data        (findParsed, required, updateBranch)
-import Data.Id     (assignId)
-import Data.Git    (writePages)
+import Data.Aeson     (FromJSON(..), ToJSON(..))
+import Data.Citation  (Citation)
+import Data.Id        as Id (Id(..), Encodable(..), parseJSON, toJSON)
+import Data.Structure (HKD, LensFor(..), getLenses)
 
-import qualified Data.Parse as Parse
-import qualified Page
-import Page.Space (page)
+type SpaceId = Id Space
 
-find :: Git m => Branch -> SpaceId -> m (Maybe Space)
-find = Data.findParsed Parse.space
+data Space' f = Space
+  { id          :: HKD f SpaceId
+  , name        :: HKD f Text
+  , aliases     :: HKD f [Text]
+  , description :: HKD f Text
+  , topology    :: HKD f (Maybe Text)
+  , refs        :: HKD f [Citation]
+  } deriving Generic
 
-fetch :: Git m => Branch -> SpaceId -> m Space
-fetch sha _id = find sha _id >>= Data.required "Space" (unId _id)
+Space
+  (LensFor idL)
+  (LensFor nameL)
+  (LensFor aliasesL)
+  (LensFor descriptionL)
+  (LensFor topologyL)
+  (LensFor refsL)
+  = getLenses
 
-put :: (Git m, MonadLogger m)
-    => Branch -> CommitMeta -> Space -> m (Space, Sha)
-put branch meta space' = do
-  space <- assignId space'
-  updateBranch branch meta $ \_ -> do
-    writePages [Page.write page space]
-    return space
+type Space = Space' Identity
+
+deriving instance Show Space
+deriving instance Eq   Space
+
+instance ToJSON SpaceId where
+  toJSON = Id.toJSON 'S'
+
+instance FromJSON SpaceId where
+  parseJSON = Id.parseJSON "S"
+
+instance Id.Encodable Space where
+  prefix = 'S'

@@ -3,51 +3,52 @@ module Main
   ) where
 
 import Test.Import
+
 import Test.Tasty (defaultMain)
 
-import qualified Config      (test)
-import qualified Config.Boot as Config (boot)
-import qualified Data.Branch as Branch
-
-import qualified Data.ParseSpec
+import qualified Data.FormulaSpec
+import qualified Data.IdSpec
+import qualified Data.MemoSpec
 import qualified Data.SpaceSpec
-import qualified GraphSpec
-import qualified PageSpec
+import qualified Persist.Backend.Git.PageSpec
+import qualified Persist.Backend.Git.PagesSpec
+import qualified Persist.BranchesSpec
+import qualified Persist.DBSpec
+import qualified Persist.GithubSpec
+import qualified Persist.HttpSpec
+import qualified Persist.SpacesSpec
 import qualified Server.ApiSpec
-import qualified Server.Api.AuthSpec
-import qualified Server.Api.GraphSpec
-import qualified Services.GithubSpec
+import qualified ServerSpec
 
+-- TODO:
+-- * Working CLI for branch and user management
+-- * Auth for local dev
+-- * Functional OAuth with github
+-- * Test coverage
+-- * Rollbar error handling
+-- * Outside-in tests using servant-client
+-- * Branch merging
+-- * Cleanup TODOs, `error` calls, `hiding`s
+-- * End-to-end test against production (minus http) interpreter
+-- * Verify Reason codegen
 main :: IO ()
 main = do
-  env <- Config.boot =<< Config.test
+  dbEnv <- setupDB
 
-  testEnv <- TestEnv
-    <$> pure env
-    <*> newIORef Nothing
-    <*> newIORef []
-    <*> newIORef []
+  specs <- sequence
+    [ Data.FormulaSpec.spec
+    -- , Data.IdSpec.spec
+    -- , Data.MemoSpec.spec
+    -- , Data.SpaceSpec.spec
+    -- , Persist.Backend.Git.PageSpec.spec
+    -- , Persist.Backend.Git.PagesSpec.spec
+    -- , Persist.BranchesSpec.spec dbEnv
+    , Persist.DBSpec.spec dbEnv
+    -- , Persist.GithubSpec.spec
+    -- , Persist.HttpSpec.spec
+    -- , Persist.SpacesSpec.spec
+    -- , Server.ApiSpec.spec
+    -- , ServerSpec.spec
+    ]
 
-  let
-    run :: Runner
-    run = runTest testEnv
-
-  run $ do
-    void $ Branch.ensureBaseBranch
-    void $ Branch.claimUserBranches
-
-  tests <- specs run
-
-  defaultMain $ testGroup "Pi-Base" tests
-
-specs :: Runner -> IO [TestTree]
-specs run = run $ sequence
-  [ Data.ParseSpec.spec run
-  , Data.SpaceSpec.spec run
-  , GraphSpec.spec run
-  , PageSpec.spec
-  , Server.ApiSpec.spec run
-  , Server.Api.AuthSpec.spec run
-  , Server.Api.GraphSpec.spec run
-  , Services.GithubSpec.spec run
-  ]
+  defaultMain $ testGroup "Pi-Base" specs

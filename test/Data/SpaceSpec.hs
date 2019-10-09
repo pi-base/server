@@ -1,55 +1,57 @@
 module Data.SpaceSpec (spec) where
 
 import Test.Import
+import Test.Fixtures (finiteDiscrete)
 
-import Data.Space as Space
+import Data.Space
+import Data.Structure (validate)
 
-import qualified Data.Text as T
+import qualified Data.Id as Id
 
-import qualified Data.Branch as Branch
-import qualified Data.Id     as Id
+spec :: IO TestTree
+spec = testSpec "Data.Space" $ parallel $ do
+  describe "lenses" $ do
+    it "can extract parts" $ do
+      id finiteDiscrete `shouldBe` Id.fromInt 1
+      name finiteDiscrete `shouldBe` "Finite Discrete Topology"
 
-spec :: Runner -> TestM TestTree
-spec run = do
-  Entity _ base <- Branch.ensureBaseBranch
+  describe "HKD" $ do
+    let
+      mspace :: Data.Space.Space' Maybe
+      mspace = Space
+        { id          = Nothing
+        , name        = Just "Name"
+        , description = Just "Description"
+        , topology    = Just (Just "Topology")
+        , aliases     = Just []
+        , refs        = Just []
+        }
 
-  specify "Data.Space" $ do
-    describe "fetch" $ do
-      it "can find a space" $ run $ do
-        Space{..} <- Space.fetch base $ Id.fromInt 1
-        spaceName `shouldBe` "Discrete topology on a two-point set"
+      aspace :: Data.Space.Space' Maybe
+      aspace = Space
+        { id          = Just (Id.fromInt 1)
+        , name        = Just "Name"
+        , description = Just "Description"
+        , topology    = Just (Just "Topology")
+        , aliases     = Just []
+        , refs        = Just []
+        }
 
-      it "can fail to find a space" $ run $ do
-        Left NotFoundError{..} <- try $ Space.fetch base $ Id.fromInt 999999
-        nfResource `shouldBe` "Space"
-        nfIdentifier `shouldBe` "S999999"
+    it "can extract higher-kinded parts" $ do
+      id   mspace `shouldBe` Nothing
+      name mspace `shouldBe` Just "Name"
 
-    describe "find" $ do
-      it "can find a space" $ run $ do
-        Just Space{..} <- Space.find base $ Id.fromInt 1
-        spaceName `shouldBe` "Discrete topology on a two-point set"
+    it "can sequence maybes to Nothing" $ do
+      validate mspace `shouldBe` Nothing
 
-      it "can fail to find a space" $ run $ do
-        mspace <- Space.find base $ Id.fromInt 999999
-        mspace `shouldBe` Nothing
+    it "can sequence maybes to a record" $ do
+      let space = Space
+            { id          = (Id.fromInt 1)
+            , name        = "Name"
+            , description = "Description"
+            , topology    = (Just "Topology")
+            , aliases     = []
+            , refs        = []
+            }
 
-    describe "put" $ do
-      it "can add a new space" $ run $ do
-        let
-          user = User "Test" "test@example.com" False
-          space = Space
-                     { spaceId          = Id.pending
-                     , spaceName        = "New Space"
-                     , spaceAliases     = []
-                     , spaceDescription = ""
-                     , spaceTopology    = Nothing
-                     , spaceRefs        = []
-                     }
-          meta = CommitMeta
-                   { commitUser    = user
-                   , commitMessage = "Create New Space"
-                   }
-        (Space{..}, _sha) <- Space.put base meta space
-
-        spaceName `shouldBe` "New Space"
-        T.unpack (unId spaceId) `shouldStartWith` "s"
+      validate aspace `shouldBe` Just space

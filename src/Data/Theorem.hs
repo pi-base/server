@@ -1,38 +1,66 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 module Data.Theorem
-  ( fetch
-  , put
+  ( Theorem'(..)
+  , Theorem
+  , TheoremId
+  , converseL
+  , descriptionL
+  , idL
+  , if'
+  , implicationL
+  , properties
+  , refsL
+  , then'
   ) where
 
-import Core hiding (find, put)
+import Import
 
-import           Data          (findParsed, required, updateBranch)
-import           Data.Git      (writePages)
-import           Data.Id       (assignId)
-import qualified Data.Parse    as Parse
-import qualified Data.Property
-import qualified Page
-import           Page.Theorem  (page)
+import           Data.Aeson       (FromJSON(..), ToJSON(..))
+import           Data.Citation    (Citation)
+import           Data.Formula     (Formula)
+import           Data.Id          as Id (Id, Encodable(..), parseJSON, toJSON)
+import qualified Data.Implication as Implication
+import           Data.Implication (Implication(..))
+import           Data.Property    as Property (PropertyId)
+import           Data.Structure   (HKD, LensFor(..), getLenses)
 
-find :: Git m => Branch -> TheoremId -> m (Maybe (Theorem Property))
-find branch _id = findParsed Parse.theorem branch _id >>= \case
-  Nothing -> return Nothing
-  Just theorem ->
-    mapM (Data.Property.find branch) theorem >>= return . sequence
+type TheoremId = Id Theorem
 
-fetch :: Git m => Branch -> TheoremId -> m (Theorem Property)
-fetch branch _id = find branch _id >>= Data.required "Theorem" (unId _id)
+data Theorem' f = Theorem
+  { id          :: HKD f TheoremId
+  , implication :: HKD f (Implication PropertyId)
+  , converse    :: HKD f (Maybe [TheoremId])
+  , description :: HKD f Text
+  , refs        :: HKD f [Citation]
+  } deriving Generic
 
-put :: (Git m, MonadLogger m)
-    => Branch
-    -> CommitMeta
-    -> Theorem PropertyId
-    -> m (Theorem Property, Sha)
-put branch meta theorem' = do
-  theorem <- assignId theorem'
-  -- TODO: verify deductions here?
-  (_, sha) <- updateBranch branch meta $ \_ ->
-    writePages [Page.write page theorem]
-  -- TODO: don't go back to store?
-  loaded <- fetch branch $ theoremId theorem
-  return (loaded, sha)
+Theorem
+  (LensFor idL)
+  (LensFor implicationL)
+  (LensFor converseL)
+  (LensFor descriptionL)
+  (LensFor refsL)
+  = getLenses
+
+type Theorem = Theorem' Identity
+
+deriving instance Show Theorem
+deriving instance Eq   Theorem
+
+instance ToJSON TheoremId where
+  toJSON = Id.toJSON 'T'
+
+instance FromJSON TheoremId where
+  parseJSON = Id.parseJSON "TI"
+
+instance Id.Encodable Theorem where
+  prefix = 'T'
+
+if' :: Theorem -> Formula PropertyId
+if' = Implication.antecedent . implication
+
+then' :: Theorem -> Formula PropertyId
+then' = Implication.consequent . implication
+
+properties :: Theorem -> Set PropertyId
+properties = Implication.properties . implication

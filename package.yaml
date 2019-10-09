@@ -8,7 +8,9 @@ copyright:   2018 James Dabbs
 license:     MIT
 github:      pi-base/server
 default-extensions:
+  - BlockArguments
   - ConstraintKinds
+  - DataKinds
   - DeriveFoldable
   - DeriveFunctor
   - DeriveGeneric
@@ -16,69 +18,74 @@ default-extensions:
   - ExplicitForAll
   - FlexibleContexts
   - FlexibleInstances
+  - GADTs
   - GeneralizedNewtypeDeriving
   - LambdaCase
+  - NamedFieldPuns
   - NoImplicitPrelude
   - OverloadedStrings
+  - PolyKinds
   - RankNTypes
   - RecordWildCards
+  - ScopedTypeVariables
   - StandaloneDeriving
+  - TypeApplications
   - TypeFamilies
+  - TypeOperators
 dependencies:
   - aeson
   - bytestring
   - containers
   - exceptions
-  - gitlib
-  - gitlib-libgit2
   - lens
   - lens-aeson
   - monad-logger
+  - mtl
   - persistent
-  - persistent-postgresql
+  - polysemy
+  - polysemy-plugin
   - protolude
+  - template-haskell
   - text
   - time
-  - transformers
-  - unliftio
-  - wai
+  - unordered-containers
+  - warp
+ghc-options:
+- -Wall
+- -fmax-relevant-binds=0
+- -fmax-valid-hole-fits=1
+- -flate-specialise
+- -fspecialise-aggressively
+- -fplugin=Polysemy.Plugin
+# - -fno-warn-deprecations
+# - -Werror
 library:
   source-dirs:
     - src
   dependencies:
     - base
     - attoparsec
-    - aeson-pretty
+    - beam-core
     - conduit
-    - cookie
-    - data-default
-    - deepseq
-    - directory
-    - either
-    - esqueleto
-    - fast-logger
-    - filepath
+    - gitlib
+    - gitlib-libgit2
     - gitrev
-    - graphql-api
+    - http-client
     - http-types
-    - monad-control
-    - mtl
+    - persistent-postgresql
     - persistent-template
-    - scientific
+    - reason-export
+    - servant-client
+    - servant-client-core
+    - servant-foreign
+    - servant-reason
     - servant-server
-    - shelly
     - tagged
-    - template-haskell
-    - unix
-    - unordered-containers
     - uuid
-    - vault
-    - vector
-    - wai-cors
-    - wai-session
-    - warp
     - wreq
     - yaml
+    - wai
+    - wai-extra
   when:
   - condition: (flag(dev)) || (flag(library-only))
     then:
@@ -92,9 +99,10 @@ library:
       - -Wall
       - -fwarn-tabs
       - -O2
+      - -fno-warn-deprecations
 executables:
   pibase:
-    main: cli.hs
+    main: main.hs
     source-dirs:
     - app
     ghc-options:
@@ -107,42 +115,25 @@ executables:
     - pi-base-server
     - load-env
     - optparse-applicative
-    - shelly
-    when:
-    - condition: flag(library-only)
-      buildable: false
+    - uuid
 tests:
   test:
     main: Spec.hs
     source-dirs: test
     ghc-options:
     - -Wall
+    - -fno-warn-deprecations
     default-extensions:
     - QuasiQuotes
     dependencies:
     - base
     - pi-base-server
-    - ansi-terminal
     - aeson-qq
-    - attoparsec
-    - case-insensitive
-    - fast-logger
     - hspec
-    - hspec-core
-    - hspec-wai
-    - http-types
+    - persistent-postgresql
     - QuickCheck
+    - raw-strings-qq
     - tasty
     - tasty-hspec
-    - template-haskell
-    - unordered-containers
-    - wai-extra
-flags:
-  library-only:
-    description: Build for use with "yesod devel"
-    manual: false
-    default: false
-  dev:
-    description: Turn on development settings, like auto-reload templates.
-    manual: false
-    default: false
+    - temporary
+    - uuid

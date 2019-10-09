@@ -1,65 +1,187 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-module Server.Class
-  ( App
-  , AppM
-  , runApp
-  ) where
+{-# LANGUAGE DeriveAnyClass #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+module Server.Class () where
 
-import Core
+import Server.Import hiding (ServerT)
 
-import           Control.Lens         (view)
-import           Control.Monad.Catch  (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Logger (MonadLogger(..))
-import qualified Data.Text            as T
-import           Database.Persist.Sql (runSqlPool)
-import           Git.Libgit2          (HasLgRepo(..))
-import qualified Network.Wreq         as Wreq
-import           Servant              (ServantErr)
-import           UnliftIO             (MonadUnliftIO)
+import qualified Data.Property    as Property
+import           Data.PullRequest (PullRequest(..), PullRequestError(..))
+import qualified Data.Space       as Space
+import qualified Data.Theorem     as Theorem
+import qualified Data.Trait       as Trait
+import           Data.Aeson       (FromJSON(..), ToJSON(..), (.=), (.:), object, withObject)
+import qualified Data.Id          as Id
+import           Servant          (FromHttpApiData(..))
 
-import           Class            (Data, DB(..))
-import           Data.Store.Types (storeRepo)
-import           Http             (Http(..), jsonBody)
-import qualified Logger
+instance FromJSON (Implication PropertyId) where
+  parseJSON = withObject "Implication" $ \o ->
+    Implication
+      <$> o .: "if"
+      <*> o .: "then"
 
-type App m = (DB m, Git m, HasEnv m, Http m, MonadError ServantErr m, MonadLogger m)
+instance ToJSON (Implication PropertyId) where
+  toJSON (Implication ant con) = object
+    [ "if"   .= ant
+    , "then" .= con
+    ]
 
-newtype AppM a = App
-  { unApp :: ReaderT Env IO a
-  } deriving (Applicative, Functor, Monad, MonadIO, MonadUnliftIO, MonadCatch, MonadThrow, MonadMask, MonadReader Env)
+deriving instance ToJSON   CreateSpaceBody
+deriving instance FromJSON CreateSpaceBody
+deriving instance ToJSON   UpdateSpaceBody
+deriving instance FromJSON UpdateSpaceBody
+deriving instance ToJSON   CreatePropertyBody
+deriving instance FromJSON CreatePropertyBody
+deriving instance ToJSON   UpdatePropertyBody
+deriving instance FromJSON UpdatePropertyBody
+deriving instance ToJSON   CreateTheoremBody
+deriving instance FromJSON CreateTheoremBody
+deriving instance ToJSON   UpdateTheoremBody
+deriving instance FromJSON UpdateTheoremBody
+deriving instance ToJSON   CreateTraitBody
+deriving instance FromJSON CreateTraitBody
+deriving instance ToJSON   UpdateTraitBody
+deriving instance FromJSON UpdateTraitBody
 
-runApp :: MonadIO m => Env -> AppM a -> m a
-runApp env = liftIO . flip runReaderT env . unApp
+instance Id.Encodable a => ToHttpApiData (Id a) where
+  toUrlPiece = Id.encode
 
--- TODO: consider https://github.com/morphismtech/squeal
-instance DB AppM where
-  db action = do
-    pool <- view $ envFoundation . appConnPool
-    runSqlPool action pool
+instance Id.Encodable a => FromHttpApiData (Id a) where
+  parseUrlPiece = Id.decode
 
-instance Data AppM where
-  getStore = view $ envFoundation . appStore
+instance ToJSON Status where
+  toJSON Status{..} = object
+    [ "ok"      .= True
+    , "started" .= started
+    , "build"   .= buildInfo
+    ]
 
-instance HasEnv AppM where
-  getEnv = ask
+instance FromJSON Status where
+  parseJSON = withObject "Status" $ \s -> do
+    started   <- s .: "started"
+    buildInfo <-  s .: "build"
+    return Status{..}
 
-instance HasLgRepo AppM where
-  getRepository = view (envFoundation . appStore . storeRepo) <$> getEnv
+instance ToJSON Branch where
+  toJSON Branch{..} = object
+    [ "name" .= branchName
+    ]
 
-instance Http AppM where
-  get opts path = do
-    res <- liftIO $ Wreq.getWith opts (T.unpack path)
-    return $ jsonBody res
-  post opts path body = do
-    res <- liftIO $ Wreq.postWith opts (T.unpack path) body
-    return $ jsonBody res
+instance FromJSON Branch where
+  parseJSON = withObject "Branch" $ \b -> do
+    branchName <- b .: "name"
+    return Branch{..}
 
--- TODO: handle app-level errors in the app layer, not middleware
-instance MonadError ServantErr AppM where
-  catchError = catch
-  throwError = throwIO
+instance ToJSON Space where
+  toJSON Space{..} = object
+    [ "uid"         .= id
+    , "name"        .= name
+    , "aliases"     .= aliases
+    , "description" .= description
+    , "topology"    .= topology
+    , "refs"        .= refs
+    ]
 
-instance MonadLogger AppM where
-  monadLoggerLog loc src lvl msg = do
-    logger <- view $ envFoundation . appLogger
-    Logger.logWithLoc logger loc src lvl msg
+instance FromJSON Space where
+  parseJSON = withObject "Space" $ \o -> do
+    id          <- o .: "uid"
+    name        <- o .: "name"
+    aliases     <- o .: "aliases"
+    description <- o .: "description"
+    topology    <- o .: "topology"
+    refs        <- o .: "refs"
+    return Space{..}
+
+instance ToJSON Property where
+  toJSON Property{..} = object
+    [ "uid"         .= id
+    , "name"        .= name
+    , "aliases"     .= aliases
+    , "description" .= description
+    , "refs"        .= refs
+    ]
+
+instance FromJSON Property where
+  parseJSON = withObject "Property" $ \o -> do
+    id          <- o .: "uid"
+    name        <- o .: "name"
+    aliases     <- o .: "aliases"
+    description <- o .: "description"
+    refs        <- o .: "refs"
+    return Property{..}
+
+instance ToJSON Theorem where
+  toJSON Theorem{..} = object
+    [ "uid"         .= id
+    , "if"          .= antecedent implication
+    , "then"        .= consequent implication
+    , "converse"    .= converse
+    , "description" .= description
+    , "refs"        .= refs
+    ]
+
+instance FromJSON Theorem where
+  parseJSON = withObject "Theorem" $ \o -> do
+    implication <- Implication
+                     <$> o .: "if"
+                     <*> o .: "then"
+    id          <- o .: "uid"
+    converse    <- o .: "converse"
+    description <- o .: "description"
+    refs        <- o .: "refs"
+    return Theorem{..}
+
+instance ToJSON Trait where
+  toJSON Trait{..} = object
+    [ "space"       .= space
+    , "property"    .= property
+    , "value"       .= value
+    , "description" .= description
+    , "refs"        .= refs
+    ]
+
+instance FromJSON Trait where
+  parseJSON = withObject "Trait" $ \o -> do
+    space       <- o .: "space"
+    property    <- o .: "property"
+    value       <- o .: "value"
+    description <- o .: "description"
+    refs        <- o .: "refs"
+    return Trait{..}
+
+instance ToJSON View where
+  toJSON View{..} = object
+    [ "spaces"     .= spaces
+    , "properties" .= properties
+    , "theorems"   .= theorems
+    , "traits"     .= traits
+    , "version"    .= version
+    ]
+
+instance FromJSON View where
+  parseJSON = withObject "View" $ \v -> do
+    spaces     <- v .: "spaces"
+    properties <- v .: "properties"
+    theorems   <- v .: "theorems"
+    traits     <- v .: "traits"
+    version    <- v .: "version"
+    return View{..}
+
+instance ToJSON PullRequest where
+  toJSON PullRequest{..} = object
+    [ "url" .= url
+    ]
+
+instance FromJSON PullRequest where
+  parseJSON = withObject "PullRequest" $ \o -> do
+    url <- o .: "url"
+    return PullRequest{..}
+
+instance ToJSON PullRequestError where
+  toJSON PullRequestError{..} = object
+    [ "message" .= message
+    ]
+
+instance FromJSON PullRequestError where
+  parseJSON = withObject "PullRequestError" $ \o -> do
+    message <- o .: "message"
+    return PullRequestError{..}

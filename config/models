@@ -3,7 +3,7 @@ User json
   email Text
   isReviewer Bool default=False
   UniqueUser email
-  deriving Typeable Show
+  deriving Generic Typeable Show Eq
 
 Ident json
   userId UserId
@@ -22,13 +22,12 @@ Token json
 
 Branch
   name Text
-  ownerId UserId Maybe
   UniqueBranchName name
-  deriving Typeable Show
+  deriving Generic Typeable Show Eq
 
 UserBranch
   userId UserId
   branchId BranchId
-  role BranchAccess
+  access Access
   UniqueUserBranch userId branchId
   deriving Typeable Show
