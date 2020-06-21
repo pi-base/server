@@ -16,26 +16,25 @@ import Text.RawString.QQ as X (r)
 
 import Test.Class ()
 
-import           Control.Monad.Reader        (ask)
-import           Data.Aeson.QQ               (aesonQQ)
-import qualified Data.Text                   as Text
-import           Database.Persist.Postgresql (DBName(DBName), connEscapeName, rawExecute, rawSql, runMigration, unSingle)
-import           Language.Haskell.TH.Quote   (QuasiQuoter)
-import qualified Persist.DB                  as DB
-import qualified Persist.Backend.Git         as Git
-import qualified Persist.Github              as Github
-import           Polysemy.Fail               (failToEmbed)
-import qualified Server.Status               as Status
-import           System.IO.Temp              (withSystemTempDirectory)
-import           System.IO.Unsafe            (unsafePerformIO)
+import           Control.Monad.Reader       (ask)
+import           Data.Aeson.QQ              (aesonQQ)
+import           Data.String                (fromString)
+import qualified Data.Text                  as Text
+import           Database.PostgreSQL.Simple (Only(..), begin, execute, execute_, query_, rollback)
+import           Language.Haskell.TH.Quote  (QuasiQuoter)
+import qualified Persist.DB                 as DB
+import qualified Persist.Backend.Git        as Git
+import qualified Persist.Github             as Github
+import           Polysemy.Fail              (failToEmbed)
+import qualified Server.Status              as Status
+import           System.IO.Temp             (withSystemTempDirectory)
+import           System.IO.Unsafe           (unsafePerformIO)
 
 json :: QuasiQuoter
 json = aesonQQ
 
 dbConfig :: DB.Config
-dbConfig = DB.Config
-  "postgresql://localhost/pi_base_test"
-  5
+dbConfig = DB.Config "postgresql://localhost/pi_base_test"
 
 githubConfig :: Github.Config
 githubConfig = Github.Config
@@ -44,9 +43,9 @@ githubConfig = Github.Config
     , clientSecret = "test"
     , callbackUri  = "http://localhost:8000"
     }
-  , token       = "test"
-  , repo        = "data.test"
-  , owner       = "pi-base"
+  , token = "test"
+  , repo  = "data.test"
+  , owner = "pi-base"
   }
 
 runDB :: DB.Env -> Sem '[DB.DB, Embed IO] a -> IO a
@@ -55,25 +54,29 @@ runDB env = runM . DB.runIO env
 setupDB :: IO DB.Env
 setupDB = do
   env <- DB.initialize dbConfig
-  runDB env $ DB.migrate
+  -- runDB env $ DB.migrate
+  resetDB env
   return env
 
 resetDB :: DB.Env -> IO ()
-resetDB env = runDB env $ DB.query $ do
-  let tablesQuery = Text.intercalate " "
-        [ "SELECT table_name"
-        , "FROM information_schema.tables"
-        , "WHERE table_schema = 'public';"
-        ]
-  tables  <- map unSingle <$> rawSql tablesQuery []
+resetDB env = do
+  let conn = DB.connection env
 
-  backend <- ask
+  tables <- query_ conn "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+  forM_ tables $ \(Only table) ->
+    execute_ conn $ fromString $ mconcat
+      [ "TRUNCATE TABLE \""
+      , table
+      , "\" RESTART IDENTITY CASCADE"
+      ]
 
-  let
-    escapedTables = map (connEscapeName backend . DBName) tables
-    query = "TRUNCATE TABLE " <> Text.intercalate ", " escapedTables
-
-  rawExecute query []
+withRollback :: DB.Env -> IO a -> IO a
+withRollback env action = do
+  let conn = DB.connection env
+  bracket_
+    (begin conn)
+    (rollback conn)
+    action
 
 testMaster :: Branch
 testMaster = Branch "master" -- TODO: why do we get an error if this is `"test"` instead of `"master"`?

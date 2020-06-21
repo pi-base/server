@@ -1,12 +1,8 @@
 module Types
   ( module Types
-  , module X
   ) where
 
 import Protolude
-
-import Database.Persist         as X (Entity(..))
-import Persist.Backend.DB.Model as X
 
 import Data.Aeson (FromJSON, ToJSON)
 

@@ -68,7 +68,7 @@ toState base = reinterpret \case
     S.modify $ branches . at n .~ Just b
     return b
   Find name -> S.gets $ views branches $ Map.lookup name
-  Version b -> return $ Core.Version $ Branch.name b
+  Version b -> return $ Core.Version $ Branch._name b
 
   Submit b -> Github.openPullRequest b base
 

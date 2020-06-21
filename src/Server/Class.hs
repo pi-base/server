@@ -4,6 +4,7 @@ module Server.Class () where
 
 import Server.Import hiding (ServerT)
 
+import qualified Data.Branch      as Branch
 import qualified Data.Property    as Property
 import           Data.PullRequest (PullRequest(..), PullRequestError(..))
 import qualified Data.Space       as Space
@@ -63,12 +64,12 @@ instance FromJSON Status where
 
 instance ToJSON Branch where
   toJSON Branch{..} = object
-    [ "name" .= branchName
+    [ "name" .= _name
     ]
 
 instance FromJSON Branch where
   parseJSON = withObject "Branch" $ \b -> do
-    branchName <- b .: "name"
+    _name <- b .: "name"
     return Branch{..}
 
 instance ToJSON Space where

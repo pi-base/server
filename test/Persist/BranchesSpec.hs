@@ -23,7 +23,7 @@ spec db =
         . Github.runState
         . Repo.ignore
         . Branches.runState testMaster $ do
-            create (Branch.name testMaster) >> action
+            create (Branch._name testMaster) >> action
 
     api "io" $ \action -> withTempRepo $ \env -> do
       Git.run env $ Git.createMaster testMaster
@@ -87,7 +87,7 @@ api label eval = describe label $ do
 
   describe "find" $ do
     it "finds branches that exists" $ eval $ do
-      Just testMaster <== find (Branch.name testMaster)
+      Just testMaster <== find (testMaster ^. Branch.name)
 
     it "returns nothing when not found" $ eval $ do
       Nothing <== find "test/working"

@@ -79,9 +79,9 @@ requireAccess branch required = do
 toDB :: Members '[DB.DB, Embed IO] r
      => Sem (Auth ': r) a -> Sem (S.State (Maybe User) ': r) a
 toDB = reinterpret \case
-  Check        user branch -> DB.checkBranchAccess user (Branch.name branch)
+  Check        user branch -> DB.checkBranchAccess user (Branch._name branch)
   Create user              -> DB.createUser user
   CurrentUser              -> S.get
   ForToken           token -> DB.userForToken token
-  Grant user branch access -> DB.grantBranchAccess user (Branch.name branch) access
+  Grant user branch access -> DB.grantBranchAccess user (Branch._name branch) access
   Login               user -> S.put $ Just user

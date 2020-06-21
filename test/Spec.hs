@@ -21,6 +21,7 @@ import qualified Server.ApiSpec
 import qualified ServerSpec
 
 -- TODO:
+-- * https://williamyaoh.com/posts/2019-09-27-figuring-out-beam-migrations.html
 -- * Working CLI for branch and user management
 -- * Auth for local dev
 -- * Functional OAuth with github

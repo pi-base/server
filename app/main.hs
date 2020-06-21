@@ -56,7 +56,7 @@ masterP b = Branch
   <$> option auto
       ( long "base-branch"
       <> metavar "BRANCH"
-      <> value (Branch.name b)
+      <> value (Branch._name b)
       )
 
 storeP :: Interpreter.StoreConfig -> Parser Interpreter.StoreConfig
@@ -170,7 +170,8 @@ run _ (Codegen path) = do
   writeFile path Reason.code
 
 run cfg Migrate = interpret cfg $ do
-  DB.migrate
+  -- DB.migrate
+  return ()
 
 run config Server = do
   putStrLn $ "Listening on port " <> (show $ Server.port config :: Text)

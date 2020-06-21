@@ -49,8 +49,8 @@ initial = mempty
 toState :: Sem (Github ': r) a -> Sem (S.State State ': r) a
 toState = reinterpret \case
   OpenPullRequest from _ -> do
-    let pr = PullRequest $ "http://example.com/pulls/" <> Branch.name from
-    modify $ at (Branch.name from) .~ Just pr
+    let pr = PullRequest $ "http://example.com/pulls/" <> Branch._name from
+    modify $ at (Branch._name from) .~ Just pr
     return $ Right pr
 
   PullRequests -> gets Map.elems
@@ -96,7 +96,7 @@ pullRequestForBranch branch = do
   Config{..} <- ask
   let opts = defaults & header "Authorization" .~ ["token " <> encodeUtf8 token]
                       & header "Accept" .~ ["application/vnd.github.v3+json"]
-                      & param "head" .~ [owner <> ":" <> Branch.name branch]
+                      & param "head" .~ [owner <> ":" <> Branch._name branch]
   r <- Http.get opts $ "https://api.github.com/repos/" <> owner <> "/" <> repo <> "/pulls"
   return $ PullRequest <$> r ^? nth 0 . key "html_url" . _String
 
@@ -110,9 +110,9 @@ createPullRequestForBranch from into = do
          (defaults & header "Authorization" .~ ["token " <> encodeUtf8 token]
                    & header "Accept" .~ ["application/vnd.github.v3+json"])
          ("https://api.github.com/repos/" <> owner <> "/" <> repo <> "/pulls")
-         (toJSON $ object [ "title" .= Branch.name from
-                          , "head"  .= Branch.name from
-                          , "base"  .= Branch.name into
+         (toJSON $ object [ "title" .= Branch._name from
+                          , "head"  .= Branch._name from
+                          , "base"  .= Branch._name into
                           ])
   -- TODO: parse out and return error
   return $ PullRequest

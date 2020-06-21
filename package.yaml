@@ -11,6 +11,7 @@ default-extensions:
   - BlockArguments
   - ConstraintKinds
   - DataKinds
+  - DeriveAnyClass
   - DeriveFoldable
   - DeriveFunctor
   - DeriveGeneric
@@ -39,11 +40,10 @@ dependencies:
   - exceptions
   - lens
   - lens-aeson
-  - monad-logger
   - mtl
-  - persistent
   - polysemy
   - polysemy-plugin
+  - postgresql-simple
   - protolude
   - template-haskell
   - text
@@ -66,14 +66,14 @@ library:
     - base
     - attoparsec
     - beam-core
+    - beam-migrate
+    - beam-postgres
     - conduit
     - gitlib
     - gitlib-libgit2
     - gitrev
     - http-client
     - http-types
-    - persistent-postgresql
-    - persistent-template
     - reason-export
     - servant-client
     - servant-client-core
@@ -86,20 +86,11 @@ library:
     - yaml
     - wai
     - wai-extra
-  when:
-  - condition: (flag(dev)) || (flag(library-only))
-    then:
-      ghc-options:
-      - -Wall
-      - -fwarn-tabs
-      - -O0
-      cpp-options: -DDEVELOPMENT
-    else:
-      ghc-options:
-      - -Wall
-      - -fwarn-tabs
-      - -O2
-      - -fno-warn-deprecations
+  ghc-options:
+    - -Wall
+    - -fwarn-tabs
+    - -O2
+    - -fno-warn-deprecations
 executables:
   pibase:
     main: main.hs
@@ -130,7 +121,6 @@ tests:
     - pi-base-server
     - aeson-qq
     - hspec
-    - persistent-postgresql
     - QuickCheck
     - raw-strings-qq
     - tasty

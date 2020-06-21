@@ -3,7 +3,8 @@ module Data.Commit
   ) where
 
 import Import
-import Persist.Backend.DB.Model (User)
+
+import Data.User (User)
 
 data Commit = Commit
   { user    :: User

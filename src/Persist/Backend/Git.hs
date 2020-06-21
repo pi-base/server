@@ -16,7 +16,6 @@ module Persist.Backend.Git
   , parseId
   , paths
   , scan
-  , system
   , write
   ) where
 
@@ -26,9 +25,11 @@ import           Conduit
 import           Control.Monad.Fail       (fail)
 import           Data.Attoparsec.Text     (Parser, parseOnly)
 import           Data.Time.LocalTime      (getZonedTime)
+import qualified Data.Branch              as Branch
 import qualified Data.Id                  as Id
 import           Data.Tagged              (Tagged(..))
 import qualified Data.Text                as Text
+import qualified Data.User                as User
 import           Git                      hiding (Commit, currentTree)
 import qualified Git
 import           Git.Libgit2              (HasLgRepo(..), LgRepo, OidPtr, openLgRepository, shaToOid)
@@ -177,13 +178,13 @@ sign user = do
   time <- liftIO getZonedTime
   return
     ( defaultSignature
-      { signatureEmail = userEmail user
-      , signatureName  = userName user
+      { signatureEmail = user ^. User.email
+      , signatureName  = user ^. User.name
       , signatureWhen  = time
       }
     , defaultSignature
-      { signatureEmail = userEmail system
-      , signatureName  = userName system
+      { signatureEmail = User.system ^. User.email
+      , signatureName  = User.system ^. User.name
       , signatureWhen  = time
       }
     )
@@ -208,7 +209,7 @@ createBranch :: Branch -> Branch -> Git ()
 createBranch b f =
   lookupReference (rh f) >>= \case
     Just refTarget -> createReference (rh b) refTarget
-    _ -> liftIO $ putStrLn ("Could not find base branch " <> branchName f) -- TODO: handle error
+    _ -> liftIO $ putStrLn ("Could not find base branch " <> f ^. Branch.name) -- TODO: handle error
 
 currentTree :: Branch -> Git (Tree LgRepo)
 currentTree branch =
@@ -226,7 +227,7 @@ log branch = lift (head' branch) >>= go . snd
         _ -> return ()
 
 rh :: Branch -> Text
-rh b = "refs/heads/" <> branchName b
+rh b = "refs/heads/" <> b ^. Branch.name
 
 createMaster :: Branch -> Git ()
 createMaster b = do
@@ -242,7 +243,7 @@ master :: Git (RefTarget LgRepo)
 master = lookupReference "refs/heads/master" >>= \case
   Just target -> return target
   _ -> do
-    (author, committer) <- sign system
+    (author, committer) <- sign User.system
     oid <- emptyTreeOid
 
     void $ createCommit
@@ -264,10 +265,3 @@ emptyTreeOid = do
 runRepo :: ReaderT LgRepo IO a -> Git a
 runRepo action =
   asks repository >>= liftIO . runReaderT action
-
-system :: User
-system = User
-  { userName       = "Pi-Base"
-  , userEmail      = "hausdorff@pi-base.org"
-  , userIsReviewer = True
-  }

@@ -132,7 +132,8 @@ memory base = Config base StoreMemory HttpPure AuthMemory
 io :: Branch -> Status -> Config
 io base = Config base (StoreIO db git) HttpPure AuthMemory
   where
-    db = DB.Config "postgresql://localhost/pi_base_dev" 5
+     -- TODO: these shouldn't be defaulted here
+    db = DB.Config "postgresql://localhost/pi_base_dev"
     git = Git.Config "/data/src/pibase/server/tmp/repo.git"
 
 run :: Member (Embed IO) r

@@ -16,6 +16,7 @@ import Core hiding (Commit, Version, ignore)
 import qualified Core
 
 import qualified Data.Branch         as Branch
+import qualified Data.User           as User
 import           Persist.Auth        (Auth)
 import qualified Persist.Auth        as Auth
 import qualified Persist.Backend.Git as Git
@@ -42,7 +43,7 @@ ignore = interpret \case
   Get      _ _ _ _ -> return Nothing
   Put  _ _ _ _ _ _ -> return ()
   Scan       _ _ _ -> return []
-  Version        b -> return $ Core.Version $ Branch.name b
+  Version        b -> return $ Core.Version $ Branch._name b
 
 runIO :: Members '[Auth, Embed IO] r
       => Git.Env
@@ -53,7 +54,7 @@ runIO env = interpret \case
   CreateBranch  b f -> Git.run env $ Git.createBranch b f
   Get     pg pt b i -> Git.run env $ Git.find pg pt b i
   Put pg pt b a i v -> do
-    u <- fromMaybe Git.system <$> Auth.currentUser
+    u <- fromMaybe User.system <$> Auth.currentUser
     let c = Core.Commit u $ toMessage a
     Git.run env $ Git.write pg pt b c i v
   Scan      pg pt b -> Git.run env $ Git.scan pg pt b

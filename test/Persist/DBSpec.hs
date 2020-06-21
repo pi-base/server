@@ -8,16 +8,18 @@ import Test.Hspec (shouldThrow)
 import Persist.DB as DB
 
 import qualified Data.Branch as Branch
+import qualified Data.Token  as Token
 
 spec :: Env -> IO TestTree
 spec env = testSpec "Persist.DB" $ do
   let
-    branch = Branch "test/ensureBranch"
+    branchName = "test/ensureBranch"
+    branch = Branch branchName
 
   describe "with a live connection" $ do
     let
-      eval action = do
-        resetDB env -- TODO: run in transaction
+      eval action = withRollback env $ do
+        -- resetDB env -- TODO: run in transaction
         action
           & DB.runIO env
           & check
@@ -28,7 +30,6 @@ spec env = testSpec "Persist.DB" $ do
         [] <== allBranches
 
     describe "ensureBranch" $ do
-
       it "can create a branch" $ eval $ do
         [] <== allBranches
         ensureBranch branch
@@ -43,29 +44,29 @@ spec env = testSpec "Persist.DB" $ do
     describe "findBranch" $ do
       it "can find a branch by name" $ eval $ do
         ensureBranch branch
-        Just branch <== findBranch (Branch.name branch)
+        Just branch <== findBranch branchName
 
       it "returns Nothing if the branch does not exist" $ eval $ do
-        Nothing <== findBranch (Branch.name branch)
+        Nothing <== findBranch branchName
 
     describe "checkBranchAccess" $ do
       it "returns None by default" $ eval $ do
         createUser james
         ensureBranch branch
-        None <== checkBranchAccess james (Branch.name branch)
+        None <== checkBranchAccess james branchName
 
     describe "grantBranchAccess" $ do
       it "can grant access to users" $ eval $ do
         createUser james
         ensureBranch branch
 
-        grantBranchAccess james (Branch.name branch) Write
-        Write <== checkBranchAccess james (Branch.name branch)
+        grantBranchAccess james branchName Write
+        Write <== checkBranchAccess james branchName
 
     describe "createToken" $ do
       it "can create a new token" $ eval $ do
         token <- createToken james
-        Just james <== userForToken (tokenUuid token)
+        Just james <== userForToken (token ^. Token.uuid)
 
   describe "with a disallowed connection" $ do
     let

@@ -8,6 +8,7 @@ import Server.Import
 
 import qualified Data.Text       as Text
 import qualified Data.Trait      as Trait
+import qualified Data.User       as User
 import qualified Data.UUID       as UUID
 import           Reason          (ReasonType(..), toReasonDecoderSource, toReasonTypeSource)
 import           Server.Api      (API)
@@ -48,7 +49,7 @@ instance ReasonType SpaceId where
   toReasonType id = toReasonType (show id :: Text)
 instance ReasonType TheoremId where
   toReasonType id = toReasonType (show id :: Text)
-instance ReasonType UserId where
+instance ReasonType User.Id where
   toReasonType id = toReasonType (show id :: Text)
 instance ReasonType (Either PullRequestError PullRequest) where
   toReasonType r  = toReasonType (show r :: Text)
